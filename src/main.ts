@@ -1,14 +1,23 @@
 
 import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
+import WebGlRenderer from './gfx/WebGl';
+import { Renderer } from './gfx/GfxTypes';
 import { Compositor } from './Compositor';
+
+export const enum InitErrorCode {
+    SUCCESS,
+    NO_WEBGL_GENERIC,
+}
 
 class Main {
     public toplevel: HTMLElement;
     public canvas: HTMLCanvasElement = document.createElement('canvas');
     public paused: boolean = false;
 
+    public gfxDevice: Renderer = new WebGlRenderer();
+
     // Modules
-    public compositor: Compositor = new Compositor(this.canvas);
+    public compositor: Compositor = new Compositor(this.canvas, this.gfxDevice);
 
     constructor() {
         this.init();
@@ -22,6 +31,12 @@ class Main {
         document.body.appendChild(this.toplevel);
         this.toplevel.appendChild(this.canvas);
 
+        // Graphics initialization
+        this.gfxDevice.setDebugEnabled(IS_DEVELOPMENT);
+        const success = this.gfxDevice.initialize(this.canvas);
+        if (success) this.gfxDevice.resize(this.canvas.width, this.canvas.height);
+        else return InitErrorCode.NO_WEBGL_GENERIC;
+
         // Initialize Modules
         this.compositor.initialize(); 
         
@@ -34,6 +49,8 @@ class Main {
         }
 
         this._updateLoop(window.performance.now());
+
+        return InitErrorCode.SUCCESS;
     }
 
     public setPaused(v: boolean): void {

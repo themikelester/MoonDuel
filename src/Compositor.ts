@@ -2,22 +2,10 @@ import { IS_DEVELOPMENT } from "./version";
 import WebGl from './gfx/WebGl';
 import { Renderer, kDefaultRenderPass } from './gfx/GfxTypes';
 
-export const enum InitErrorCode {
-    SUCCESS,
-    NO_WEBGL_GENERIC,
-}
-
 export class Compositor {
-    public gfxDevice: Renderer;
+    constructor(public canvas: HTMLCanvasElement, public gfxDevice: Renderer) {}
 
-    constructor(public canvas: HTMLCanvasElement) {}
-
-    public initialize(): InitErrorCode {
-        this.gfxDevice = new WebGl();
-        this.gfxDevice.setDebugEnabled(IS_DEVELOPMENT);
-        const success = this.gfxDevice.initialize(this.canvas);
-        if (success) this.gfxDevice.resize(this.canvas.width, this.canvas.height);
-        return success ? InitErrorCode.SUCCESS : InitErrorCode.NO_WEBGL_GENERIC;
+    public initialize(): void {
     }
 
     public render(): void {
