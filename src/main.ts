@@ -1,10 +1,14 @@
 
 import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
+import { Compositor } from './Compositor';
 
 class Main {
     public toplevel: HTMLElement;
-    public canvas: HTMLCanvasElement;
+    public canvas: HTMLCanvasElement = document.createElement('canvas');
     public paused: boolean = false;
+
+    // Modules
+    public compositor: Compositor = new Compositor(this.canvas);
 
     constructor() {
         this.init();
@@ -16,9 +20,8 @@ class Main {
         this.toplevel = document.createElement('div');
         document.body.appendChild(this.toplevel);
 
-        this.canvas = document.createElement('canvas');
-
-        // Initialize Viewer
+        // Initialize Modules
+        this.compositor.initialize(); 
         
         this.toplevel.appendChild(this.canvas);
         window.onresize = this._onResize.bind(this);

@@ -277,7 +277,7 @@ export function TranslateTypeToSize(type: Type): number {
 }
 
 export interface Renderer {    
-    initialize(canvas: HTMLCanvasElement): void;
+    initialize(canvas: HTMLCanvasElement): boolean;
     
     isGfxFeatureSupported(featureId: Feature): boolean;
     setDebugEnabled(debug: boolean): void;

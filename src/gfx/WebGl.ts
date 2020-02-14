@@ -703,11 +703,12 @@ export default class WebGlRenderer implements Gfx.Renderer {
     depthStencil?: DepthStencilState,
   }
 
-  initialize(canvas: HTMLCanvasElement) {
+  initialize(canvas: HTMLCanvasElement): boolean {
     // Attempt to use WebGL2, buf fallback to WebGL if needed
     gl = canvas.getContext('webgl2');
     if (!gl) gl = canvas.getContext('webgl');
-    assert(gl, "Unable to initialize WebGL");
+    if (!gl) return false;
+
     this.webGlVersion = (gl instanceof WebGLRenderingContext) ? 1 : 2;
     console.debug(`Initialized WebGL${this.webGlVersion} context`);
 
@@ -741,6 +742,8 @@ export default class WebGlRenderer implements Gfx.Renderer {
     if (this.isGfxFeatureSupported(Gfx.Feature.AnistropicFiltering)) {
       this.maxAnisotropy = gl.getParameter(gl.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
     }
+
+    return true;
   }
 
   isGfxFeatureSupported(featureId: Gfx.Feature): boolean {
