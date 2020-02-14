@@ -49,7 +49,7 @@ export class Demo {
         this.shader = gfxDevice.createShader(new SimpleShader());
         this.pipeline = gfxDevice.createRenderPipeline(this.shader, renderFormat, vertLayout, SimpleShader.resourceLayout);
     
-        this.uniformBuffer = gfxDevice.createBuffer('DemoUniforms', Gfx.BufferType.Uniform, Gfx.Usage.Dynamic, new Float32Array([1, 0, 0, 1]).buffer);
+        this.uniformBuffer = gfxDevice.createBuffer('DemoUniforms', Gfx.BufferType.Uniform, Gfx.Usage.Dynamic, new Float32Array([0, 1, 0, 1]).buffer);
         this.indexBuffer = gfxDevice.createBuffer('PlaneIndices', Gfx.BufferType.Index, Gfx.Usage.Static, new Uint16Array([0, 1, 2, 2, 1, 3]).buffer);
         
         const vertices = new Float32Array([
