@@ -9,6 +9,7 @@ import { CameraSystem } from './CameraSystem';
 import { Compositor } from './Compositor';
 import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
+import { InputManager } from './Input';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -29,7 +30,8 @@ class Main {
     public cameraSystem = new CameraSystem(this.camera);
     public compositor = new Compositor(this.canvas, this.gfxDevice);
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
-    public demo: Demo = new Demo();
+    public demo = new Demo();
+    public input = new InputManager();
     
     constructor() {
         this.init();
@@ -50,6 +52,7 @@ class Main {
         else return InitErrorCode.NO_WEBGL_GENERIC;
 
         // Initialize Modules
+        this.input.initialize(this);
         this.cameraSystem.initialize();
         this.compositor.initialize();
         this.globalUniforms.initialize();
@@ -89,6 +92,8 @@ class Main {
 
         this.compositor.render();
         this.demo.render(this);
+
+        this.input.afterFrame();
 
         window.requestAnimationFrame(this._updateLoop);
     };
