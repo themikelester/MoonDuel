@@ -675,7 +675,7 @@ class Pool<ObjectType> {
 // --------------------------------------------------------------------------------
 // WebGL Renderer
 // -------------------------------------------------------------------------------*/
-export default class WebGlRenderer implements Gfx.Renderer {
+export class WebGlRenderer implements Gfx.Renderer {
   debugEnabled: boolean = false;
 
   buffers: Pool<Buffer> = new Pool();

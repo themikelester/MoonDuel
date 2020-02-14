@@ -1,6 +1,6 @@
 
 import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
-import WebGlRenderer from './gfx/WebGl';
+import { WebGlRenderer } from './gfx/WebGl';
 import { Renderer } from './gfx/GfxTypes';
 import { Compositor } from './Compositor';
 
@@ -18,7 +18,7 @@ class Main {
 
     // Modules
     public compositor: Compositor = new Compositor(this.canvas, this.gfxDevice);
-
+    
     constructor() {
         this.init();
     }
@@ -65,9 +65,9 @@ class Main {
     private _updateLoop = (time: number) => {
         if (this.paused)
             return;
-
+    
         this.compositor.render();
-
+    
         window.requestAnimationFrame(this._updateLoop);
     };
 
