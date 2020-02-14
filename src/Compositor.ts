@@ -1,5 +1,3 @@
-import { IS_DEVELOPMENT } from "./version";
-import WebGl from './gfx/WebGl';
 import { Renderer, kDefaultRenderPass } from './gfx/GfxTypes';
 
 export class Compositor {
