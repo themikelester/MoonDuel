@@ -1785,6 +1785,11 @@ git-revision-webpack-plugin@^3.0.4:
   resolved "https://registry.yarnpkg.com/git-revision-webpack-plugin/-/git-revision-webpack-plugin-3.0.4.tgz#ed1eaad094d6956d3299381050a5a50f662550bd"
   integrity sha512-ym4Zkl32HtTRZVVgl1KoE+sWtgeFyDjN3vaBQfn8cCv1btAX7rdDY9tgpv4Zi+yxq150pp+pUkGH9L1lRpZOUg==
 
+gl-matrix@^3.2.0:
+  version "3.2.0"
+  resolved "https://registry.yarnpkg.com/gl-matrix/-/gl-matrix-3.2.0.tgz#2227f8ccb40298d4daae9448ff37533e7ca01e3c"
+  integrity sha512-6FgmubbW+zfk1IMISeNJl2azrtfvXsAjBwBr4u04hiHBhk9FyN2LQAA7qa6Dh4cUeED2BZGvrpiB5QX94IwryQ==
+
 glob-parent@^3.1.0:
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/glob-parent/-/glob-parent-3.1.0.tgz#9e6af6299d8d3bd2bd40430832bd113df906c5ae"
