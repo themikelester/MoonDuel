@@ -5,6 +5,7 @@ import { Renderer } from './gfx/GfxTypes';
 
 // Modules
 import { Compositor } from './Compositor';
+import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
 
 export const enum InitErrorCode {
@@ -22,6 +23,7 @@ class Main {
     // Modules
     public compositor = new Compositor(this.canvas, this.gfxDevice);
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
+    public demo: Demo = new Demo();
     
     constructor() {
         this.init();
@@ -44,6 +46,7 @@ class Main {
         // Initialize Modules
         this.compositor.initialize();
         this.globalUniforms.initialize();
+        this.demo.initialize(this);
         
         // Handle resizing
         window.onresize = this._onResize.bind(this);
@@ -71,7 +74,10 @@ class Main {
         if (this.paused)
             return;
 
+        this.demo.update(this);
+
         this.compositor.render();
+        this.demo.render(this);
 
         window.requestAnimationFrame(this._updateLoop);
     };
