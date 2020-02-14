@@ -17,17 +17,17 @@ class Main {
     public async init() {
         console.log(`Source for this build available at ${GITHUB_REVISION_URL}`);
 
+        // DOM creation
         this.toplevel = document.createElement('div');
         document.body.appendChild(this.toplevel);
+        this.toplevel.appendChild(this.canvas);
 
         // Initialize Modules
         this.compositor.initialize(); 
         
-        this.toplevel.appendChild(this.canvas);
+        // Handle resizing
         window.onresize = this._onResize.bind(this);
         this._onResize();
-
-        this._makeUI();
 
         this._updateLoop(window.performance.now());
 
@@ -53,11 +53,7 @@ class Main {
     };
 
     private _onResize() {
-        // Handle canvas resize
-    }
-
-    private _makeUI() {
-        // Add any UI to the DOM
+        this.compositor.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
     }
 }
 

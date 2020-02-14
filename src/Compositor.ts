@@ -13,9 +13,10 @@ export class Compositor {
     constructor(public canvas: HTMLCanvasElement) {}
 
     public initialize(): InitErrorCode {
-        const gfxDevice = new WebGl();
-        gfxDevice.setDebugEnabled(IS_DEVELOPMENT);
-        const success = gfxDevice.initialize(this.canvas);
+        this.gfxDevice = new WebGl();
+        this.gfxDevice.setDebugEnabled(IS_DEVELOPMENT);
+        const success = this.gfxDevice.initialize(this.canvas);
+        if (success) this.gfxDevice.resize(this.canvas.width, this.canvas.height);
         return success ? InitErrorCode.SUCCESS : InitErrorCode.NO_WEBGL_GENERIC;
     }
 
@@ -30,6 +31,6 @@ export class Compositor {
         this.canvas.setAttribute('style', `width: ${width}px; height: ${height}px;`);
         this.canvas.width = width * devicePixelRatio;
         this.canvas.height = height * devicePixelRatio;
-        this.gfxDevice.resize(this.canvas.width, this.canvas.height);
+        if (this.gfxDevice) this.gfxDevice.resize(this.canvas.width, this.canvas.height);
     }
 }
