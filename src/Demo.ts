@@ -4,6 +4,7 @@ import { GlobalUniforms } from './GlobalUniforms';
 import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
+import { UniformBuffer } from './UniformBuffer';
 
 class SimpleShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
@@ -29,8 +30,9 @@ export class Demo {
     private pipeline: Gfx.Id;
     private resources: Gfx.Id;
     private vertexBuffer: Gfx.Id;
-    private uniformBuffer: Gfx.Id;
     private indexBuffer: Gfx.Id;
+
+    private uniformBuffer: UniformBuffer;
 
     initialize({ gfxDevice, globalUniforms }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms }) {
         const renderFormat: Gfx.RenderFormat = {
@@ -48,9 +50,6 @@ export class Demo {
 
         this.shader = gfxDevice.createShader(new SimpleShader());
         this.pipeline = gfxDevice.createRenderPipeline(this.shader, renderFormat, vertLayout, SimpleShader.resourceLayout);
-    
-        this.uniformBuffer = gfxDevice.createBuffer('DemoUniforms', Gfx.BufferType.Uniform, Gfx.Usage.Dynamic, new Float32Array([0, 1, 0, 1]).buffer);
-        this.indexBuffer = gfxDevice.createBuffer('PlaneIndices', Gfx.BufferType.Index, Gfx.Usage.Static, new Uint16Array([0, 1, 2, 2, 1, 3]).buffer);
         
         const vertices = new Float32Array([
             -0.5, -0.5, 0,
@@ -59,10 +58,15 @@ export class Demo {
              0.5,  0.5, 0,
         ])
         this.vertexBuffer = gfxDevice.createBuffer('PlaneVertices', Gfx.BufferType.Vertex, Gfx.Usage.Static, vertices);
+        this.indexBuffer = gfxDevice.createBuffer('PlaneIndices', Gfx.BufferType.Index, Gfx.Usage.Static, new Uint16Array([0, 1, 2, 2, 1, 3]).buffer);
+
+        this.uniformBuffer = new UniformBuffer('PlaneUniforms', gfxDevice, SimpleShader.uniformLayout);
+        this.uniformBuffer.setFloats('u_color', new Float32Array([0, 0, 1, 1]));
+        this.uniformBuffer.write(gfxDevice);
 
         this.resources = gfxDevice.createResourceTable(this.pipeline);
         gfxDevice.setBuffer(this.resources, this.vertexBuffer, 0);
-        gfxDevice.setBuffer(this.resources, this.uniformBuffer, 0);
+        gfxDevice.setBuffer(this.resources, this.uniformBuffer.getBuffer(), 0);
         gfxDevice.setBuffer(this.resources, globalUniforms.buffer, 1);
     }
 

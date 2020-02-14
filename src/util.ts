@@ -6,11 +6,11 @@ export function assert(b: boolean, message: string = ""): void {
     }
 }
 
-export function assertDefined<T>(v: T | null | undefined): T {
+export function assertDefined<T>(v: T | null | undefined, msg?: string): T {
     if (v !== undefined && v !== null)
         return v;
     else
-        throw new Error("Missing object");
+        throw new Error(defaultValue(msg, "Missing object"));
 }
 
 export function defaultValue<T>(v: T | undefined, fallback: T): T {
