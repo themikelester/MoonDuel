@@ -20,7 +20,9 @@ export class GlobalUniforms {
 
     constructor(renderer: Gfx.Renderer) {
         this.renderer = renderer;
+    }
 
+    initialize() {
         // Compute size
         this.bufferSize = 0;
         const names = Object.keys(GlobalUniforms.bufferLayout);
@@ -29,7 +31,7 @@ export class GlobalUniforms {
             this.bufferSize += Gfx.TranslateTypeToSize(uniform.type);
         }
 
-        this._buffer = renderer.createBuffer('GlobalUniforms', Gfx.BufferType.Uniform, Gfx.Usage.Dynamic, this.bufferSize);
+        this._buffer = this.renderer.createBuffer('GlobalUniforms', Gfx.BufferType.Uniform, Gfx.Usage.Dynamic, this.bufferSize);
     }
 
     setUniform(name: string, data: ArrayBufferView): void {
@@ -40,7 +42,7 @@ export class GlobalUniforms {
     }
 
     get buffer(): Gfx.Id {
-        return this.buffer;
+        return this._buffer;
     }
 }
 

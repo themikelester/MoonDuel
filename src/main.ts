@@ -2,7 +2,10 @@
 import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
 import { WebGlRenderer } from './gfx/WebGl';
 import { Renderer } from './gfx/GfxTypes';
+
+// Modules
 import { Compositor } from './Compositor';
+import { GlobalUniforms } from './GlobalUniforms';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -17,7 +20,8 @@ class Main {
     public gfxDevice: Renderer = new WebGlRenderer();
 
     // Modules
-    public compositor: Compositor = new Compositor(this.canvas, this.gfxDevice);
+    public compositor = new Compositor(this.canvas, this.gfxDevice);
+    public globalUniforms = new GlobalUniforms(this.gfxDevice);
     
     constructor() {
         this.init();
@@ -38,7 +42,8 @@ class Main {
         else return InitErrorCode.NO_WEBGL_GENERIC;
 
         // Initialize Modules
-        this.compositor.initialize(); 
+        this.compositor.initialize();
+        this.globalUniforms.initialize();
         
         // Handle resizing
         window.onresize = this._onResize.bind(this);
@@ -65,9 +70,9 @@ class Main {
     private _updateLoop = (time: number) => {
         if (this.paused)
             return;
-    
+
         this.compositor.render();
-    
+
         window.requestAnimationFrame(this._updateLoop);
     };
 
