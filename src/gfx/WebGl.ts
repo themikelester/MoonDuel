@@ -187,6 +187,15 @@ function TranslateTypeToGlType(type: Gfx.Type): GLInt {
   }
 }
 
+function TranslateIndexTypeToGlType(type: Gfx.Type): GLInt {
+  switch (type) {
+    case Gfx.Type.Uchar:   return gl.UNSIGNED_BYTE;
+    case Gfx.Type.Uint:    return gl.UNSIGNED_INT;
+    case Gfx.Type.Ushort:  return gl.UNSIGNED_SHORT;
+    default: return error(`Unsupported index type: ${type}`);
+  }
+}
+
 function TranslateCompareFunc(func: Gfx.CompareFunc): GLInt {
   switch (func) {
     case Gfx.CompareFunc.Never: return gl.NEVER;
@@ -818,7 +827,7 @@ export class WebGlRenderer implements Gfx.Renderer {
 
   draw(primitiveType: Gfx.PrimitiveType, indexBufferId: Gfx.Id, indexType: Gfx.Type, indexOffset: number, indexCount: number) {
     const glPrimType = TranslatePrimitiveType(primitiveType);
-    const glIndexType = TranslateTypeToGlType(indexType);
+    const glIndexType = TranslateIndexTypeToGlType(indexType);
     const glIndexSize = Gfx.TranslateTypeToSize(indexType);
 
     const indexBuf = this.buffers.get(indexBufferId);
@@ -828,7 +837,7 @@ export class WebGlRenderer implements Gfx.Renderer {
 
   drawInstanced(primitiveType: Gfx.PrimitiveType, indexBufferId: Gfx.Id, indexType: Gfx.Type, indexOffset: number, indexCount: number, instanceCount: number) {
     const glPrimType = TranslatePrimitiveType(primitiveType);
-    const glIndexType = TranslateTypeToGlType(indexType);
+    const glIndexType = TranslateIndexTypeToGlType(indexType);
     const glIndexSize = Gfx.TranslateTypeToSize(indexType);
 
     const indexBuf = this.buffers.get(indexBufferId);
