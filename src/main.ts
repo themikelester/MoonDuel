@@ -22,6 +22,8 @@ class Main {
 
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
+    public dt: number = 0;
+    public realTime: number = 0;
 
     // Modules
     public cameraSystem = new CameraSystem(this.camera);
@@ -78,6 +80,9 @@ class Main {
     private _updateLoop = (time: number) => {
         if (this.paused)
             return;
+
+        this.dt = time - this.realTime;
+        this.realTime = time;
 
         this.cameraSystem.update(this);
         this.demo.update(this);
