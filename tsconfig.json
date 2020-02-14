@@ -19,12 +19,7 @@
         "sourceMap": true,
         "moduleResolution": "node",
         "module": "commonjs",
-        "types": [
-            "gl-matrix",
-            "webgl2",
-            "pako",
-            "filesystem"
-        ]
+        "types": []
     },
     "include": [
         "./src/"
