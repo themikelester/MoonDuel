@@ -704,9 +704,11 @@ export default class WebGlRenderer implements Gfx.Renderer {
   }
 
   initialize(canvas: HTMLCanvasElement): boolean {
+    const canvasOptions = { alpha: false, antialias: false, preserveDrawingBuffer: false };
+
     // Attempt to use WebGL2, buf fallback to WebGL if needed
-    gl = canvas.getContext('webgl2');
-    if (!gl) gl = canvas.getContext('webgl');
+    gl = canvas.getContext('webgl2', canvasOptions);
+    if (!gl) gl = canvas.getContext('webgl', canvasOptions);
     if (!gl) return false;
 
     this.webGlVersion = (gl instanceof WebGLRenderingContext) ? 1 : 2;
@@ -761,14 +763,9 @@ export default class WebGlRenderer implements Gfx.Renderer {
   }
 
   beginFrame(): void {
-    gl.colorMask(true, true, true, true);
   }
 
   endFrame(): void {
-    // Set the backbuffer's alpha to 1.0 to avoid any canvas compositing 
-    gl.clearColor(1, 1, 1, 1);
-    gl.colorMask(false, false, false, true);
-    gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
   bindRenderPass(renderPassId: Gfx.Id): void {
