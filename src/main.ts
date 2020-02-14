@@ -2,8 +2,10 @@
 import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
 import { WebGlRenderer } from './gfx/WebGl';
 import { Renderer } from './gfx/GfxTypes';
+import { Camera } from './Camera';
 
 // Modules
+import { CameraSystem } from './CameraSystem';
 import { Compositor } from './Compositor';
 import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
@@ -19,8 +21,10 @@ class Main {
     public paused: boolean = false;
 
     public gfxDevice: Renderer = new WebGlRenderer();
+    public camera: Camera = new Camera();
 
     // Modules
+    public cameraSystem = new CameraSystem(this.camera);
     public compositor = new Compositor(this.canvas, this.gfxDevice);
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
     public demo: Demo = new Demo();
@@ -44,6 +48,7 @@ class Main {
         else return InitErrorCode.NO_WEBGL_GENERIC;
 
         // Initialize Modules
+        this.cameraSystem.initialize();
         this.compositor.initialize();
         this.globalUniforms.initialize();
         this.demo.initialize(this);
@@ -74,6 +79,7 @@ class Main {
         if (this.paused)
             return;
 
+        this.cameraSystem.update(this);
         this.demo.update(this);
 
         this.compositor.render();
@@ -83,6 +89,7 @@ class Main {
     };
 
     private _onResize() {
+        this.cameraSystem.resize(window.innerWidth, window.innerHeight);
         this.compositor.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
     }
 }

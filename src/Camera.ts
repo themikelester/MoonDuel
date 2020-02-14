@@ -4,7 +4,7 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { defaultValue } from './util';
 
-export default class PerspectiveCamera {
+export class Camera {
   cameraMatrix: mat4;
   viewMatrix: mat4;
   projectionMatrix: mat4;
@@ -22,7 +22,7 @@ export default class PerspectiveCamera {
   far: number;
   aspect: number;
 
-  constructor(fovY: number, aspectRatio: number, near: number, far: number) {
+  constructor(fovY?: number, aspectRatio?: number, near?: number, far?: number) {
     this.cameraMatrix = mat4.create();
     this.viewMatrix = mat4.create();
     this.projectionMatrix = mat4.create();
@@ -42,7 +42,7 @@ export default class PerspectiveCamera {
     this.setPerspective(fovY, aspectRatio, near, far);
   }
 
-  copy(src: PerspectiveCamera) {
+  copy(src: Camera) {
     this.fov = src.fov;
     this.near = src.near;
     this.far = src.far;
@@ -76,6 +76,11 @@ export default class PerspectiveCamera {
   }
 
   setPerspective(fovY: number, aspect: number, near: number, far: number = Infinity) {
+    this.fov = fovY;
+    this.aspect = aspect;
+    this.near = near;
+    this.far = far;
+
     mat4.perspective(this.projectionMatrix, fovY, aspect, near, far);
     mat4.invert(this.projectionMatrixInverse, this.projectionMatrix);
 
