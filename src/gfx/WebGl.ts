@@ -1036,7 +1036,11 @@ export class WebGlRenderer implements Gfx.Renderer {
     this.renderPipelines.delete(pipelineId);
   }
 
-  createShader(name: string, vsIn: string | string[], fsIn: string | string[], resourceLayout: Gfx.ShaderResourceLayout): number {
+  createShader(desc: Gfx.ShaderDescriptor) {
+    return this._createShader(desc.name, desc.vertSource, desc.fragSource, desc.resourceLayout);
+  }
+
+  _createShader(name: string, vsIn: string | string[], fsIn: string | string[], resourceLayout: Gfx.ShaderResourceLayout): number {
     assert(resourceLayout !== undefined, 'A ShaderResourceLayout must be passed to createShader to define uniform binding locations.' +
       'In WebGL2/GLSL300 it may be possible to define binding locations completely within the shader');
 

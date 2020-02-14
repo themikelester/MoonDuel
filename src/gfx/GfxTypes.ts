@@ -62,6 +62,12 @@ export interface ResourceBinding {
 }
 export type ResourceLayout = ResourceBinding[];
 
+export interface ShaderDescriptor {
+  name: string,
+  vertSource: string,
+  fragSource: string,
+  resourceLayout: ShaderResourceLayout; 
+}
 
 // --------------------------------------------------------------------------------------------------
 // ShaderResourceLayout
@@ -303,7 +309,7 @@ export interface Renderer {
     createDepthStencilState(depthTestEnabled: boolean, depthWriteEnabled: boolean, depthCompareFunc?: CompareFunc): number;
     createResourceTable(pipelineId: Id): Id;
     createRenderPipeline(shaderId: Id, renderFormat: RenderFormat, vertexLayout: VertexLayout, resourceLayout: ResourceLayout): Id;
-    createShader(name: string, vsIn: string | string[], fsIn: string | string[], resourceLayout?: ShaderResourceLayout): number;
+    createShader(desc: ShaderDescriptor): number;
     createTexture(name: string, desc: TextureDescriptor, image: HTMLImageElement | HTMLCanvasElement | ArrayBufferView | ImageBitmap): Id;
     createBuffer(name: string, type: BufferType, usage: Usage, dataOrSize: (ArrayBuffer | number)): number;
     removeBuffer(bufferId: Id): void;
