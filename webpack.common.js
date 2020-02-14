@@ -5,6 +5,11 @@ const {CleanWebpackPlugin} = require('clean-webpack-plugin');
 const path = require('path');
 const webpack = require('webpack');
 
+// @NOTE: These need to be updated per-project
+const COMMIT_HASH = gitRevision.commithash();
+const GITHUB_URL = 'https://github.com/themikelester/ts-boilerplate';
+const GTAG_ID = 'Some Google Analytics ID';
+
 module.exports = {
   entry: {
     main: './src/main.ts',
@@ -43,8 +48,8 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
-      '__COMMIT_HASH': JSON.stringify(gitRevision.commithash()),
-      '__GITHUB_URL': JSON.stringify('https://github.com/themikelester/ts-boilerplate')
+      '__COMMIT_HASH': JSON.stringify(COMMIT_HASH),
+      '__GITHUB_URL': JSON.stringify(GITHUB_URL)
     }),
     new webpack.IgnorePlugin({
       // Workaround for broken libraries
@@ -62,6 +67,7 @@ module.exports = {
       chunks: ['main'],
       filename: 'index.html',
       template: './src/index.html',
+      gtagId: GTAG_ID
     }),
     new HtmlWebpackPlugin({
       chunks: ['embed'],

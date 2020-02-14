@@ -15,12 +15,12 @@
         }
         html, body { margin: 0; overflow: hidden; font-size: 100%; }
     </style>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-35480078-3"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=<%= htmlWebpackPlugin.options.gtagId %>"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         window.gtag = function(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'UA-35480078-3');
+        gtag('config', '<%= htmlWebpackPlugin.options.gtagId %>');
     </script>
 </head>
 <body>
