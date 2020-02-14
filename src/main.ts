@@ -11,7 +11,7 @@ class Main {
     }
 
     public async init() {
-        console.log(`Source available at ${GITHUB_REVISION_URL}`);
+        console.log(`Source for this build available at ${GITHUB_REVISION_URL}`);
 
         this.toplevel = document.createElement('div');
         document.body.appendChild(this.toplevel);
