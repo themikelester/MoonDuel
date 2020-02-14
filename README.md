@@ -2,5 +2,5 @@
 
 # Starting point for canvas-based Typescript projects
 
-Originally based on the wonderful noclip.website project
+Originally based on the wonderful
 [noclip.website](https://github.com/magcius/noclip.website)
