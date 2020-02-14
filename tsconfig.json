@@ -1,0 +1,32 @@
+{
+    "compilerOptions": {
+        "target": "es2017",
+        "alwaysStrict": true,
+        "downlevelIteration": true,
+        "esModuleInterop": true,
+        "experimentalDecorators": true,
+        "noImplicitReturns": true,
+        "noImplicitThis": true,
+        "noImplicitAny": true,
+        "strictFunctionTypes": true,
+        "strictNullChecks": true,
+        "lib": [
+            "es2015",
+            "es2015.promise",
+            "es2016.array.include",
+            "dom"
+        ],
+        "sourceMap": true,
+        "moduleResolution": "node",
+        "module": "commonjs",
+        "types": [
+            "gl-matrix",
+            "webgl2",
+            "pako",
+            "filesystem"
+        ]
+    },
+    "include": [
+        "./src/"
+    ],
+}
