@@ -1,5 +1,5 @@
 
-import { GIT_REVISION, IS_DEVELOPMENT } from './version';
+import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
 
 class Main {
     public toplevel: HTMLElement;
@@ -11,6 +11,8 @@ class Main {
     }
 
     public async init() {
+        console.log(`Source available at ${GITHUB_REVISION_URL}`);
+
         this.toplevel = document.createElement('div');
         document.body.appendChild(this.toplevel);
 

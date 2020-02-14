@@ -36,7 +36,7 @@ module.exports = {
   plugins: [
     new webpack.DefinePlugin({
       '__COMMIT_HASH': JSON.stringify(gitRevision.commithash()),
-      '__GITHUB_URL': "<Replace with a GitHub URL once published>",
+      '__GITHUB_URL': JSON.stringify("<Replace with a GitHub URL once published>"),
     }),
     new webpack.IgnorePlugin({
       // Workaround for broken libraries
