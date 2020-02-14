@@ -29,11 +29,11 @@ class Main {
         window.onresize = this._onResize.bind(this);
         this._onResize();
 
-        this._updateLoop(window.performance.now());
-
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
         }
+
+        this._updateLoop(window.performance.now());
     }
 
     public setPaused(v: boolean): void {
@@ -49,6 +49,8 @@ class Main {
         if (this.paused)
             return;
 
+        this.compositor.render();
+
         window.requestAnimationFrame(this._updateLoop);
     };
 
@@ -60,18 +62,12 @@ class Main {
 // Google Analytics
 declare var gtag: (command: string, eventName: string, eventParameters: { [key: string]: string }) => void;
 
-// Declare a "main" object for easy access.
+// Declare useful objects for easy access.
 declare global {
     interface Window {
         main: any;
+        debug: any;
     }
 }
 
 window.main = new Main();
-
-// Debug utilities.
-declare global {
-    interface Window {
-        debug: any;
-    }
-}
