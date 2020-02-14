@@ -28,3 +28,11 @@ export function arrayRemove<T>(L: T[], n: T): number {
     L.splice(idx, 1);
     return idx;
 }
+
+// Create an array of length n and initialize each element with the constructor c 
+export function nArray<T>(n: number, c: () => T): T[] {
+    const d = new Array(n);
+    for (let i = 0; i < n; i++)
+        d[i] = c();
+    return d;
+}
