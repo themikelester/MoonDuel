@@ -17,7 +17,7 @@ export function defaultValue<T>(v: T | undefined, fallback: T): T {
     return (v !== undefined && v !== null) ? v : fallback;
 }
 
-export function defined<T>(v: T | undefined): boolean {
+export function defined<T>(v: T | undefined): v is T {
     return v !== undefined && v !== null;
 }
 
