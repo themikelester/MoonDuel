@@ -1108,6 +1108,9 @@ export class WebGlRenderer implements Gfx.Renderer {
       const tableIdxs = Array.from(Array(desc.count).keys()).map((_, idx) => desc.location + idx);
       gl.uniform1iv(desc.locationGl, tableIdxs);
     }
+
+    // Update our shadow state to ensure that the correct shader gets re-bound
+    this.current.shader = undefined;
     
     return this.shaders.create({ name, glProgram, reflection, uniformVals, uniformLayout });
   }
