@@ -272,9 +272,6 @@ export class GltfLoader {
                         }
                     }
 
-                    // Remove any vertex buffers that don't supply any attributes
-                    vertexLayout.buffers = vertexLayout.buffers.filter(b => Object.keys(b.layout).length > 0);
-
                     // @TODO: Parse this from the primitive/mesh/material
                     const renderFormat: Gfx.RenderFormat = { blendingEnabled: false };
 
@@ -290,7 +287,7 @@ export class GltfLoader {
 
                     // Set all buffer views which provide vertex attributes
                     for (let i = 0; i < gpuBuffers.length; i++) {
-                        if (vertexLayout.buffers[i])
+                        if (Object.keys(vertexLayout.buffers[i].layout).length > 0)
                             renderer.setBuffer(resourceTable, gpuBuffers[i], i);
                     }
 
@@ -308,7 +305,7 @@ export class GltfLoader {
                         resourceTable,
                         type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
                         indexType: translateAccessorToType(gltf.accessors[indices].type, gltf.accessors[indices].componentType),
-                        indexBuffer: !indices ? undefined : {
+                        indexBuffer: !defined(indices) ? undefined : {
                             bufferId: gpuBuffers[gltf.accessors[indices].bufferView!],
                             byteLength: gltf.bufferViews[gltf.accessors[indices].bufferView!].byteLength
                         }
