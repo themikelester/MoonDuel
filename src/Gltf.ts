@@ -228,11 +228,6 @@ export class GltfLoader {
             }
         }
 
-        const primitives = gltf.meshes.reduce((primList: MeshPrimitive[], mesh) => {
-            mesh.primitives.forEach(p => primList.push(p));
-            return primList;
-        }, [])
-
         // Upload all buffer views to the GPU
         // @NOTE: We can't just upload the whole buffer, because WebGL requires indices to be in their own buffer, for validation.
         gpuBuffers = gltf.bufferViews.map((view, i) => {
@@ -381,12 +376,6 @@ const GLTF_COMPONENT_TYPE_ARRAYS: { [index: number]: any } = {
     5123: Uint16Array,
     5125: Uint32Array,
     5126: Float32Array,
-};
-
-/** Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#bufferviewtarget */
-const GLTF_TARGETS: { [index: number]: any } = {
-    34962: Gfx.BufferType.Vertex,
-    34963: Gfx.BufferType.Index,
 };
 
 /** Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#accessor-element-size */
