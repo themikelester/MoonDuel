@@ -26,7 +26,7 @@ module.exports = {
     rules: [
       // ts-loader defined in dev and prod separately
       {
-        test: /\.(png|woff2)$/,
+        test: /\.(png|woff2|glb)$/,
         loader: 'file-loader',
         options: {
           name: '[name]-[sha1:hash:hex:20].[ext]',

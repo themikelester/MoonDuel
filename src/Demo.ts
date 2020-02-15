@@ -1,10 +1,17 @@
+import * as Gfx from './gfx/GfxTypes';
 import simple_vert from './shaders/simple.vert';
 import simple_frag from './shaders/simple.frag';
 import { GlobalUniforms } from './GlobalUniforms';
-import * as Gfx from './gfx/GfxTypes';
+import { GltfLoader } from './Gltf';
 import { renderLists } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
 import { UniformBuffer } from './UniformBuffer';
+import { mat4, vec3 } from 'gl-matrix';
+
+// @TEST
+import gltfModel from './test.glb';
+
+const identityMtx = mat4.fromScaling(mat4.create(), vec3.fromValues(100,100,100));
 
 class SimpleShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
@@ -34,7 +41,10 @@ export class Demo {
 
     private uniformBuffer: UniformBuffer;
 
-    initialize({ gfxDevice, globalUniforms }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms }) {
+    // @TEST
+    private gltfModel: { primitives: RenderPrimitive[], uniformBuffer: UniformBuffer }[];
+
+    async initialize({ gfxDevice, globalUniforms }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms }) {
         const renderFormat: Gfx.RenderFormat = {
             blendingEnabled: false
         };
@@ -68,6 +78,20 @@ export class Demo {
         gfxDevice.setBuffer(this.resources, this.vertexBuffer, 0);
         gfxDevice.setBuffer(this.resources, this.uniformBuffer.getBuffer(), 0);
         gfxDevice.setBuffer(this.resources, globalUniforms.buffer, 1);
+
+        // GLTF
+        const res = await fetch(gltfModel);
+        const buf = await res.arrayBuffer();
+
+        const loader = new GltfLoader();
+        loader.initialize(gfxDevice, globalUniforms);
+        this.gltfModel = loader.loadModelFromGlb('Test', buf, gfxDevice);
+
+        // @HACK:
+        for (let mesh of this.gltfModel) {
+            mesh.uniformBuffer.setFloats('u_modelMtx', new Float32Array(identityMtx));
+            mesh.uniformBuffer.write(gfxDevice);
+        }
     }
 
     update({ }) {
@@ -85,5 +109,11 @@ export class Demo {
         }
 
         renderLists.opaque.push(primA);
+
+        if (this.gltfModel) {
+            for (let mesh of this.gltfModel) {
+                mesh.primitives.forEach(p => renderLists.opaque.push(p));
+            }
+        }
     }
 }
