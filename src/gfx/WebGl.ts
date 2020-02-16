@@ -755,6 +755,11 @@ export class WebGlRenderer implements Gfx.Renderer {
       this.maxAnisotropy = gl.getParameter(gl.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
     }
 
+    // Disable automatic PNG/JPEG color space conversion
+    // See https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#images
+    // and https://www.khronos.org/webgl/public-mailing-list/public_webgl/1010/msg00037.php
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+
     return true;
   }
 
