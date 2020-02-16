@@ -201,7 +201,7 @@ export class GltfLoader {
     loadModelFromGlb(name: string, buffer: ArrayBuffer, renderer: Gfx.Renderer) {
         const data = new GLTFBinaryData(buffer);
         const gltf = JSON.parse(data.json) as GlTf;
-    
+
         const asset = new GltfAsset(gltf, [data.binaryChunk]);
         console.log(asset);
         return this.createModel(name, asset, renderer);
@@ -209,10 +209,10 @@ export class GltfLoader {
 
     createModel(name: string, asset: GltfAsset, renderer: Gfx.Renderer) {
         const gltf = asset.gltf;
-        
+
         let gpuBuffers: Gfx.Id[] = [];
         let vertexLayoutBuffers = [];
-        
+
         // Missing property fixup
         gltf.bufferViews = defaultValue(gltf.bufferViews, []);
         gltf.accessors = defaultValue(gltf.accessors, []);
@@ -220,13 +220,13 @@ export class GltfLoader {
 
         // Determine the targets of each bufferView
         for (let mesh of gltf.meshes)
-        for (let prim of mesh.primitives) {
-            if (defined(prim.indices)) {
-                const acc = gltf.accessors[prim.indices];
-                const view = gltf.bufferViews[assertDefined(acc.bufferView)];
-                view.target = 34963; 
+            for (let prim of mesh.primitives) {
+                if (defined(prim.indices)) {
+                    const acc = gltf.accessors[prim.indices];
+                    const view = gltf.bufferViews[assertDefined(acc.bufferView)];
+                    view.target = 34963;
+                }
             }
-        }
 
         // Upload all buffer views to the GPU
         // @NOTE: We can't just upload the whole buffer, because WebGL requires indices to be in their own buffer, for validation.
@@ -314,7 +314,7 @@ export class GltfLoader {
                     primitives.push(gfxPrim);
                 }
 
-                meshes.push({ 
+                meshes.push({
                     primitives,
                     uniformBuffer
                 });
