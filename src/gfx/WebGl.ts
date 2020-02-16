@@ -569,26 +569,27 @@ function bindBufferVertexAttributes(pipeline: RenderPipeline, bufferWithOffset: 
   const bufferDesc = vertLayout.buffers[index];
   const shaderRefl = pipeline.shader.reflection;
 
-  // Collect attributes provided by this buffer (ignoring those not needed by the shader)
-  const attrNames = Object.keys(bufferDesc.layout);
-  const shaderAttrs = attrNames.map(a => shaderRefl.attributes[a]).filter(a => a !== undefined);
+  const bufferAttribNames = Object.keys(bufferDesc.layout);
 
-  if (!bufferWithOffset.buffer) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufferWithOffset.buffer.glId);
+
+  for (let i = 0; i < bufferAttribNames.length; i++) {
+    const bufferAttrib = bufferDesc.layout[bufferAttribNames[i]];
+    const shaderAttrib = shaderRefl.attributes[bufferAttribNames[i]];
+    
+    // Ignore attributes in this buffer if they aren't needed by the shader
+    if (!defined(shaderAttrib)) continue;
+
     // The buffer is being unset, so disable all attributes that it supplies
-    for (let i = 0; i < shaderAttrs.length; i++) {
-      gl.disableVertexAttribArray(shaderAttrs[i].location);     
-    }
-  } else {
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferWithOffset.buffer.glId);
-    for (let i = 0; i < shaderAttrs.length; i++) {
-      const sdrAttr = shaderAttrs[i];
-      const bufAttr = bufferDesc.layout[attrNames[i]];
-      gl.enableVertexAttribArray(sdrAttr.location);
-      gl.vertexAttribPointer(sdrAttr.location, sdrAttr.components, sdrAttr.glType, true, bufferDesc.stride, bufAttr.offset + bufferWithOffset.offset);
+    if (!bufferWithOffset.buffer) {
+      gl.disableVertexAttribArray(shaderAttrib.location);     
+    } else {
+      gl.enableVertexAttribArray(shaderAttrib.location);
+      gl.vertexAttribPointer(shaderAttrib.location, shaderAttrib.components, shaderAttrib.glType, true, bufferDesc.stride, bufferAttrib.offset + bufferWithOffset.offset);
 
       if (bufferDesc.stepMode === Gfx.StepMode.Instance) {
-        if (gl.instancedArrays) gl.instancedArrays.vertexAttribDivisorANGLE(sdrAttr.location, 1);
-        else gl.vertexAttribDivisor(sdrAttr.location, 1);
+        if (gl.instancedArrays) gl.instancedArrays.vertexAttribDivisorANGLE(shaderAttrib.location, 1);
+        else gl.vertexAttribDivisor(shaderAttrib.location, 1);
       }
     }
   }
