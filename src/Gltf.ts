@@ -2,7 +2,7 @@
 import * as Gfx from './gfx/GfxTypes';
 import { assert, defaultValue, defined, assertDefined } from './util';
 import { GlobalUniforms } from './GlobalUniforms';
-import { GlTf, GlTfId, MeshPrimitive } from './Gltf.d';
+import { GlTf, GlTfId, MeshPrimitive, Image } from './Gltf.d';
 import { RenderPrimitive } from './RenderPrimitive';
 import { UniformBuffer } from './UniformBuffer';
 
@@ -211,12 +211,14 @@ export class GltfLoader {
         const gltf = asset.gltf;
 
         let gpuBuffers: Gfx.Id[] = [];
+        let gpuImages: Promise<Gfx.Id>[] = [];
         let vertexLayoutBuffers = [];
 
         // Missing property fixup
         gltf.bufferViews = defaultValue(gltf.bufferViews, []);
         gltf.accessors = defaultValue(gltf.accessors, []);
         gltf.meshes = defaultValue(gltf.meshes, []);
+        gltf.images = defaultValue(gltf.images, []);
 
         // Determine the targets of each bufferView
         for (let mesh of gltf.meshes)
@@ -232,7 +234,22 @@ export class GltfLoader {
         // @NOTE: We can't just upload the whole buffer, because WebGL requires indices to be in their own buffer, for validation.
         gpuBuffers = gltf.bufferViews.map((view, i) => {
             const type = view.target === 34963 ? Gfx.BufferType.Index : Gfx.BufferType.Vertex;
-            return renderer.createBuffer(`${name}_buffer${i}`, type, Gfx.Usage.Static, asset.bufferViewData(i))
+            return renderer.createBuffer(view.name || `${name}_buffer${i}`, type, Gfx.Usage.Static, asset.bufferViewData(i))
+        });
+
+        // Images (async for now)
+        gpuImages = gltf.images.map((image, i) => {
+            if (image.bufferView) {
+                const promise = loadImage(asset.bufferViewData(image.bufferView), assertDefined(image.mimeType));
+                const desc: Gfx.TextureDescriptor = {
+                    type: Gfx.TextureType.Texture2D,
+                    format: Gfx.TexelFormat.U8x3,
+                    usage: Gfx.Usage.Static,
+                }
+                return promise.then(imageData => renderer.createTexture(image.name || `${name}_tex${i}`, desc, imageData));
+            } else {
+                throw new Error(`Image loading via URI not yet supported`);
+            }
         });
 
         // Create templates for the "buffers" component of a VertexLayout based on the GLTF BufferViews
@@ -323,6 +340,22 @@ export class GltfLoader {
 
         console.log(meshes);
         return meshes;
+    }
+}
+
+async function loadImage(data: ArrayBufferView, mimeType: string): Promise<HTMLImageElement | ImageBitmap> {
+    const blob = new Blob([data], { type: mimeType });
+    
+    // ImageBitmap can decode PNG/JPEG on workers, but Safari doesn't support it
+    if (defined(self.createImageBitmap)) {
+        return createImageBitmap(blob);
+    } else {
+        return new Promise(resolve => {
+            const dataUrl = window.URL.createObjectURL(blob);
+            const img = document.createElement('img');
+            img.onload = () => resolve(img);
+            img.src = dataUrl;
+        })
     }
 }
 
