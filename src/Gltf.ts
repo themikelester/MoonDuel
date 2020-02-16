@@ -300,7 +300,7 @@ export class GltfLoader {
                     const indices = prim.indices as number;
 
                     const gfxPrim: RenderPrimitive = {
-                        elementCount: prim.indices ? gltf.accessors[indices].count : vertexCount as number,
+                        elementCount: defined(prim.indices) ? gltf.accessors[indices].count : vertexCount as number,
                         renderPipeline: pipeline,
                         resourceTable,
                         type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
