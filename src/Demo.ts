@@ -3,6 +3,7 @@ import simple_vert from './shaders/simple.vert';
 import simple_frag from './shaders/simple.frag';
 import { GlobalUniforms } from './GlobalUniforms';
 import { GltfLoader } from './Gltf';
+import { Model } from './Model';
 import { renderLists } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
 import { UniformBuffer } from './UniformBuffer';
@@ -42,7 +43,7 @@ export class Demo {
     private uniformBuffer: UniformBuffer;
 
     // @TEST
-    private gltfModel: { primitives: RenderPrimitive[], uniformBuffer: UniformBuffer }[];
+    private gltfModel: Model;
 
     async initialize({ gfxDevice, globalUniforms }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms }) {
         const renderFormat: Gfx.RenderFormat = {
@@ -88,10 +89,10 @@ export class Demo {
         this.gltfModel = loader.loadModelFromGlb('Test', buf, gfxDevice);
 
         // @HACK:
-        for (let mesh of this.gltfModel) {
-            mesh.uniformBuffer.setFloats('u_modelMtx', new Float32Array(identityMtx));
-            mesh.uniformBuffer.write(gfxDevice);
-        }
+        // for (let mesh of this.gltfModel.meshes) {
+        //     mesh.uniformBuffer.setFloats('u_modelMtx', new Float32Array(identityMtx));
+        //     mesh.uniformBuffer.write(gfxDevice);
+        // }
     }
 
     update({ }) {
@@ -111,7 +112,7 @@ export class Demo {
         renderLists.opaque.push(primA);
 
         if (this.gltfModel) {
-            for (let mesh of this.gltfModel) {
+            for (let mesh of this.gltfModel.meshes) {
                 mesh.primitives.forEach(p => renderLists.opaque.push(p));
             }
         }

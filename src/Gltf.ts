@@ -2,8 +2,9 @@
 import * as Gfx from './gfx/GfxTypes';
 import { assert, defaultValue, defined, assertDefined, stringHash } from './util';
 import { GlobalUniforms } from './GlobalUniforms';
-import { GlTf, GlTfId, MeshPrimitive, Image } from './Gltf.d';
-import { RenderPrimitive, BufferChunk } from './RenderPrimitive';
+import { GlTf, GlTfId } from './Gltf.d';
+import { Model, Material, Mesh, MeshPrimitive } from './Model';
+import { mat4, vec3 } from 'gl-matrix';
 import { UniformBuffer } from './UniformBuffer';
 
 import shaderVs from './shaders/gltf.vert';
@@ -77,14 +78,18 @@ class GltfShader implements Gfx.ShaderDescriptor {
     private static vert = shaderVs;
     private static frag = shaderFs;
 
-    public static uniformLayout: Gfx.BufferLayout = {
+    public static meshUniformLayout: Gfx.BufferLayout = {
         u_modelMtx: { offset: 0, type: Gfx.Type.Float4x4 },
-        u_color: { offset: 64, type: Gfx.Type.Float4 },
     };
+
+    public static materialUniformLayout: Gfx.BufferLayout = {
+        u_color: { offset: 0, type: Gfx.Type.Float4 },
+    }
 
     public static resourceLayout: Gfx.ShaderResourceLayout = {
         globalUniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
-        materialUniforms: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GltfShader.uniformLayout },
+        materialUniforms: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GltfShader.materialUniformLayout },
+        meshUniforms: { index: 2, type: Gfx.BindingType.UniformBuffer, layout: GltfShader.meshUniformLayout },
         baseColorTexture: { index: 0, type: Gfx.BindingType.Texture },
     };
 
@@ -109,7 +114,7 @@ class GltfShader implements Gfx.ShaderDescriptor {
 
 class GltfShaderCache {
     shaders: { [hash: string]: Gfx.Id } = {};
-    
+
     getShader(device: Gfx.Renderer, desc: GltfShader) {
         if (defined(this.shaders[desc.permutationHash])) {
             return this.shaders[desc.permutationHash];
@@ -209,35 +214,6 @@ export class GltfAsset {
     }
 }
 
-interface Model {
-    materials: Material[];
-    meshes: Mesh[];
-}
-
-interface Material {
-    shader: Gfx.Id;
-    uniforms: UniformBuffer;
-    textures: { [name: string]: Gfx.Id };
-}
-
-interface Mesh {
-    name: string;
-    morphWeights: number[];
-    primitives: MeshPrimitive[];
-}
-
-class MeshPrimitive implements RenderPrimitive {
-    resourceTable: Gfx.Id;
-    renderPipeline: Gfx.Id;
-    elementCount: number;
-    type: Gfx.PrimitiveType;
-    indexBuffer?: BufferChunk;
-    indexType: Gfx.Type;
-
-    material: Material;
-    uniforms: UniformBuffer;
-}
-
 // --------------------------------------------------------------------------------
 // GLTF Loader
 // --------------------------------------------------------------------------------
@@ -265,9 +241,7 @@ export class GltfLoader {
 
         let gpuBuffers: Gfx.Id[] = [];
         let gpuImages: Gfx.Id[] = [];
-        let gpuMaterials: {
-            baseColorTexture?: Gfx.Id;
-        }[] = []
+        let gpuMaterials: Material[] = []
         let vertexLayoutBuffers = [];
 
         // Missing property fixup
@@ -325,9 +299,9 @@ export class GltfLoader {
             roughnessFactor: 1
         };
         gpuMaterials = gltf.materials.map((material, i) => {
-            const gpuMaterial: {
-                baseColorTexture?: Gfx.Id;
-            } = {};
+            const gpuMaterial: Material = {
+                textures: {},
+            } as Material;
 
             const pbr = defaultValue(material.pbrMetallicRoughness, defaultPbr);
             // @TODO: Double sided
@@ -337,7 +311,7 @@ export class GltfLoader {
             if (pbr.baseColorTexture) {
                 const uvIdx = defaultValue(pbr.baseColorTexture.texCoord, 0);
                 assert(uvIdx === 0, 'Non-zero UV indices not yet supported');
-                gpuMaterial.baseColorTexture = gpuImages[pbr.baseColorTexture.index];
+                gpuMaterial.textures['baseColorTexture'] = gpuImages[pbr.baseColorTexture.index];
             }
 
             return gpuMaterial;
@@ -353,11 +327,15 @@ export class GltfLoader {
         }
 
         // @HACK
-        const meshes: Model[] = [];
+        const meshes: Mesh[] = [];
         if (gltf.meshes) {
             for (let mesh of gltf.meshes) {
                 let primitives = [];
-                const uniformBuffer = new UniformBuffer('GltfPrimUniformBuf', renderer, GltfShader.uniformLayout);
+
+                const identityMtx = mat4.fromScaling(mat4.create(), vec3.fromValues(1,1,1));
+                const meshUniformBuffer = new UniformBuffer('GltfPrimUniformBuf', renderer, GltfShader.meshUniformLayout);
+                meshUniformBuffer.setFloats('u_modelMtx', new Float32Array(identityMtx));
+                meshUniformBuffer.write(renderer);
 
                 for (let prim of mesh.primitives) {
                     // @TODO: Material
@@ -396,24 +374,25 @@ export class GltfLoader {
                             renderer.setBuffer(resourceTable, gpuBuffers[i], i);
                     }
 
-                    // Set uniform buffers
-                    renderer.setBuffer(resourceTable, this.globalUniforms.buffer, 0);
-                    renderer.setBuffer(resourceTable, uniformBuffer.getBuffer(), 1);
-
                     // Set material parameters
+                    let material: (Material | undefined) = undefined;
                     if (defined(prim.material)) {
-                        const material = gpuMaterials[prim.material];
-                        const tex = assertDefined(material.baseColorTexture);
+                        material = gpuMaterials[prim.material];
+                        material.uniforms = new UniformBuffer('materialUniforms', renderer, GltfShader.materialUniformLayout);
+                        const tex = assertDefined(material.textures.baseColorTexture);
                         renderer.setTexture(resourceTable, tex, 0);
                     }
 
-                    // renderer.setTexture(resourceTable )
+                    // Set uniform buffers
+                    renderer.setBuffer(resourceTable, this.globalUniforms.buffer, GltfShader.resourceLayout.globalUniforms.index);
+                    renderer.setBuffer(resourceTable, meshUniformBuffer.getBuffer(), GltfShader.resourceLayout.meshUniforms.index);
+                    if (defined(material)) renderer.setBuffer(resourceTable, material.uniforms.getBuffer(), GltfShader.resourceLayout.materialUniforms.index);
 
                     // @TODO: For now, only indexed primitives are supported
                     assertDefined(prim.indices);
                     const indices = prim.indices as number;
 
-                    const gfxPrim: RenderPrimitive = {
+                    const gfxPrim: MeshPrimitive = {
                         elementCount: defined(prim.indices) ? gltf.accessors[indices].count : vertexCount as number,
                         renderPipeline: pipeline,
                         resourceTable,
@@ -422,7 +401,8 @@ export class GltfLoader {
                         indexBuffer: !defined(indices) ? undefined : {
                             bufferId: gpuBuffers[gltf.accessors[indices].bufferView!],
                             byteLength: gltf.bufferViews[gltf.accessors[indices].bufferView!].byteLength
-                        }
+                        },
+                        material,
                     }
 
                     primitives.push(gfxPrim);
@@ -430,13 +410,18 @@ export class GltfLoader {
 
                 meshes.push({
                     primitives,
-                    uniformBuffer
+                    name,
                 });
             }
         }
 
+        const model: Model = {
+            meshes,
+            materials: gpuMaterials
+        }
+
         console.log(meshes);
-        return meshes;
+        return model;
     }
 }
 
