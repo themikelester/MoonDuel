@@ -1,6 +1,6 @@
 
 import * as Gfx from './gfx/GfxTypes';
-import { assert, defaultValue, defined, assertDefined } from './util';
+import { assert, defaultValue, defined, assertDefined, stringHash } from './util';
 import { GlobalUniforms } from './GlobalUniforms';
 import { GlTf, GlTfId, MeshPrimitive, Image } from './Gltf.d';
 import { RenderPrimitive } from './RenderPrimitive';
@@ -89,9 +89,36 @@ class GltfShader implements Gfx.ShaderDescriptor {
     ];
 
     name = 'GLTF';
-    vertSource = GltfShader.vert.sourceCode;
-    fragSource = GltfShader.frag.sourceCode;
     resourceLayout = GltfShader.resourceLayout;
+    vertSource: string[];
+    fragSource: string[];
+    permutationHash: number;
+
+    constructor(permutationDefines: string[] = []) {
+        let defines = '';
+        this.permutationHash = 0;
+        for (let define of permutationDefines) {
+            this.permutationHash ^= stringHash(define);
+            defines += `#define ${define}\n`;
+        }
+
+        this.vertSource = [defines, GltfShader.vert.sourceCode];
+        this.fragSource = [defines, GltfShader.frag.sourceCode];
+    }
+}
+
+class GltfShaderCache {
+    shaders: { [hash: string]: Gfx.Id } = {};
+    
+    getShader(device: Gfx.Renderer, desc: GltfShader) {
+        if (defined(this.shaders[desc.permutationHash])) {
+            return this.shaders[desc.permutationHash];
+        } else {
+            const shaderId = this.shaders[desc.permutationHash] = device.createShader(desc);
+            this.shaders[desc.permutationHash] = shaderId;
+            return shaderId;
+        }
+    }
 }
 
 // --------------------------------------------------------------------------------
@@ -192,11 +219,12 @@ interface Model {
 // --------------------------------------------------------------------------------
 export class GltfLoader {
     globalUniforms: GlobalUniforms;
+    shaderCache = new GltfShaderCache();
     shader: Gfx.Id;
 
     initialize(renderer: Gfx.Renderer, globalUniforms: GlobalUniforms) {
         this.globalUniforms = globalUniforms;
-        this.shader = renderer.createShader(new GltfShader());
+        this.shader = this.shaderCache.getShader(renderer, new GltfShader(['HAS_UV_SET0']));
     }
 
     loadModelFromGlb(name: string, buffer: ArrayBuffer, renderer: Gfx.Renderer) {
@@ -322,7 +350,7 @@ export class GltfLoader {
                         const accessor = gltf.accessors[prim.attributes[gltfAttribName]];
                         assert(accessor.bufferView !== undefined, 'Undefined accessor buffers are not yet implemented');
                         vertexCount = accessor.count;
-                        
+
                         const attribName = GLTF_VERTEX_ATTRIBUTES[gltfAttribName];
                         vertexLayout.buffers[accessor.bufferView!].layout[attribName] = {
                             type: translateAccessorToType(accessor.type, accessor.componentType),
@@ -390,7 +418,7 @@ export class GltfLoader {
 
 async function loadImage(data: ArrayBufferView, mimeType: string): Promise<HTMLImageElement | ImageBitmap> {
     const blob = new Blob([data], { type: mimeType });
-    
+
     // ImageBitmap can decode PNG/JPEG on workers, but Safari doesn't support it
     if (defined(self.createImageBitmap)) {
         return createImageBitmap(blob);

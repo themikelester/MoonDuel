@@ -21,6 +21,16 @@ export function defaultValue<T>(v: T | undefined, fallback: T): T {
     return (v !== undefined && v !== null) ? v : fallback;
 }
 
+export function stringHash(str: string, seed = 0)
+{
+    for(var i = 0; i < str.length; ++i)
+    {
+        seed = Math.imul(31, seed) + str.charCodeAt(i) | 0;
+    }
+
+    return seed;
+}
+
 // Remove the element at index n from an array
 export function arrayRemove<T>(L: T[], n: T): number {
     const idx = L.indexOf(n);
