@@ -16,6 +16,7 @@ export interface Mesh {
     name: string;
     primitives: MeshPrimitive[];
     morphWeights?: number[];
+    uniforms: UniformBuffer;
 }
 
 export interface MeshPrimitive extends RenderPrimitive {

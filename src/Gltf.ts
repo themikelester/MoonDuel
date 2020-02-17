@@ -409,8 +409,9 @@ export class GltfLoader {
                 }
 
                 meshes.push({
-                    primitives,
                     name,
+                    primitives,
+                    uniforms: meshUniformBuffer,
                 });
             }
         }
