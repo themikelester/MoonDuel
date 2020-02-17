@@ -9,10 +9,15 @@ export class Compositor {
     }
 
     public render(): void {
+       const depthTestAndWrite = this.gfxDevice.createDepthStencilState(true, true);
+
         this.gfxDevice.beginFrame();
             // All the drawing work goes here
             this.gfxDevice.bindRenderPass(Gfx.kDefaultRenderPass); 
             {
+                this.gfxDevice.setCullMode(Gfx.CullMode.Back);
+                this.gfxDevice.setDepthStencilState(depthTestAndWrite);
+                
                 executeRenderList(this.gfxDevice, renderLists.opaque);
             }
         this.gfxDevice.endFrame();
