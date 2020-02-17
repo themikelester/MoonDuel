@@ -342,7 +342,6 @@ export class GltfLoader {
                     // @TODO: Mode
                     // @TODO: Targets
 
-                    let vertexCount;
                     const vertexLayout: Gfx.VertexLayout = {
                         buffers: vertexLayoutBuffers,
                     };
@@ -351,8 +350,7 @@ export class GltfLoader {
                     for (let gltfAttribName in prim.attributes) {
                         const accessor = gltf.accessors[prim.attributes[gltfAttribName]];
                         assert(accessor.bufferView !== undefined, 'Undefined accessor buffers are not yet implemented');
-                        vertexCount = accessor.count;
-
+                        
                         const attribName = GLTF_VERTEX_ATTRIBUTES[gltfAttribName];
                         vertexLayout.buffers[accessor.bufferView!].layout[attribName] = {
                             type: translateAccessorToType(accessor.type, accessor.componentType),
@@ -388,19 +386,19 @@ export class GltfLoader {
                     renderer.setBuffer(resourceTable, meshUniformBuffer.getBuffer(), GltfShader.resourceLayout.meshUniforms.index);
                     if (defined(material)) renderer.setBuffer(resourceTable, material.uniforms.getBuffer(), GltfShader.resourceLayout.materialUniforms.index);
 
-                    // @TODO: For now, only indexed primitives are supported
-                    assertDefined(prim.indices);
-                    const indices = prim.indices as number;
+                    // @TODO: For now, only non-sparse indexed primitives are supported
+                    const indices = gltf.accessors[assertDefined(prim.indices, 'Only indexed primitives are currently supported')];
+                    const indicesViewIdx = assertDefined(indices.bufferView, 'Sparse index buffer views are not supported');
 
                     const gfxPrim: MeshPrimitive = {
-                        elementCount: defined(prim.indices) ? gltf.accessors[indices].count : vertexCount as number,
+                        elementCount: indices.count,
                         renderPipeline: pipeline,
                         resourceTable,
                         type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
-                        indexType: translateAccessorToType(gltf.accessors[indices].type, gltf.accessors[indices].componentType),
-                        indexBuffer: !defined(indices) ? undefined : {
-                            bufferId: gpuBuffers[gltf.accessors[indices].bufferView!],
-                            byteLength: gltf.bufferViews[gltf.accessors[indices].bufferView!].byteLength
+                        indexType: translateAccessorToType(indices.type, indices.componentType),
+                        indexBuffer: {
+                            bufferId: gpuBuffers[indicesViewIdx],
+                            byteLength: gltf.bufferViews[indicesViewIdx].byteLength
                         },
                         material,
                     }
