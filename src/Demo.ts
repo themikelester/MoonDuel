@@ -14,10 +14,10 @@ class SimpleShader implements Gfx.ShaderDescriptor {
         u_color: { offset: 0, type: Gfx.Type.Float4 },
     };
 
-    public static resourceLayout = [
-        { index: 0, type: Gfx.BindingType.UniformBuffer, layout: SimpleShader.uniformLayout },
-        { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
-    ];
+    public static resourceLayout = {
+        uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: SimpleShader.uniformLayout },
+        globalUniforms: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
+    };
 
     name = 'SimpleShader';
     vertSource = SimpleShader.vert.sourceCode;

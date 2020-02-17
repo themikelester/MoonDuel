@@ -1037,10 +1037,11 @@ export class WebGlRenderer implements Gfx.Renderer {
       });
 
       // Ensure the resourceLayout supplies all the resources required by the Shader
+      const resourceList = Object.keys(resourceLayout).map(name => resourceLayout[name]);
       const uniNames = Object.keys(shader.uniformLayout);
       for (let i = 0; i < uniNames.length; i++) {
         const binding = shader.uniformLayout[uniNames[i]];
-        if (!resourceLayout.find(b => b.index === binding.index)) {
+        if (!resourceList.find(b => b.index === binding.index)) {
           error(`ResourceLayout does not supply a texture at index ${binding.index} required by uniform '${uniNames[i]}' of Shader '${shader.name}'`);
         }
       }
@@ -1075,12 +1076,16 @@ export class WebGlRenderer implements Gfx.Renderer {
     const glProgram = createProgramFromSource(name, vs, fs);
     const reflection = reflectShader(glProgram);
 
+    // For convenience, extract the resource bindings as an array
+    const resourceNames = Object.keys(resourceLayout);
+    const resourceList = resourceNames.map(name => resourceLayout[name]);
+
     // Ensure that all uniforms/textures are defined in the resourceLayout
     // @TODO: ShaderReflection should treat textures and uniforms the same
     if (this.debugEnabled) {
       for (let i = 0; i < reflection.uniforms.length; i++) {
         const uniform = reflection.uniforms[i];
-        const binding = resourceLayout.find(l => !isTextureResourceBinding(l) && l.layout && l.layout[uniform.name]) as Gfx.UniformBufferResourceBinding;
+        const binding = resourceList.find(l => !isTextureResourceBinding(l) && l.layout && l.layout[uniform.name]) as Gfx.UniformBufferResourceBinding;
         assert(binding !== undefined, `Shader '${name}' expects uniform '${uniform.name}' to be set in a uniform buffer`);
         const type = binding.layout[uniform.name].type;
         assert(type === uniform.type, `Shader '${name}' expects uniform '${uniform.name}' to be type ${uniform.type} but the ShaderResourceLayout specifies type ${type}`);
@@ -1088,7 +1093,7 @@ export class WebGlRenderer implements Gfx.Renderer {
 
       for (let i = 0; i < reflection.textureArray.length; i++) {
         const uniRefl = reflection.textureArray[i];
-        const binding = resourceLayout.find(l => isTextureResourceBinding(l) && l.name === uniRefl.name) as Gfx.TextureResourceBinding;
+        const binding = resourceList.find((l, i) => isTextureResourceBinding(l) && resourceNames[i] === uniRefl.name) as Gfx.TextureResourceBinding;
         assert(binding !== undefined, `Shader '${name}' expects texture '${uniRefl.name}', but it is not defined in the ShaderResourceLayout`);
         assert((binding.count || 1) === uniRefl.count, `Shader '${name}' expects texture '${uniRefl.name}' to be an array of length ${uniRefl.count}, but the ResourceLayout specifies length ${binding.count}`);
       }
@@ -1098,12 +1103,12 @@ export class WebGlRenderer implements Gfx.Renderer {
     const uniformLayout = {} as UniformLayout;
     for (let i = 0; i < reflection.uniforms.length; i++) {
       const uniform = reflection.uniforms[i];
-      const binding = resourceLayout.find(l => !isTextureResourceBinding(l) && l.layout && l.layout[uniform.name]) as Gfx.UniformBufferResourceBinding;
+      const binding = resourceList.find(l => !isTextureResourceBinding(l) && l.layout && l.layout[uniform.name]) as Gfx.UniformBufferResourceBinding;
       uniformLayout[uniform.name] = { offset: binding.layout[uniform.name].offset, index: binding.index };
     }
     for (let i = 0; i < reflection.textureArray.length; i++) {
       const uniform = reflection.textureArray[i];
-      const binding = resourceLayout.find(l => isTextureResourceBinding(l) && l.name === uniform.name) as Gfx.TextureResourceBinding;
+      const binding = resourceLayout[uniform.name];
       uniformLayout[uniform.name] = { offset: 0, index: binding.index };
     }
 

@@ -60,7 +60,7 @@ export interface ResourceBinding {
   index: number,
   type: BindingType,
 }
-export type ResourceLayout = ResourceBinding[];
+export type ResourceLayout = { [resourceName: string]: ResourceBinding };
 
 export interface ShaderDescriptor {
   name: string,
@@ -75,17 +75,15 @@ export interface ShaderDescriptor {
 //       resource locations may be specified at shader-creation time.      
 // ------------------------------------------------------------------------------------------------*/
 export interface TextureResourceBinding extends ResourceBinding {
-  name: string
   count?: number,
 }
 
 export interface UniformBufferResourceBinding extends ResourceBinding {
   layout: BufferLayout,
-  name?: string
 }
 
-// @Note: This is a superset of ResourceBinding. It may be passed to createRenderPipeline directly
-export type ShaderResourceLayout = (TextureResourceBinding | UniformBufferResourceBinding)[];
+// @NOTE: This is a superset of ResourceBinding. It may be passed to createRenderPipeline directly
+export type ShaderResourceLayout = { [resourceName: string]: (TextureResourceBinding | UniformBufferResourceBinding) };
 
 // --------------------------------------------------------------------------------
 // Enums
