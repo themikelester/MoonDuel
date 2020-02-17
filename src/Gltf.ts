@@ -85,6 +85,7 @@ class GltfShader implements Gfx.ShaderDescriptor {
     public static resourceLayout: Gfx.ShaderResourceLayout = [
         { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
         { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GltfShader.uniformLayout },
+        { index: 0, type: Gfx.BindingType.Texture, name: 'u_tex0' },
     ];
 
     name = 'GLTF';
@@ -211,7 +212,10 @@ export class GltfLoader {
         const gltf = asset.gltf;
 
         let gpuBuffers: Gfx.Id[] = [];
-        let gpuImages: Promise<Gfx.Id>[] = [];
+        let gpuImages: Gfx.Id[] = [];
+        let gpuMaterials: {
+            baseColorTexture?: Gfx.Id;
+        }[] = []
         let vertexLayoutBuffers = [];
 
         // Missing property fixup
@@ -219,6 +223,7 @@ export class GltfLoader {
         gltf.accessors = defaultValue(gltf.accessors, []);
         gltf.meshes = defaultValue(gltf.meshes, []);
         gltf.images = defaultValue(gltf.images, []);
+        gltf.materials = defaultValue(gltf.materials, []);
 
         // Determine the targets of each bufferView
         for (let mesh of gltf.meshes)
@@ -240,16 +245,50 @@ export class GltfLoader {
         // Images (async for now)
         gpuImages = gltf.images.map((image, i) => {
             if (image.bufferView) {
-                const promise = loadImage(asset.bufferViewData(image.bufferView), assertDefined(image.mimeType));
                 const desc: Gfx.TextureDescriptor = {
                     type: Gfx.TextureType.Texture2D,
                     format: Gfx.TexelFormat.U8x3,
                     usage: Gfx.Usage.Static,
                 }
-                return promise.then(imageData => renderer.createTexture(image.name || `${name}_tex${i}`, desc, imageData));
+                const texId = renderer.createTexture(image.name || `${name}_tex${i}`, desc, new Uint8Array([0, 255, 255]));
+
+                const promise = loadImage(asset.bufferViewData(image.bufferView), assertDefined(image.mimeType));
+                promise.then(imageData => {
+                    if (imageData instanceof HTMLImageElement) {
+                        document.body.appendChild(imageData);
+                    }
+                    renderer.writeTextureData(texId, imageData)
+                });
+
+                return texId;
             } else {
                 throw new Error(`Image loading via URI not yet supported`);
             }
+        });
+
+        // Materials
+        const defaultPbr = {
+            baseColorFactor: [1, 1, 1, 1],
+            metallicFactor: 1,
+            roughnessFactor: 1
+        };
+        gpuMaterials = gltf.materials.map((material, i) => {
+            const gpuMaterial: {
+                baseColorTexture?: Gfx.Id;
+            } = {};
+
+            const pbr = defaultValue(material.pbrMetallicRoughness, defaultPbr);
+            // @TODO: Double sided
+            // @TODO: Alpha mode
+            // @TODO: Alpha cutoff
+
+            if (pbr.baseColorTexture) {
+                const uvIdx = defaultValue(pbr.baseColorTexture.texCoord, 0);
+                assert(uvIdx === 0, 'Non-zero UV indices not yet supported');
+                gpuMaterial.baseColorTexture = gpuImages[pbr.baseColorTexture.index];
+            }
+
+            return gpuMaterial;
         });
 
         // Create templates for the "buffers" component of a VertexLayout based on the GLTF BufferViews
@@ -279,10 +318,12 @@ export class GltfLoader {
                     };
 
                     // Fill out the VertexLayout based on the primitive's attributes
-                    for (let attribName in prim.attributes) {
-                        const accessor = gltf.accessors[prim.attributes[attribName]];
+                    for (let gltfAttribName in prim.attributes) {
+                        const accessor = gltf.accessors[prim.attributes[gltfAttribName]];
                         assert(accessor.bufferView !== undefined, 'Undefined accessor buffers are not yet implemented');
                         vertexCount = accessor.count;
+                        
+                        const attribName = GLTF_VERTEX_ATTRIBUTES[gltfAttribName];
                         vertexLayout.buffers[accessor.bufferView!].layout[attribName] = {
                             type: translateAccessorToType(accessor.type, accessor.componentType),
                             offset: accessor.byteOffset || 0,
@@ -292,13 +333,8 @@ export class GltfLoader {
                     // @TODO: Parse this from the primitive/mesh/material
                     const renderFormat: Gfx.RenderFormat = { blendingEnabled: false };
 
-                    const resourceLayout = [
-                        { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
-                        { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GltfShader.uniformLayout },
-                    ];
-
                     // @TODO: Cache and reuse these 
-                    const pipeline = renderer.createRenderPipeline(this.shader, renderFormat, vertexLayout, resourceLayout);
+                    const pipeline = renderer.createRenderPipeline(this.shader, renderFormat, vertexLayout, GltfShader.resourceLayout);
 
                     const resourceTable = renderer.createResourceTable(pipeline);
 
@@ -311,6 +347,15 @@ export class GltfLoader {
                     // Set uniform buffers
                     renderer.setBuffer(resourceTable, this.globalUniforms.buffer, 0);
                     renderer.setBuffer(resourceTable, uniformBuffer.getBuffer(), 1);
+
+                    // Set material parameters
+                    if (defined(prim.material)) {
+                        const material = gpuMaterials[prim.material];
+                        const tex = assertDefined(material.baseColorTexture);
+                        renderer.setTexture(resourceTable, tex, 0);
+                    }
+
+                    // renderer.setTexture(resourceTable )
 
                     // @TODO: For now, only indexed primitives are supported
                     assertDefined(prim.indices);
@@ -347,7 +392,7 @@ async function loadImage(data: ArrayBufferView, mimeType: string): Promise<HTMLI
     const blob = new Blob([data], { type: mimeType });
     
     // ImageBitmap can decode PNG/JPEG on workers, but Safari doesn't support it
-    if (defined(self.createImageBitmap)) {
+    if (false && defined(self.createImageBitmap)) {
         return createImageBitmap(blob);
     } else {
         return new Promise(resolve => {
@@ -417,4 +462,16 @@ const GLTF_ELEMENTS_PER_TYPE: { [index: string]: number } = {
     MAT2: 4,
     MAT3: 9,
     MAT4: 16,
+};
+
+// Remap GLTF vertex attribute names to our own
+const GLTF_VERTEX_ATTRIBUTES: { [index: string]: string } = {
+    POSITION: 'a_pos',
+    NORMAL: 'a_normal',
+    TANGENT: 'a_tangent',
+    JOINTS_0: 'a_joints',
+    WEIGHTS_0: 'a_weights',
+    COLOR_0: 'a_color',
+    TEXCOORD_0: 'a_uv0',
+    TEXCOORD_1: 'a_uv1',
 };
