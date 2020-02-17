@@ -464,6 +464,14 @@ function defined<T>(x: (T | undefined | null)): x is T {
   return x !== undefined && x !== null;
 }
 
+function isImage(v: any): v is (HTMLImageElement | HTMLCanvasElement | ImageBitmap) {
+  return (
+    v instanceof HTMLImageElement ||
+    v instanceof HTMLCanvasElement ||
+    v instanceof ImageBitmap
+  );
+}
+
 function checkErrors() {
   // Do something
 }
@@ -1177,18 +1185,23 @@ export class WebGlRenderer implements Gfx.Renderer {
     return this.textures.create(tex);
   }
 
-  writeTextureData(textureId: Gfx.Id, image: HTMLImageElement | HTMLCanvasElement | ArrayBuffer): void {
+  writeTextureData(textureId: Gfx.Id, image: HTMLImageElement | HTMLCanvasElement | ArrayBuffer | ImageBitmap): void {
     const tex = this.textures.get(textureId);
-    const isArrayBuffer = !(image instanceof HTMLImageElement || image instanceof HTMLCanvasElement);
 
-    assert(tex.usage !== Gfx.Usage.Static, 'Only non-static textures may be written to');
+    // assert(tex.usage !== Gfx.Usage.Static, 'Only non-static textures may be written to');
     assert(tex.target === gl.TEXTURE_2D, 'Currently only 2D textures may be written to');
 
     gl.bindTexture(tex.target, tex.glId);
 
+    // If the size of the texture is being changed (which cannot happen via an ArrayBuffer input), 
+    // Use texImage2D to re-initialize the storage
+    const sizeChange = 
+      isImage(image) ? image.width !== tex.width : false ||
+      isImage(image) ? image.height !== tex.height : false;
+
     // Ideally we'd like to avoid creating a completely new resource (which texImage2D will do), but only if supported
-    if (this.isGfxFeatureSupported(Gfx.Feature.TextureWrite)) {
-      if (isArrayBuffer) {
+    if (this.isGfxFeatureSupported(Gfx.Feature.TextureWrite) && !sizeChange) {
+      if (!isImage(image)) {
         gl.texSubImage2D(tex.target, 0, 0, 0, tex.width, tex.height, tex.format, tex.type, image);
       } else {
         gl.texSubImage2D(tex.target, 0, 0, 0, tex.format, tex.type, image);

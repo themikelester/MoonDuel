@@ -319,7 +319,7 @@ export interface Renderer {
     removeResourceTable(tableId: Id): void;
     
     writeBufferData(bufferId: Id, dstOffset: number, srcBytes: (ArrayBuffer | ArrayBufferView)): void;
-    writeTextureData(textureId: Id, image: HTMLImageElement | HTMLCanvasElement | ArrayBuffer): void;
+    writeTextureData(textureId: Id, image: HTMLImageElement | HTMLCanvasElement | ArrayBuffer | ImageBitmap): void;
 
     readPixels(offsetX: number, offsetY: number, width: number, height: number, result: Uint8Array): void;
 }
