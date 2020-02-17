@@ -392,7 +392,7 @@ async function loadImage(data: ArrayBufferView, mimeType: string): Promise<HTMLI
     const blob = new Blob([data], { type: mimeType });
     
     // ImageBitmap can decode PNG/JPEG on workers, but Safari doesn't support it
-    if (false && defined(self.createImageBitmap)) {
+    if (defined(self.createImageBitmap)) {
         return createImageBitmap(blob);
     } else {
         return new Promise(resolve => {
