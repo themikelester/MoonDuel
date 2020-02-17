@@ -6,19 +6,19 @@ export function assert(b: boolean, message: string = ""): void {
     }
 }
 
-export function assertDefined<T>(v: T | null | undefined, msg?: string): T {
+export function assertDefined<T>(v: T | null | undefined, msg?: string): NonNullable<T> {
     if (v !== undefined && v !== null)
-        return v;
+        return v as NonNullable<T>;
     else
         throw new Error(defaultValue(msg, "Missing object"));
 }
 
-export function defaultValue<T>(v: T | undefined, fallback: T): T {
-    return (v !== undefined && v !== null) ? v : fallback;
+export function defined<T>(v: T): v is NonNullable<T> {
+    return v !== undefined && v !== null;
 }
 
-export function defined<T>(v: T | undefined): v is T {
-    return v !== undefined && v !== null;
+export function defaultValue<T>(v: T | undefined, fallback: T): T {
+    return (v !== undefined && v !== null) ? v : fallback;
 }
 
 // Remove the element at index n from an array
