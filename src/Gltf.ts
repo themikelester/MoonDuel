@@ -3,7 +3,7 @@ import * as Gfx from './gfx/GfxTypes';
 import { assert, defaultValue, defined, assertDefined, stringHash } from './util';
 import { GlobalUniforms } from './GlobalUniforms';
 import { GlTf, GlTfId, MeshPrimitive, Image } from './Gltf.d';
-import { RenderPrimitive } from './RenderPrimitive';
+import { RenderPrimitive, BufferChunk } from './RenderPrimitive';
 import { UniformBuffer } from './UniformBuffer';
 
 import shaderVs from './shaders/gltf.vert';
@@ -82,11 +82,11 @@ class GltfShader implements Gfx.ShaderDescriptor {
         u_color: { offset: 64, type: Gfx.Type.Float4 },
     };
 
-    public static resourceLayout: Gfx.ShaderResourceLayout = [
-        { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
-        { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GltfShader.uniformLayout },
-        { index: 0, type: Gfx.BindingType.Texture, name: 'u_tex0' },
-    ];
+    public static resourceLayout: Gfx.ShaderResourceLayout = {
+        globalUniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
+        materialUniforms: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GltfShader.uniformLayout },
+        baseColorTexture: { index: 0, type: Gfx.BindingType.Texture },
+    };
 
     name = 'GLTF';
     resourceLayout = GltfShader.resourceLayout;
@@ -210,8 +210,32 @@ export class GltfAsset {
 }
 
 interface Model {
-    primitives: RenderPrimitive[];
-    uniformBuffer: UniformBuffer;
+    materials: Material[];
+    meshes: Mesh[];
+}
+
+interface Material {
+    shader: Gfx.Id;
+    uniforms: UniformBuffer;
+    textures: { [name: string]: Gfx.Id };
+}
+
+interface Mesh {
+    name: string;
+    morphWeights: number[];
+    primitives: MeshPrimitive[];
+}
+
+class MeshPrimitive implements RenderPrimitive {
+    resourceTable: Gfx.Id;
+    renderPipeline: Gfx.Id;
+    elementCount: number;
+    type: Gfx.PrimitiveType;
+    indexBuffer?: BufferChunk;
+    indexType: Gfx.Type;
+
+    material: Material;
+    uniforms: UniformBuffer;
 }
 
 // --------------------------------------------------------------------------------
