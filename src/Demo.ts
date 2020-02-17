@@ -9,9 +9,9 @@ import { UniformBuffer } from './UniformBuffer';
 import { mat4, vec3 } from 'gl-matrix';
 
 // @TEST
-import gltfModel from './test.glb';
+import gltfModel from './Duck.glb';
 
-const identityMtx = mat4.fromScaling(mat4.create(), vec3.fromValues(100,100,100));
+const identityMtx = mat4.fromScaling(mat4.create(), vec3.fromValues(1,1,1));
 
 class SimpleShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
