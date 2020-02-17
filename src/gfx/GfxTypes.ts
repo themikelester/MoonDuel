@@ -64,8 +64,8 @@ export type ResourceLayout = ResourceBinding[];
 
 export interface ShaderDescriptor {
   name: string,
-  vertSource: string,
-  fragSource: string,
+  vertSource: string | string[],
+  fragSource: string | string[],
   resourceLayout: ShaderResourceLayout; 
 }
 
