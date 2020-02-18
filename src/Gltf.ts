@@ -220,11 +220,9 @@ export class GltfAsset {
 export class GltfLoader {
     globalUniforms: GlobalUniforms;
     shaderCache = new GltfShaderCache();
-    shader: Gfx.Id;
 
     initialize(renderer: Gfx.Renderer, globalUniforms: GlobalUniforms) {
         this.globalUniforms = globalUniforms;
-        this.shader = this.shaderCache.getShader(renderer, new GltfShader(['HAS_UV_SET0']));
     }
 
     loadModelFromGlb(name: string, buffer: ArrayBuffer, renderer: Gfx.Renderer) {
@@ -318,6 +316,7 @@ export class GltfLoader {
 
         const createPrimitive = (prim: GltfMeshPrimitive, meshUniformBuffer: UniformBuffer) => {
             // @TODO: Targets
+            const shaderDefines: string[] = [];
 
             // Fill out the VertexLayout based on the primitive's attributes
             const vertexLayout: Gfx.VertexLayout = { buffers: [] };
@@ -326,6 +325,9 @@ export class GltfLoader {
                 const viewIdx = assertDefined(accessor.bufferView, 'Undefined accessor buffers are not yet implemented');
                 const view = assertDefined(gltf.bufferViews)[viewIdx];
                 let bufferDesc = vertexLayout.buffers[viewIdx];
+
+                const attribDefine = GLTF_ATTRIBUTE_DEFINES[gltfAttribName];
+                if (defined(attribDefine)) shaderDefines.push(attribDefine);
                 
                 if (!defined(bufferDesc)) {
                     bufferDesc = vertexLayout.buffers[viewIdx] = {
@@ -343,8 +345,11 @@ export class GltfLoader {
             // @TODO: Parse this from the primitive/mesh/material
             const renderFormat: Gfx.RenderFormat = { blendingEnabled: false };
 
+            // Construct a shader now that we know which permutation is needed
+            const shader = this.shaderCache.getShader(renderer, new GltfShader(shaderDefines));
+
             // @TODO: Cache and reuse these 
-            const pipeline = renderer.createRenderPipeline(this.shader, renderFormat, vertexLayout, GltfShader.resourceLayout);
+            const pipeline = renderer.createRenderPipeline(shader, renderFormat, vertexLayout, GltfShader.resourceLayout);
 
             const resourceTable = renderer.createResourceTable(pipeline);
 
@@ -500,4 +505,14 @@ const GLTF_VERTEX_ATTRIBUTES: { [index: string]: string } = {
     COLOR_0: 'a_color',
     TEXCOORD_0: 'a_uv0',
     TEXCOORD_1: 'a_uv1',
+};
+
+const GLTF_ATTRIBUTE_DEFINES: { [index: string]: string } = {
+    NORMAL: 'HAS_NORMALS 1',
+    TANGENT: 'HAS_TANGENT 1',
+    JOINTS_0: 'HAS_JOINT_SET0 1',
+    WEIGHTS_0: 'HAS_WEIGHT_SET0 1',
+    COLOR_0: 'HAS_COLOR0 1',
+    TEXCOORD_0: 'HAS_UV_SET0 1',
+    TEXCOORD_1: 'HAS_UV_SET1 1',
 };
