@@ -2,7 +2,7 @@
 import * as Gfx from './gfx/GfxTypes';
 import { assert, defaultValue, defined, assertDefined, stringHash } from './util';
 import { GlobalUniforms } from './GlobalUniforms';
-import { GlTf, GlTfId } from './Gltf.d';
+import { GlTf, GlTfId, MeshPrimitive as GltfMeshPrimitive } from './Gltf.d';
 import { Model, Material, Mesh, MeshPrimitive } from './Model';
 import { mat4, vec3 } from 'gl-matrix';
 import { UniformBuffer } from './UniformBuffer';
@@ -242,7 +242,6 @@ export class GltfLoader {
         let gpuBuffers: Gfx.Id[] = [];
         let gpuImages: Gfx.Id[] = [];
         let gpuMaterials: Material[] = []
-        let vertexLayoutBuffers = [];
 
         // Missing property fixup
         gltf.bufferViews = defaultValue(gltf.bufferViews, []);
@@ -317,12 +316,72 @@ export class GltfLoader {
             return gpuMaterial;
         });
 
-        // Create templates for the "buffers" component of a VertexLayout based on the GLTF BufferViews
-        // @NOTE: Interleaving vertex data is optimal, and will result in less BufferViews
-        for (let i = 0; i < gltf.bufferViews.length; i++) {
-            vertexLayoutBuffers[i] = {
-                stride: gltf.bufferViews[i].byteStride || 0,
-                layout: {}
+        const createPrimitive = (prim: GltfMeshPrimitive, meshUniformBuffer: UniformBuffer) => {
+            // @TODO: Targets
+
+            // Fill out the VertexLayout based on the primitive's attributes
+            const vertexLayout: Gfx.VertexLayout = { buffers: [] };
+            for (let gltfAttribName in prim.attributes) {
+                const accessor = assertDefined(gltf.accessors)[prim.attributes[gltfAttribName]];
+                const viewIdx = assertDefined(accessor.bufferView, 'Undefined accessor buffers are not yet implemented');
+                const view = assertDefined(gltf.bufferViews)[viewIdx];
+                let bufferDesc = vertexLayout.buffers[viewIdx];
+                
+                if (!defined(bufferDesc)) {
+                    bufferDesc = vertexLayout.buffers[viewIdx] = {
+                        stride: defaultValue(view.byteStride, 0), // 0 means tightly packed
+                        layout: {}
+                    }
+                }
+
+                bufferDesc.layout[GLTF_VERTEX_ATTRIBUTES[gltfAttribName]] = {
+                    type: translateAccessorToType(accessor.type, accessor.componentType),
+                    offset: accessor.byteOffset || 0,
+                }
+            }
+
+            // @TODO: Parse this from the primitive/mesh/material
+            const renderFormat: Gfx.RenderFormat = { blendingEnabled: false };
+
+            // @TODO: Cache and reuse these 
+            const pipeline = renderer.createRenderPipeline(this.shader, renderFormat, vertexLayout, GltfShader.resourceLayout);
+
+            const resourceTable = renderer.createResourceTable(pipeline);
+
+            // Set all buffer views which provide vertex attributes
+            vertexLayout.buffers.forEach((bufDesc, idx) => {
+                renderer.setBuffer(resourceTable, gpuBuffers[idx], idx);
+            });
+
+            // Set material parameters
+            let material: (Material | undefined) = undefined;
+            if (defined(prim.material)) {
+                material = gpuMaterials[prim.material];
+                material.uniforms = new UniformBuffer('materialUniforms', renderer, GltfShader.materialUniformLayout);
+                const tex = assertDefined(material.textures.baseColorTexture);
+                renderer.setTexture(resourceTable, tex, 0);
+            }
+
+            // Set uniform buffers
+            renderer.setBuffer(resourceTable, this.globalUniforms.buffer, GltfShader.resourceLayout.globalUniforms.index);
+            renderer.setBuffer(resourceTable, meshUniformBuffer.getBuffer(), GltfShader.resourceLayout.meshUniforms.index);
+            if (defined(material)) renderer.setBuffer(resourceTable, material.uniforms.getBuffer(), GltfShader.resourceLayout.materialUniforms.index);
+
+            // @TODO: For now, only non-sparse indexed primitives are supported
+            const indices = gltf.accessors![assertDefined(prim.indices, 'Only indexed primitives are currently supported')];
+            const indicesViewIdx = assertDefined(indices.bufferView, 'Sparse index buffer views are not supported');
+
+            return {
+                elementCount: indices.count,
+                renderPipeline: pipeline,
+                resourceTable,
+                type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
+                indexType: translateAccessorToType(indices.type, indices.componentType),
+                indexBuffer: {
+                    bufferId: gpuBuffers[indicesViewIdx],
+                    byteLength: gltf.bufferViews![indicesViewIdx].byteLength
+                },
+                material,
             }
         }
 
@@ -330,81 +389,12 @@ export class GltfLoader {
         const meshes: Mesh[] = [];
         if (gltf.meshes) {
             for (let mesh of gltf.meshes) {
-                let primitives = [];
-
                 const identityMtx = mat4.fromScaling(mat4.create(), vec3.fromValues(1,1,1));
                 const meshUniformBuffer = new UniformBuffer('GltfPrimUniformBuf', renderer, GltfShader.meshUniformLayout);
                 meshUniformBuffer.setFloats('u_modelMtx', new Float32Array(identityMtx));
                 meshUniformBuffer.write(renderer);
 
-                for (let prim of mesh.primitives) {
-                    // @TODO: Material
-                    // @TODO: Mode
-                    // @TODO: Targets
-
-                    const vertexLayout: Gfx.VertexLayout = {
-                        buffers: vertexLayoutBuffers,
-                    };
-
-                    // Fill out the VertexLayout based on the primitive's attributes
-                    for (let gltfAttribName in prim.attributes) {
-                        const accessor = gltf.accessors[prim.attributes[gltfAttribName]];
-                        assert(accessor.bufferView !== undefined, 'Undefined accessor buffers are not yet implemented');
-                        
-                        const attribName = GLTF_VERTEX_ATTRIBUTES[gltfAttribName];
-                        vertexLayout.buffers[accessor.bufferView!].layout[attribName] = {
-                            type: translateAccessorToType(accessor.type, accessor.componentType),
-                            offset: accessor.byteOffset || 0,
-                        }
-                    }
-
-                    // @TODO: Parse this from the primitive/mesh/material
-                    const renderFormat: Gfx.RenderFormat = { blendingEnabled: false };
-
-                    // @TODO: Cache and reuse these 
-                    const pipeline = renderer.createRenderPipeline(this.shader, renderFormat, vertexLayout, GltfShader.resourceLayout);
-
-                    const resourceTable = renderer.createResourceTable(pipeline);
-
-                    // Set all buffer views which provide vertex attributes
-                    for (let i = 0; i < gpuBuffers.length; i++) {
-                        if (Object.keys(vertexLayout.buffers[i].layout).length > 0)
-                            renderer.setBuffer(resourceTable, gpuBuffers[i], i);
-                    }
-
-                    // Set material parameters
-                    let material: (Material | undefined) = undefined;
-                    if (defined(prim.material)) {
-                        material = gpuMaterials[prim.material];
-                        material.uniforms = new UniformBuffer('materialUniforms', renderer, GltfShader.materialUniformLayout);
-                        const tex = assertDefined(material.textures.baseColorTexture);
-                        renderer.setTexture(resourceTable, tex, 0);
-                    }
-
-                    // Set uniform buffers
-                    renderer.setBuffer(resourceTable, this.globalUniforms.buffer, GltfShader.resourceLayout.globalUniforms.index);
-                    renderer.setBuffer(resourceTable, meshUniformBuffer.getBuffer(), GltfShader.resourceLayout.meshUniforms.index);
-                    if (defined(material)) renderer.setBuffer(resourceTable, material.uniforms.getBuffer(), GltfShader.resourceLayout.materialUniforms.index);
-
-                    // @TODO: For now, only non-sparse indexed primitives are supported
-                    const indices = gltf.accessors[assertDefined(prim.indices, 'Only indexed primitives are currently supported')];
-                    const indicesViewIdx = assertDefined(indices.bufferView, 'Sparse index buffer views are not supported');
-
-                    const gfxPrim: MeshPrimitive = {
-                        elementCount: indices.count,
-                        renderPipeline: pipeline,
-                        resourceTable,
-                        type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
-                        indexType: translateAccessorToType(indices.type, indices.componentType),
-                        indexBuffer: {
-                            bufferId: gpuBuffers[indicesViewIdx],
-                            byteLength: gltf.bufferViews[indicesViewIdx].byteLength
-                        },
-                        material,
-                    }
-
-                    primitives.push(gfxPrim);
-                }
+                const primitives = mesh.primitives.map(p => createPrimitive(p, meshUniformBuffer));
 
                 meshes.push({
                     name,
