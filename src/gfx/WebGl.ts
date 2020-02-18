@@ -1032,7 +1032,7 @@ export class WebGlRenderer implements Gfx.Renderer {
       // Ensure the vertexLayout supplies all Attributes required by the Shader
       const requiredAttrs = Object.keys(shader.reflection.attributes);
       requiredAttrs.forEach(a => {
-        const attrBuf = vertexLayout.buffers.find(buffer => buffer.layout[a] !== undefined);
+        const attrBuf = vertexLayout.buffers.find(buffer => buffer && buffer.layout[a] !== undefined);
         assert(attrBuf !== undefined, `VertexLayout does not supply attribute ${a} required by Shader '${shader.name}'`);
       });
 
