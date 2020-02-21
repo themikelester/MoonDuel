@@ -21,7 +21,7 @@
     "webpack-merge": "^4.2.2"
   },
   "dependencies": {
-    "gl-matrix": "^3.2.0"
+    "gl-matrix": "^3.2.1"
   },
   "scripts": {
     "start": "webpack-dev-server --config webpack.dev.js",
