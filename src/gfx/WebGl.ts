@@ -886,10 +886,13 @@ export class WebGlRenderer implements Gfx.Renderer {
     }
   }
 
-  createDepthStencilState(depthTestEnabled: boolean, depthWriteEnabled: boolean, depthCompareFunc = Gfx.CompareFunc.Less) {
+  createDepthStencilState(desc: Gfx.DepthStateDescriptor) {
     // @TODO: Support stencil state
-    const glCompareFunc = TranslateCompareFunc(depthCompareFunc);
-    return this.depthStencilStates.create({ depthTestEnabled, depthWriteEnabled, depthCompareFunc: glCompareFunc });
+    const glCompareFunc = TranslateCompareFunc(defaultValue(desc.depthCompareFunc, Gfx.CompareFunc.Less));
+    return this.depthStencilStates.create({ 
+      depthTestEnabled: desc.depthTestEnabled, 
+      depthWriteEnabled: desc.depthWriteEnabled, 
+      depthCompareFunc: glCompareFunc });
   }
 
   createResourceTable(pipelineId: Gfx.Id): Gfx.Id {

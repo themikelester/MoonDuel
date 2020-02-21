@@ -50,6 +50,12 @@ export interface TextureDescriptor {
   maxAnistropy?: number,
 }
 
+export interface DepthStateDescriptor {
+  depthTestEnabled: boolean;
+  depthWriteEnabled: boolean;
+  depthCompareFunc?: CompareFunc;
+}
+
 export interface RenderFormat {
   blendingEnabled: boolean,
   srcBlendFactor?: BlendFactor,
@@ -304,7 +310,7 @@ export interface Renderer {
     setTexture(resourceTableId: Id, textureId: Id, index: number): void;
     setTextures(resourceTableId: Id, textureIds: Id[], index: number): void;
     
-    createDepthStencilState(depthTestEnabled: boolean, depthWriteEnabled: boolean, depthCompareFunc?: CompareFunc): number;
+    createDepthStencilState(desc: DepthStateDescriptor): number;
     createResourceTable(pipelineId: Id): Id;
     createRenderPipeline(shaderId: Id, renderFormat: RenderFormat, vertexLayout: VertexLayout, resourceLayout: ResourceLayout): Id;
     createShader(desc: ShaderDescriptor): number;
