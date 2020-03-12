@@ -5,6 +5,7 @@ import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
 import { UniformBuffer } from './UniformBuffer';
+import { ResourceManager } from './resources/ResourceLoading';
 
 class SimpleShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
@@ -34,7 +35,7 @@ export class Demo {
 
     private uniformBuffer: UniformBuffer;
 
-    initialize({ gfxDevice, globalUniforms }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms }) {
+    initialize({ gfxDevice, globalUniforms, resources }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, resources: ResourceManager }) {
         const renderFormat: Gfx.RenderFormat = {
             blendingEnabled: false
         };
@@ -47,6 +48,13 @@ export class Demo {
                 }
             }]
         }
+
+        resources.load('data/Duck.glb', 'gltf', (error, resource) => {
+            if (error) { console.error(`Failed to load resource`, error); }
+            else {
+                console.log(resource);
+            }
+        });
 
         this.shader = gfxDevice.createShader(new SimpleShader());
         this.pipeline = gfxDevice.createRenderPipeline(this.shader, renderFormat, vertLayout, SimpleShader.resourceLayout);
