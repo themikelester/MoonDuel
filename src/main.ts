@@ -69,8 +69,8 @@ class Main {
             // Initialize Rollbar/Sentry for error reporting
         }
 
-        this.resources.load('data/utaRunners.jpg', 'texture', (err, res) => {
-            console.log(res);
+        this.resources.load('data/Duck.glb', 'gltf', (err, res) => {
+            console.log(err, res);
         });
 
         this._updateLoop(window.performance.now());

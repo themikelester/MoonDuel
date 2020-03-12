@@ -15,6 +15,7 @@ import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from
 import { TextureLoader } from './Texture';
 import { Renderer } from "../gfx/GfxTypes";
 import { defined, assert, assertDefined } from '../util';
+import { GltfLoader } from './Gltf';
 
 export interface UriWithHeaders {
     uri: string,
@@ -25,6 +26,7 @@ type ResourceLoadedCallback<T extends Resource> = (error: string | undefined, re
 
 const loaders: { [type: string]: ResourceLoader } = {
     texture: new TextureLoader(),
+    gltf: new GltfLoader(),
 };
 
 export class ResourceManager {
