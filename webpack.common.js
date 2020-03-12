@@ -3,6 +3,8 @@ const gitRevision = new GitRevisionPlugin();
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const {CleanWebpackPlugin} = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
+const SizePlugin = require('size-plugin');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const path = require('path');
 const webpack = require('webpack');
 
@@ -55,6 +57,7 @@ module.exports = {
       },
     ],
   },
+  stats: 'minimal',
   plugins: [
     new webpack.DefinePlugin({
       '__COMMIT_HASH': JSON.stringify(COMMIT_HASH),
@@ -86,6 +89,12 @@ module.exports = {
       chunks: ['embed'],
       filename: 'embed.html',
       template: './src/embed.html',
+    }),
+    new SizePlugin(),
+    new BundleAnalyzerPlugin({ 
+      analyzerMode: 'static', 
+      openAnalyzer: false,
+      reportFilename: 'bundleSizeReport.html',
     }),
   ],
 };
