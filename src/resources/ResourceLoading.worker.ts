@@ -1,6 +1,10 @@
 import { ResourceLoader, Resource, ResourceStatus } from './Resource';
 import { TextureLoader } from './Texture';
 
+// Trick typescript into assuming that we're using the Worker global interface, not Window
+// See https://github.com/Microsoft/TypeScript/issues/20595
+const ctx = self as any as Worker;
+
 const loaders: { [type: string]: ResourceLoader } = {
   texture: new TextureLoader(),
 };
@@ -42,7 +46,7 @@ class AsyncResourceManager {
     if (this.processed.length > 0) {
       const transferList: Transferable[] = [];
       for (let resource of this.processed) { Array.prototype.push.apply(transferList, resource.transferList); }
-      self.postMessage(this.processed, transferList);
+      ctx.postMessage(this.processed, transferList);
   
       this.processed.length = 0;
     }
