@@ -69,6 +69,7 @@ module.exports = {
         '!data',
         '!data/**/*',
         '!.htaccess',
+        '!.nojekyll',
       ],
     }),
     new HtmlWebpackPlugin({
