@@ -516,7 +516,7 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
         elementCount: indices.count,
         type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
         indexType: translateAccessorToType(indices.type, indices.componentType),
-        indexBufferView: indicesBufferView,
+        indexBuffer: indicesBufferView,
         vertexLayout,
         material,
     };
