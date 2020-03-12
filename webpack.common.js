@@ -44,6 +44,14 @@ module.exports = {
           }
         }
       },
+      {
+        test: /\.worker\.ts$/,
+        loader: 'worker-loader',
+        exclude: /node_modules/,
+        options: { 
+          name: '[name].[hash].js',
+        }
+      },
     ],
   },
   plugins: [

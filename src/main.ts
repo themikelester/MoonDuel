@@ -10,6 +10,7 @@ import { Compositor } from './Compositor';
 import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
 import { InputManager } from './Input';
+import { ResourceManager } from './resources/ResourceLoading';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -32,6 +33,7 @@ class Main {
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
     public demo = new Demo();
     public input = new InputManager();
+    public resources = new ResourceManager();
     
     constructor() {
         this.init();
@@ -52,6 +54,7 @@ class Main {
         else return InitErrorCode.NO_WEBGL_GENERIC;
 
         // Initialize Modules
+        this.resources.initialize(this.gfxDevice);
         this.input.initialize(this);
         this.cameraSystem.initialize();
         this.compositor.initialize();
@@ -65,6 +68,10 @@ class Main {
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
         }
+
+        this.resources.load('data/utaRunners.jpg', 'texture', (err, res) => {
+            console.log(res);
+        });
 
         this._updateLoop(window.performance.now());
 
@@ -87,6 +94,7 @@ class Main {
         this.dt = time - this.realTime;
         this.realTime = time;
 
+        this.resources.update();
         this.cameraSystem.update(this);
         this.demo.update(this);
 
