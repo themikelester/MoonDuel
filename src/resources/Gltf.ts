@@ -193,6 +193,7 @@ export interface GltfAnimation {
 interface GltfBufferView {
     id: Gfx.Id;
     type: Gfx.BufferType;
+    name: string;
 }
 
 interface GltfPrimitive {
