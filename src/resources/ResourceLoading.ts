@@ -1,3 +1,14 @@
+// --------------------------------------------------------------------------------
+// Manages loading of Resources, which are the base level files required by the game.
+// It is designed to do as much work as possible asynchronously, on a worker thread.
+// Each type of Resource has a dedicated ResourceLoader which contains all the logic
+// for downloading and processing the resource. Typically, ResourceLoader.loadAsync()
+// will run on the worker (unless a synchronous load is requested) and fetch the 
+// necessary file before doing as much processing as possible. It will then set the 
+// Resource's state to LoadSync. The ResourceManager on the main thread then calls
+// ResourceLoader.loadSync() so that any processing that must happen on the main thread
+// can be performed. E.g. uploading data to the GPU. 
+// --------------------------------------------------------------------------------
 
 import Worker from './ResourceLoading.worker';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
