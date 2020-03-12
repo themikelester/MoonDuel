@@ -2,6 +2,7 @@ const GitRevisionPlugin = require('git-revision-webpack-plugin');
 const gitRevision = new GitRevisionPlugin();
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const {CleanWebpackPlugin} = require('clean-webpack-plugin');
+const CopyPlugin = require('copy-webpack-plugin');
 const path = require('path');
 const webpack = require('webpack');
 
@@ -72,6 +73,9 @@ module.exports = {
         '!.nojekyll',
       ],
     }),
+    new CopyPlugin([
+      { from: 'data', to: 'data' },
+    ]),
     new HtmlWebpackPlugin({
       chunks: ['main'],
       filename: 'index.html',
