@@ -201,7 +201,7 @@ interface GltfPrimitive {
     elementCount: number;
     type: Gfx.PrimitiveType;
 
-    indexBuffer?: Gfx.Id;
+    indexBuffer?: GltfBufferView;
     indexType?: Gfx.Type
 
     depthMode?: Gfx.Id;
@@ -516,7 +516,7 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
         elementCount: indices.count,
         type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
         indexType: translateAccessorToType(indices.type, indices.componentType),
-        indexBuffer: indicesBufferView.id,
+        indexBufferView: indicesBufferView,
         vertexLayout,
         material,
     };
