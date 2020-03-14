@@ -36,6 +36,8 @@ export class Mesh {
         this.elementCount = desc.elementCount;
         this.primitiveType = defaultValue(desc.primitiveType, Gfx.PrimitiveType.Triangles);
         
+        assert(desc.vertexBuffers.length === desc.vertexLayout.buffers.length);
+
         if (desc.indexBuffer) {
             this.indexBuffer = toBufferView(desc.indexBuffer);
             this.indexType = defaultValue(desc.indexType, Gfx.Type.Ushort);
