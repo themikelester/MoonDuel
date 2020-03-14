@@ -1,18 +1,13 @@
-import { Id, PrimitiveType, Type, CullMode } from './gfx/GfxTypes';
-
-export interface BufferChunk {
-    bufferId: Id;
-    byteOffset?: number;
-    byteLength?: number;
-}
+import { Id, BufferView, PrimitiveType, Type, CullMode } from './gfx/GfxTypes';
 
 export interface RenderPrimitive {
     resourceTable: Id;
+    vertexTable: Id;
     renderPipeline: Id;
     elementCount: number;
     type: PrimitiveType;
 
-    indexBuffer?: BufferChunk;
+    indexBuffer?: BufferView;
     indexType?: Type
 
     depthMode?: Id;

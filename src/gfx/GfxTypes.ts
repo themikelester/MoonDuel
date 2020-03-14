@@ -62,6 +62,14 @@ export interface RenderFormat {
   dstBlendFactor?: BlendFactor,
 }
 
+export interface BufferView {
+  buffer: Id;
+  byteOffset?: number;
+  byteLength?: number;
+}
+
+export type TextureView = Id;
+
 export interface ResourceBinding {
   index: number,
   type: BindingType,
@@ -299,6 +307,7 @@ export interface Renderer {
     bindRenderPass(renderPassId: Id): void;
     bindPipeline(pipelineId: Id): void;
     bindResources(resourceTableId: Id): void;
+    bindVertices(vertexTable: Id): void;
     draw(primitiveType: PrimitiveType, indexBufferId: Id, indexType: Type, indexOffset: number, indexCount: number): void;
     drawInstanced(primitiveType: PrimitiveType, indexBufferId: Id, indexType: Type, indexOffset: number, indexCount: number, instanceCount: number): void;
     drawNonIndexed(primitiveType: PrimitiveType, vertOffset: number, vertCount: number): void;
@@ -306,12 +315,14 @@ export interface Renderer {
     setDepthStencilState(stateId: Id): void;
     setCullMode(cullMode: CullMode): void;
     
-    setBuffer(resourceTableId: Id, bufferId: Id, index?: number, offset?: number): void;
-    setTexture(resourceTableId: Id, textureId: Id, index: number): void;
-    setTextures(resourceTableId: Id, textureIds: Id[], index: number): void;
+    setVertexBuffer(vertexTable: Id, index: number, view: BufferView): void;
+    setBuffer(resourceTableId: Id, index: number, view: BufferView): void;
+    setTexture(resourceTableId: Id, index: number, textureId: Id): void;
+    setTextures(resourceTableId: Id, index: number, textureIds: Id[]): void;
     
     createDepthStencilState(desc: DepthStateDescriptor): number;
-    createResourceTable(pipelineId: Id): Id;
+    createResourceTable(resourceLayout: ResourceLayout): Id;
+    createVertexTable(pipelineId: Id): Id;
     createRenderPipeline(shaderId: Id, renderFormat: RenderFormat, vertexLayout: VertexLayout, resourceLayout: ResourceLayout): Id;
     createShader(desc: ShaderDescriptor): number;
     createTexture(name: string, desc: TextureDescriptor, image: HTMLImageElement | HTMLCanvasElement | ArrayBufferView | ImageBitmap): Id;
@@ -324,6 +335,8 @@ export interface Renderer {
     
     writeBufferData(bufferId: Id, dstOffset: number, srcBytes: (ArrayBuffer | ArrayBufferView)): void;
     writeTextureData(textureId: Id, image: HTMLImageElement | HTMLCanvasElement | ArrayBuffer | ImageBitmap): void;
+
+    getResourceLayout(shaderId: Id): ResourceLayout;
 
     readPixels(offsetX: number, offsetY: number, width: number, height: number, result: Uint8Array): void;
 }

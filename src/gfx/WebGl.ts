@@ -377,7 +377,8 @@ interface Shader {
   glProgram: GLInt,
   reflection: ShaderReflection,
   uniformVals: { [name: string]: Float32Array },
-  uniformLayout: UniformLayout
+  uniformLayout: UniformLayout,
+  resourceLayout: Gfx.ResourceLayout,
 }
 
 interface UniformLayout {
@@ -399,7 +400,7 @@ interface Buffer {
   cpuBuffer?: Uint8Array,
 }
 
-interface BufferWithOffset {
+interface BufferView {
   buffer: Buffer,
   offset: number,
 }
@@ -422,12 +423,17 @@ interface RenderPipeline {
   resourceLayout: Gfx.ResourceLayout,
 }
 
-interface ResourceTable {
+interface VertexTable {
   pipeline: RenderPipeline,
   vao?: GLInt, 
 
-  buffers: BufferWithOffset[],
-  uniforms: BufferWithOffset[],
+  buffers: BufferView[],
+}
+
+interface ResourceTable {
+  layout: Gfx.ResourceLayout,
+
+  buffers: BufferView[],
   textures: (Texture | null)[],
 }
 
@@ -572,7 +578,7 @@ function createProgramFromSource(name: string, vsSource: string, fsSource: strin
   return program;
 }
 
-function bindBufferVertexAttributes(pipeline: RenderPipeline, bufferWithOffset: BufferWithOffset, index: number) {
+function bindBufferVertexAttributes(pipeline: RenderPipeline, bufferWithOffset: BufferView, index: number) {
   const vertLayout = pipeline.vertexLayout;
   const bufferDesc = vertLayout.buffers[index];
   const shaderRefl = pipeline.shader.reflection;
@@ -701,6 +707,7 @@ export class WebGlRenderer implements Gfx.Renderer {
   shaders: Pool<Shader> = new Pool();
   renderPipelines: Pool<RenderPipeline> = new Pool();
   resourceTables: Pool<ResourceTable> = new Pool();
+  vertexTables: Pool<VertexTable> = new Pool();
   renderPasses: Pool<RenderPass> = new Pool();
   depthStencilStates: Pool<DepthStencilState> = new Pool();
 
@@ -712,6 +719,7 @@ export class WebGlRenderer implements Gfx.Renderer {
 
   maxAnisotropy: number;
 
+  pipeline: RenderPipeline;
   current: {
     shader?: Shader,
     cullMode?: GLInt,
@@ -813,6 +821,7 @@ export class WebGlRenderer implements Gfx.Renderer {
 
   bindPipeline(pipelineId: Gfx.Id): void {
     const pipeline = this.renderPipelines.get(pipelineId);
+    this.pipeline = pipeline;
     if (this.current.shader !== pipeline.shader) {
       gl.useProgram(pipeline.shader.glProgram);
       this.current.shader = pipeline.shader;
@@ -895,7 +904,7 @@ export class WebGlRenderer implements Gfx.Renderer {
       depthCompareFunc: glCompareFunc });
   }
 
-  createResourceTable(pipelineId: Gfx.Id): Gfx.Id {
+  createVertexTable(pipelineId: Gfx.Id): Gfx.Id {
     const pipeline = this.renderPipelines.get(pipelineId);
 
     let vao = null;
@@ -903,23 +912,28 @@ export class WebGlRenderer implements Gfx.Renderer {
       vao = gl.createVertexArray();
     }
 
-    return this.resourceTables.create({ pipeline, vao, buffers: [], textures: [], uniforms: [] });
+    return this.vertexTables.create({ pipeline, vao, buffers: [] });
   }
 
-  removeResourceTable(tableId: Gfx.Id): void {
+  removeVertexTable(tableId: Gfx.Id): void {
     if (this.isGfxFeatureSupported(Gfx.Feature.VertexArrayObject)) {
-      const table = this.resourceTables.get(tableId);
+      const table = this.vertexTables.get(tableId);
       gl.deleteVertexArray(table.vao);
     }
 
+    this.vertexTables.delete(tableId);
+  }
+
+  createResourceTable(layout: Gfx.ResourceLayout): Gfx.Id {
+    return this.resourceTables.create({ layout, buffers: [], textures: [] });
+  }
+
+  removeResourceTable(tableId: Gfx.Id): void {
     this.resourceTables.delete(tableId);
   }
 
-  bindResources(resourceTableId: Gfx.Id): void {
-    const table = this.resourceTables.get(resourceTableId);
-    const uniLayout = table.pipeline.shader.uniformLayout;
-    const shaderRefl = table.pipeline.shader.reflection;
-    const shaderName = table.pipeline.shader.name;
+  bindVertices(vertexTableId: Gfx.Id): void {
+    const table = this.vertexTables.get(vertexTableId);
 
     // Bind Vertex Attributes
     if (this.isGfxFeatureSupported(Gfx.Feature.VertexArrayObject)) 
@@ -930,23 +944,30 @@ export class WebGlRenderer implements Gfx.Renderer {
         bindBufferVertexAttributes(table.pipeline, table.buffers[i], i);
       }
     }
+  }
+  
+  bindResources(resourceTableId: Gfx.Id): void {
+    const table = this.resourceTables.get(resourceTableId);
+    const uniLayout = this.pipeline.shader.uniformLayout;
+    const shaderRefl = this.pipeline.shader.reflection;
+    const shaderName = this.pipeline.shader.name;
   
     // Bind Uniforms
     for (let i = 0; i < shaderRefl.uniforms.length; i++) {
       const def = shaderRefl.uniforms[i];
       const layout = uniLayout[def.name];
-      const cpuBuf = table.uniforms[layout.index].buffer.cpuBuffer;
+      const cpuBuf = table.buffers[layout.index].buffer.cpuBuffer;
       assert(defined(cpuBuf));
 
       const value = new Float32Array(cpuBuf!.buffer, layout.offset, def.size / 4); 
 
       // GL Uniform calls are very expensive, but uniforms are saved per shader program.
-      const oldVal = table.pipeline.shader.uniformVals[def.name];
+      const oldVal = this.pipeline.shader.uniformVals[def.name];
       let changed = !value.every((valI, i) => valI === oldVal[i]);
 
       // Only re-set the uniform if the value has changed from the current GL uniform value
       if (changed) {
-        table.pipeline.shader.uniformVals[def.name].set(value);
+        this.pipeline.shader.uniformVals[def.name].set(value);
         switch ( def.type )
         {
           case Gfx.Type.Float: gl.uniform1fv(def.location, value ); break;
@@ -980,32 +1001,34 @@ export class WebGlRenderer implements Gfx.Renderer {
     }
   }
 
-  setBuffer(resourceTableId: Gfx.Id, bufferId: Gfx.Id, index: number = 0, offset: number = 0): void {
-    const table = this.resourceTables.get(resourceTableId);
-    const buffer = this.buffers.get(bufferId);
-    const bufferWithOffset = { buffer, offset };
+  setVertexBuffer(vertexTableId: Gfx.Id, index: number, view: Gfx.BufferView): void {
+    const table = this.vertexTables.get(vertexTableId);
+    const buffer = this.buffers.get(view.buffer);
+    const bufferWithOffset: BufferView = { buffer, offset: view.byteOffset || 0 };
     assert(index < Gfx.kMaxShaderVertexBuffers);
 
-    if(buffer.type === Gfx.BufferType.Uniform) {
-      table.uniforms[index] = bufferWithOffset
-    } else {
-      table.buffers[index] = bufferWithOffset
+    table.buffers[index] = bufferWithOffset;
 
-      // Configure the VAO if supported. It will then be rebound before drawing by BindResources()
-      if (this.isGfxFeatureSupported(Gfx.Feature.VertexArrayObject)) {
-        gl.bindVertexArray(table.vao);
-        bindBufferVertexAttributes(table.pipeline, bufferWithOffset, index);
-      }
+    // Configure the VAO if supported. It will then be rebound before drawing by BindResources()
+    if (this.isGfxFeatureSupported(Gfx.Feature.VertexArrayObject)) {
+      gl.bindVertexArray(table.vao);
+      bindBufferVertexAttributes(table.pipeline, bufferWithOffset, index);
     }
   }
 
-  setTexture(resourceTableId: Gfx.Id, textureId: Gfx.Id, index: number) {
+  setBuffer(resourceTableId: Gfx.Id, index: number, view: Gfx.BufferView) {
+    const table = this.resourceTables.get(resourceTableId) as ResourceTable;
+    const buffer = this.buffers.get(view.buffer);
+    table.buffers[index] = { buffer, offset: view.byteOffset || 0 };
+  }
+
+  setTexture(resourceTableId: Gfx.Id, index: number, textureId: Gfx.Id) {
     const table = this.resourceTables.get(resourceTableId) as ResourceTable;
     const texture = textureId ? this.textures.get(textureId) : null;
     table.textures[index] = texture;
   }
 
-  setTextures(resourceTableId: Gfx.Id, textureIds: Gfx.Id[], index: number) {
+  setTextures(resourceTableId: Gfx.Id, index: number, textureIds: Gfx.Id[]) {
     const table = this.resourceTables.get(resourceTableId) as ResourceTable;
     for (let i = 0; i < textureIds.length; i++) {
       const texture = textureIds[i] ? this.textures.get(textureIds[i]) : null;
@@ -1134,7 +1157,7 @@ export class WebGlRenderer implements Gfx.Renderer {
     // Update our shadow state to ensure that the correct shader gets re-bound
     this.current.shader = undefined;
     
-    return this.shaders.create({ name, glProgram, reflection, uniformVals, uniformLayout });
+    return this.shaders.create({ name, glProgram, reflection, uniformVals, uniformLayout, resourceLayout });
   }
 
   removeShader(shaderId: Gfx.Id): void {
@@ -1267,6 +1290,11 @@ export class WebGlRenderer implements Gfx.Renderer {
     }
     
     this.buffers.delete(bufferId);
+  }
+
+  getResourceLayout(shaderId: Gfx.Id) {
+    const shader = this.shaders.get(shaderId);
+    return shader.resourceLayout;
   }
 
   readPixels(offsetX: number, offsetY: number, width: number, height: number, result: Uint8Array): void {

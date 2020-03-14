@@ -30,6 +30,7 @@ export class Demo {
     private shader: Gfx.Id;
     private pipeline: Gfx.Id;
     private resources: Gfx.Id;
+    private vertexTable: Gfx.Id;
     private vertexBuffer: Gfx.Id;
     private indexBuffer: Gfx.Id;
 
@@ -72,10 +73,12 @@ export class Demo {
         this.uniformBuffer.setFloats('u_color', new Float32Array([0, 0, 1, 1]));
         this.uniformBuffer.write(gfxDevice);
 
-        this.resources = gfxDevice.createResourceTable(this.pipeline);
-        gfxDevice.setBuffer(this.resources, this.vertexBuffer, 0);
-        gfxDevice.setBuffer(this.resources, this.uniformBuffer.getBuffer(), 0);
-        gfxDevice.setBuffer(this.resources, globalUniforms.buffer, 1);
+        this.resources = gfxDevice.createResourceTable(SimpleShader.resourceLayout);
+        gfxDevice.setBuffer(this.resources, SimpleShader.resourceLayout.uniforms.index, { buffer: this.uniformBuffer.getBuffer() });
+        gfxDevice.setBuffer(this.resources, SimpleShader.resourceLayout.globalUniforms.index, { buffer: globalUniforms.buffer });
+
+        this.vertexTable = gfxDevice.createVertexTable(this.pipeline);
+        gfxDevice.setVertexBuffer(this.vertexTable, 0, { buffer: this.vertexBuffer });
     }
 
     update({ }) {
@@ -86,8 +89,9 @@ export class Demo {
         const primA: RenderPrimitive = {
             renderPipeline: this.pipeline,
             resourceTable: this.resources,
+            vertexTable: this.vertexTable,
             elementCount: 6,
-            indexBuffer: { bufferId: this.indexBuffer },
+            indexBuffer: { buffer: this.indexBuffer },
             indexType: Gfx.Type.Ushort,
             type: Gfx.PrimitiveType.Triangles
         }
