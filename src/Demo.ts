@@ -2,10 +2,11 @@ import simple_vert from './shaders/simple.vert';
 import simple_frag from './shaders/simple.frag';
 import { GlobalUniforms } from './GlobalUniforms';
 import * as Gfx from './gfx/GfxTypes';
-import { renderLists } from './RenderList';
+import { renderLists, RenderList } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
 import { UniformBuffer } from './UniformBuffer';
 import { ResourceManager } from './resources/ResourceLoading';
+import { Material, Mesh, Model } from './Mesh';
 
 class SimpleShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
@@ -28,9 +29,9 @@ class SimpleShader implements Gfx.ShaderDescriptor {
 
 export class Demo {
     private shader: Gfx.Id;
-    private pipeline: Gfx.Id;
-    private resources: Gfx.Id;
-    private vertexTable: Gfx.Id;
+    private material: Material;
+    private mesh: Mesh;
+    private model: Model;
     private vertexBuffer: Gfx.Id;
     private indexBuffer: Gfx.Id;
 
@@ -58,7 +59,14 @@ export class Demo {
         });
 
         this.shader = gfxDevice.createShader(new SimpleShader());
-        this.pipeline = gfxDevice.createRenderPipeline(this.shader, renderFormat, vertLayout, SimpleShader.resourceLayout);
+
+        this.uniformBuffer = new UniformBuffer('PlaneUniforms', gfxDevice, SimpleShader.uniformLayout);
+        this.uniformBuffer.setFloats('u_color', new Float32Array([0, 0, 1, 1]));
+        this.uniformBuffer.write(gfxDevice);
+
+        this.material = new Material(gfxDevice, this.shader);
+        this.material.setUniformBuffer(gfxDevice, 'uniforms', this.uniformBuffer.getBuffer());
+        this.material.setUniformBuffer(gfxDevice, 'globalUniforms', globalUniforms.buffer);
         
         const vertices = new Float32Array([
             -0.5, -0.5, 0,
@@ -69,16 +77,9 @@ export class Demo {
         this.vertexBuffer = gfxDevice.createBuffer('PlaneVertices', Gfx.BufferType.Vertex, Gfx.Usage.Static, vertices);
         this.indexBuffer = gfxDevice.createBuffer('PlaneIndices', Gfx.BufferType.Index, Gfx.Usage.Static, new Uint16Array([0, 1, 2, 2, 1, 3]).buffer);
 
-        this.uniformBuffer = new UniformBuffer('PlaneUniforms', gfxDevice, SimpleShader.uniformLayout);
-        this.uniformBuffer.setFloats('u_color', new Float32Array([0, 0, 1, 1]));
-        this.uniformBuffer.write(gfxDevice);
-
-        this.resources = gfxDevice.createResourceTable(SimpleShader.resourceLayout);
-        gfxDevice.setBuffer(this.resources, SimpleShader.resourceLayout.uniforms.index, { buffer: this.uniformBuffer.getBuffer() });
-        gfxDevice.setBuffer(this.resources, SimpleShader.resourceLayout.globalUniforms.index, { buffer: globalUniforms.buffer });
-
-        this.vertexTable = gfxDevice.createVertexTable(this.pipeline);
-        gfxDevice.setVertexBuffer(this.vertexTable, 0, { buffer: this.vertexBuffer });
+        this.mesh = new Mesh(vertLayout, [this.vertexBuffer], 6, this.indexBuffer);
+        this.model = new Model();
+        this.model.intialize(gfxDevice, renderLists.opaque, this.mesh, this.material);
     }
 
     update({ }) {
@@ -86,16 +87,6 @@ export class Demo {
     }
 
     render({ }) {
-        const primA: RenderPrimitive = {
-            renderPipeline: this.pipeline,
-            resourceTable: this.resources,
-            vertexTable: this.vertexTable,
-            elementCount: 6,
-            indexBuffer: { buffer: this.indexBuffer },
-            indexType: Gfx.Type.Ushort,
-            type: Gfx.PrimitiveType.Triangles
-        }
-
-        renderLists.opaque.push(primA);
+        renderLists.opaque.push(this.model.primitive);
     }
 }
