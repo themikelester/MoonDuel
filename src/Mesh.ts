@@ -9,26 +9,36 @@ function toBufferView(val: BufferOrBufferView): Gfx.BufferView {
     return (val as Gfx.BufferView).buffer ? val as Gfx.BufferView: { buffer: val as Gfx.Id }
 }
 
+export interface MeshDescriptor {
+    vertexLayout: Gfx.VertexLayout;
+    vertexBuffers: BufferOrBufferView[];
+    elementCount: number;
+
+    indexBuffer?: BufferOrBufferView;
+    indexType?: Gfx.Type;
+
+    primitiveType?: Gfx.PrimitiveType;
+}
+
 export class Mesh {
     vertexLayout: Gfx.VertexLayout;
     vertexBuffers: Gfx.BufferView[];
+    elementCount: number;
 
     indexBuffer?: Gfx.BufferView;
     indexType?: Gfx.Type;
 
-    drawStart: number = 0;
-    drawEnd: number = Infinity;
-    primitiveType: Gfx.PrimitiveType = Gfx.PrimitiveType.Triangles;
+    primitiveType: Gfx.PrimitiveType;
 
-    constructor(vertexLayout: Gfx.VertexLayout, vertexBuffers: BufferOrBufferView[], elementCount: number, 
-            indexBuffer?: BufferOrBufferView, indexType = Gfx.Type.Ushort) {
-        this.vertexLayout = vertexLayout;
-        this.vertexBuffers = vertexBuffers.map(b => toBufferView(b));
-        this.drawEnd = elementCount;
+    constructor(desc: MeshDescriptor) {
+        this.vertexLayout = desc.vertexLayout;
+        this.vertexBuffers = desc.vertexBuffers.map(b => toBufferView(b));
+        this.elementCount = desc.elementCount;
+        this.primitiveType = defaultValue(desc.primitiveType, Gfx.PrimitiveType.Triangles);
         
-        if (indexBuffer) {
-            this.indexBuffer = toBufferView(indexBuffer);
-            this.indexType = indexType;
+        if (desc.indexBuffer) {
+            this.indexBuffer = toBufferView(desc.indexBuffer);
+            this.indexType = defaultValue(desc.indexType, Gfx.Type.Ushort);
         }
     }
 }
@@ -87,7 +97,7 @@ export class Model {
             resourceTable: material.resources,
             vertexTable: this.vertexTable,
             
-            elementCount: mesh.drawEnd,
+            elementCount: mesh.elementCount,
             type: mesh.primitiveType,
 
             indexBuffer: mesh.indexBuffer,

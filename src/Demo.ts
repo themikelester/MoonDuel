@@ -42,7 +42,7 @@ export class Demo {
             blendingEnabled: false
         };
 
-        const vertLayout: Gfx.VertexLayout = {
+        const vertexLayout: Gfx.VertexLayout = {
             buffers: [{
                 stride: 12,
                 layout: {
@@ -77,7 +77,12 @@ export class Demo {
         this.vertexBuffer = gfxDevice.createBuffer('PlaneVertices', Gfx.BufferType.Vertex, Gfx.Usage.Static, vertices);
         this.indexBuffer = gfxDevice.createBuffer('PlaneIndices', Gfx.BufferType.Index, Gfx.Usage.Static, new Uint16Array([0, 1, 2, 2, 1, 3]).buffer);
 
-        this.mesh = new Mesh(vertLayout, [this.vertexBuffer], 6, this.indexBuffer);
+        this.mesh = new Mesh({
+            vertexLayout, 
+            vertexBuffers: [this.vertexBuffer], 
+            elementCount: 6, 
+            indexBuffer: this.indexBuffer
+        });
         this.model = new Model();
         this.model.intialize(gfxDevice, renderLists.opaque, this.mesh, this.material);
     }
