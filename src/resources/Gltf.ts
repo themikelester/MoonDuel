@@ -225,6 +225,13 @@ export interface GltfNode {
     children?: number[];
 }
 
+export interface GltfSkin {
+    name?: string;
+    inverseBindMatrices?: Float32Array;
+    skeleton?: number;
+    joints: GltfNode[];
+}
+
 interface GltfMaterial {
     renderFormat: Gfx.RenderFormat;
     cullMode: Gfx.CullMode;
@@ -377,7 +384,7 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
 
     const shaderDefines: string[] = [];
 
-    let indexBufferView: GltfBufferView;
+    let indexBufferView: GltfBufferView | undefined = undefined;
     const vertexBufferViews: GltfBufferView[] = [];
 
     if (defined(prim.indices)) {
@@ -622,6 +629,27 @@ function loadMeshes(res: GltfResource, asset: GltfAsset) {
     }
 }
 
+function loadSkins(res: GltfResource, asset: GltfAsset) {
+    const skins = defaultValue(asset.gltf.skins, []);
+    res.skins = [];
+
+    for (let id = 0; id < skins.length; id++) {
+        const skin = skins[id];
+        
+        res.skins[id] = {
+            name: skin.name,
+            skeleton: skin.skeleton,
+            joints: skin.joints.map(i => assertDefined(res.nodes[i])),
+        }
+        
+        if (defined(skin.inverseBindMatrices)) {
+            const ibmData = toFloatArray(asset.accessorData(skin.inverseBindMatrices));
+            res.skins[id].inverseBindMatrices = ibmData;
+            res.transferList.push(ibmData.buffer);
+        }
+    }
+}
+
 function loadScenes(res: GltfResource, asset: GltfAsset) {
     const defaultSceneId = defaultValue(asset.gltf.scene, 0);
     if (defaultSceneId) {
@@ -691,6 +719,7 @@ function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType
 // --------------------------------------------------------------------------------
 export interface GltfResource extends Resource {
     nodes: GltfNode[];
+    skins: GltfSkin[];
     meshes: GltfMesh[];
     materials: GltfMaterial[];
     textures: GltfTexture[];
@@ -729,6 +758,7 @@ export class GltfLoader implements ResourceLoader {
         loadMaterials(resource, asset);
         loadMeshes(resource, asset);
         loadNodes(resource, asset);
+        loadSkins(resource, asset);
         loadScenes(resource, asset);
         loadAnimations(resource, asset);
 
