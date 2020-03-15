@@ -1,6 +1,6 @@
 import * as Gfx from './gfx/GfxTypes';
 import { vec2, vec3, vec4 } from 'gl-matrix';
-import { assertDefined } from './util';
+import { assertDefined, defaultValue } from './util';
 
 // --------------------------------------------------------------------------------
 // Defining a PackedBuffer is a lot easier than manually computing offsets. E.g:
@@ -24,11 +24,11 @@ export function computePackedBufferLayout(packedLayout: BufferPackedLayout): Gfx
   const names = Object.keys(packedLayout);
   for (let i = 0; i < names.length; i++) {
       const attrib = packedLayout[names[i]];
-      layout[names[i]] ={
+      layout[names[i]] = {
         ...attrib,
         offset: bufferSize,
       };
-      bufferSize += Gfx.TranslateTypeToSize(attrib.type);
+      bufferSize += Gfx.TranslateTypeToSize(attrib.type) * defaultValue(attrib.count, 1);
   }
 
   return layout;
@@ -58,13 +58,13 @@ export class UniformBuffer {
 
     // Compute size and offsets
     // @NOTE: If a uniform offset is undefined, it will be set to the next available byte in the buffer
-    this.bufferSize = 0;
     const names = Object.keys(this.bufferLayout);
-    for (let i = 0; i < names.length; i++) {
+    let lastUniform = this.bufferLayout[names[0]];
+    for (let i = 1; i < names.length; i++) {
       const uniform = this.bufferLayout[names[i]];
-      if (uniform.offset == undefined) uniform.offset = this.bufferSize;
-      this.bufferSize = uniform.offset + Gfx.TranslateTypeToSize(uniform.type);
+      if (uniform.offset > lastUniform.offset) lastUniform = uniform;
     }
+    this.bufferSize = lastUniform.offset + Gfx.TranslateTypeToSize(lastUniform.type) * defaultValue(lastUniform.count, 1);
 
     this.bufferData = new ArrayBuffer(this.bufferSize);
     this.bufferBytes = new Uint8Array(this.bufferData);
