@@ -41,7 +41,7 @@ export class Skin {
     }
 }
 
-// A heirarchy of bones that will be used for skinning. Each instance can be posed individually and manages its own array of matrices.
+// A Skin instance where each bone can be posed individually. Manages its own array of matrices.
 // These will be manipulated during animation, and loaded into uniform buffers during rendering.
 export class Skeleton {
     bones: Bone[];
@@ -51,13 +51,16 @@ export class Skeleton {
         // Copy the bones so that they can be manipulated independently of other Skeletons
         this.bones = bones.slice( 0 );
         this.boneMatrices = new Float32Array(bones.length * 16);
+
+        for (let i = 0; i < bones.length; i++) {
+            mat4.identity(this.boneMatrices.subarray(i * 16, i * 16 + 16));
+        }
     }
 }
 
 // --------------------------------------------------------------------------------
 // Helpers
 // --------------------------------------------------------------------------------
-// @TODO: This belongs in Skeleton.ts
 function assertUniformScale(scale: vec3): number {
     assert(equalsEpsilon(scale[0], scale[1]) && equalsEpsilon(scale[0], scale[2]));
     return scale[0];

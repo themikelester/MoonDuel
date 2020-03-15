@@ -100,7 +100,7 @@ class Main {
 
         this.compositor.render();
         this.demo.render(this);
-        this.avatars.render();
+        this.avatars.render(this);
 
         this.input.afterFrame();
 

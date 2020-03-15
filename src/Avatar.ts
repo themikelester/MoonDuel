@@ -5,20 +5,23 @@ import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from "./RenderList";
 import { GlobalUniforms } from "./GlobalUniforms";
 
-import simple_vert from './shaders/simple.vert';
+import simple_vert from './shaders/skinned.vert';
 import simple_frag from './shaders/simple.frag';
-import { UniformBuffer } from "./UniformBuffer";
+import { UniformBuffer, computePackedBufferLayout } from "./UniformBuffer";
 import { vec4, vec3 } from "gl-matrix";
 import { defaultValue, assert, assertDefined } from "./util";
 import { Skin, Skeleton } from "./Skeleton";
+
+const kAvatarBoneCount = 19;
 
 class AvatarShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
     private static frag = simple_frag;
     
-    public static uniformLayout: Gfx.BufferLayout = {
-        u_color: { offset: 0, type: Gfx.Type.Float4 },
-    };
+    public static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
+        u_color: { type: Gfx.Type.Float4 },
+        u_bones: { type: Gfx.Type.Float4x4, count: kAvatarBoneCount },
+    });
 
     public static resourceLayout = {
         uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: AvatarShader.uniformLayout },
@@ -35,7 +38,7 @@ class AvatarShader implements Gfx.ShaderDescriptor {
 export class AvatarManager {
     shader: Gfx.Id;
     materialUniforms: UniformBuffer;
-    models: Model[] = [];
+    models: SkinnedModel[] = [];
 
     initialize({ gfxDevice, resources, globalUniforms }: { gfxDevice: Gfx.Renderer, resources: ResourceManager, globalUniforms: GlobalUniforms }) {
         this.shader = gfxDevice.createShader(new AvatarShader());
@@ -52,6 +55,7 @@ export class AvatarManager {
 
                 // Parse skeleton
                 const skin = assertDefined((gltf.skins.length > 0) ? Skin.fromGltf(gltf.skins[0]) : undefined);
+                assert(skin.bones.length === kAvatarBoneCount);
 
                 for (let gltfMesh of gltf.meshes) {
                     for (let prim of gltfMesh.primitives) {
@@ -78,12 +82,15 @@ export class AvatarManager {
     }
 
     update() {
-
     }
 
-    render() {
+    render({ gfxDevice }: { gfxDevice: Gfx.Renderer }) {
         for (let i = 0; i < this.models.length; i++) {
             const model = this.models[i];
+
+            this.materialUniforms.setFloats('u_bones', model.skeleton.boneMatrices);
+            this.materialUniforms.write(gfxDevice);
+
             model.renderList.push(model.primitive);
         }
     }
