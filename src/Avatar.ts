@@ -1,6 +1,6 @@
 import { ResourceManager } from "./resources/ResourceLoading";
 import { GltfResource } from "./resources/Gltf";
-import { Mesh, Model, Material } from "./Mesh";
+import { Mesh, Model, Material, SkinnedModel } from "./Mesh";
 import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from "./RenderList";
 import { GlobalUniforms } from "./GlobalUniforms";
@@ -8,7 +8,9 @@ import { GlobalUniforms } from "./GlobalUniforms";
 import simple_vert from './shaders/simple.vert';
 import simple_frag from './shaders/simple.frag';
 import { UniformBuffer } from "./UniformBuffer";
-import { vec4 } from "gl-matrix";
+import { vec4, vec3 } from "gl-matrix";
+import { defaultValue, assert, assertDefined } from "./util";
+import { Skin, Skeleton } from "./Skeleton";
 
 class AvatarShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
@@ -43,10 +45,14 @@ export class AvatarManager {
         this.materialUniforms.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
         this.materialUniforms.write(gfxDevice);
         
-        resources.load('data/Duck.glb', 'gltf', (error, resource) => {
+        resources.load('data/CesiumMan.glb', 'gltf', (error, resource) => {
             if (error) { console.error(`Failed to load resource`, error); }
             else {
                 const gltf = resource as GltfResource;
+
+                // Parse skeleton
+                const skin = assertDefined((gltf.skins.length > 0) ? Skin.fromGltf(gltf.skins[0]) : undefined);
+
                 for (let gltfMesh of gltf.meshes) {
                     for (let prim of gltfMesh.primitives) {
                         const mesh = new Mesh({
@@ -59,7 +65,8 @@ export class AvatarManager {
                         });
 
                         const material = new Material(gfxDevice, this.shader);
-                        const model = new Model(gfxDevice, renderLists.opaque, mesh, material);
+                        const model = new SkinnedModel(gfxDevice, renderLists.opaque, mesh, material);
+                        model.bindSkeleton(new Skeleton(skin.bones), skin.inverseBindMatrices);
                         
                         model.material.setUniformBuffer(gfxDevice, 'uniforms', this.materialUniforms.getBuffer());
                         model.material.setUniformBuffer(gfxDevice, 'globalUniforms', globalUniforms.buffer);

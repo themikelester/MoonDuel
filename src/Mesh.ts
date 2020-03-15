@@ -2,6 +2,8 @@ import * as Gfx from './gfx/GfxTypes';
 import { RenderList, renderLists } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
 import { assertDefined, assert, defined, defaultValue } from './util';
+import { vec3, quat, mat4 } from 'gl-matrix';
+import { Skeleton } from './Skeleton';
 
 type BufferOrBufferView = Gfx.BufferView | Gfx.Id;
 function toBufferView(val: BufferOrBufferView): Gfx.BufferView {
@@ -44,6 +46,8 @@ export class Mesh {
     }
 }
 
+// Material is basically an instance of a Shader. All the necessary Uniforms and Textures are collected here.
+// @NOTE: It does not perform any allocation. These resources may be shared between multiple materials.
 export class Material {
     shader: Gfx.Id;
     layout: Gfx.ResourceLayout;
@@ -109,5 +113,28 @@ export class Model {
             indexBuffer: this.mesh.indexBuffer,
             indexType: this.mesh.indexType,
         }
+    }
+}
+
+function hasAttribute(layout: Gfx.VertexLayout, attributeName: string) {
+    const bufferCount = layout.buffers.length;
+    for (let i = 0; i < bufferCount; i++) {
+        if (defined(layout.buffers[i].layout[attributeName])) return true;
+    }
+    return false;
+}
+
+export class SkinnedModel extends Model {
+    skeleton: Skeleton;
+
+    constructor(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
+        assert(hasAttribute(mesh.vertexLayout, 'a_joints'), 'Supplies mesh is missing attribute required for skinning: "a_joints"');
+        assert(hasAttribute(mesh.vertexLayout, 'a_weights'), 'Supplies mesh is missing attribute required for skinning: "a_weights"');
+        super(device, renderList, mesh, material);
+    }
+
+    bindSkeleton(skeleton: Skeleton, inverseBindMatrices: mat4[]) {
+        assert(skeleton.bones.length === inverseBindMatrices.length);
+        this.skeleton = skeleton;
     }
 }
