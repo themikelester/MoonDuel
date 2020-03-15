@@ -8,6 +8,7 @@ import { GlobalUniforms } from "./GlobalUniforms";
 import simple_vert from './shaders/simple.vert';
 import simple_frag from './shaders/simple.frag';
 import { UniformBuffer } from "./UniformBuffer";
+import { vec4 } from "gl-matrix";
 
 class AvatarShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
@@ -39,6 +40,8 @@ export class AvatarManager {
 
         // @TODO: UniformBuffer should support x instances 
         this.materialUniforms = new UniformBuffer('AvatarMaterial', gfxDevice, AvatarShader.uniformLayout);
+        this.materialUniforms.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
+        this.materialUniforms.write(gfxDevice);
         
         resources.load('data/Duck.glb', 'gltf', (error, resource) => {
             if (error) { console.error(`Failed to load resource`, error); }
