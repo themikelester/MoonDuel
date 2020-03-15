@@ -1115,6 +1115,11 @@ export class WebGlRenderer implements Gfx.Renderer {
         assert(binding !== undefined, `Shader '${name}' expects uniform '${uniform.name}' to be set in a uniform buffer`);
         const type = binding.layout[uniform.name].type;
         assert(type === uniform.type, `Shader '${name}' expects uniform '${uniform.name}' to be type ${uniform.type} but the ShaderResourceLayout specifies type ${type}`);
+        if (uniform.count > 1) {
+          const count = binding.layout[uniform.name].count;
+          assert(count !== undefined, `Shader '${name}' expects uniform '${uniform.name}' to be an array but the ShaderResourceLayout specifies a scalar value`);
+          assert(count! >= uniform.count, `Shader '${name}' expects uniform '${uniform.name}' to be an array of length ${uniform.count} but the ShaderResourceLayout specifies a length of ${count}`);
+        }
       }
 
       for (let i = 0; i < reflection.textureArray.length; i++) {
