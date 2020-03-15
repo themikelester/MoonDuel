@@ -12,6 +12,8 @@ import { GlobalUniforms } from './GlobalUniforms';
 import { InputManager } from './Input';
 import { ResourceManager } from './resources/ResourceLoading';
 
+import { AvatarManager } from './Avatar';
+
 export const enum InitErrorCode {
     SUCCESS,
     NO_WEBGL_GENERIC,
@@ -34,6 +36,7 @@ class Main {
     public demo = new Demo();
     public input = new InputManager();
     public resources = new ResourceManager();
+    public avatars = new AvatarManager();
     
     constructor() {
         this.init();
@@ -60,6 +63,7 @@ class Main {
         this.compositor.initialize();
         this.globalUniforms.initialize();
         this.demo.initialize(this);
+        this.avatars.initialize(this);
         
         // Handle resizing
         window.onresize = this._onResize.bind(this);
@@ -96,6 +100,7 @@ class Main {
 
         this.compositor.render();
         this.demo.render(this);
+        this.avatars.render();
 
         this.input.afterFrame();
 
