@@ -171,23 +171,19 @@ export class GltfAsset {
 // --------------------------------------------------------------------------------
 // GLTF Loader
 // --------------------------------------------------------------------------------
-export type TranslationSampler = Sampler<vec3>;
-export type RotationSampler = Sampler<vec4>;
-export type ScaleSampler = Sampler<vec3>;
-export type WeightsSampler = Sampler<number>;
-export interface Sampler<T> {
+export interface Sampler {
     nodeId: number;
-    times: number[];
-    values: T[];
+    times: Float32Array;
+    values: Float32Array;
 }
 
 export interface GltfAnimation {
     name: string;
     maxTime: number;
-    scales: ScaleSampler[];
-    rotations: RotationSampler[];
-    translations: TranslationSampler[];
-    weights: WeightsSampler[];
+    scales: Sampler[];
+    rotations: Sampler[];
+    translations: Sampler[];
+    weights: Sampler[];
 }
 
 interface GltfBufferView {
@@ -471,6 +467,59 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
     };
 }
 
+function loadAnimations(res: GltfResource, asset: GltfAsset) {
+    const animations = defaultValue(asset.gltf.animations, []);
+    res.animations = [];
+
+    for (let id = 0; id < animations.length; id++) {
+        const anim = animations[id];
+
+        // Parse sampler data 
+        const samplers = anim.samplers.map(sampler => {
+            // @TODO: Support non-float times and data
+            assert(asset.gltf.accessors![sampler.input].componentType === 5126, 'Non-float animation time type unsupported');
+            assert(asset.gltf.accessors![sampler.output].componentType === 5126, 'Non-float animation time type unsupported');
+
+            // @TODO: TransferList for animation data
+            // @TODO: Can this data be more compressed?
+            return {
+                times: toFloatArray(asset.accessorData(sampler.input)),
+                floats: toFloatArray(asset.accessorData(sampler.output))
+            }
+        });
+        
+        const translations: Sampler[] = [];
+        const rotations: Sampler[] = [];
+        const scales: Sampler[] = [];
+        const weights: Sampler[] = [];
+        anim.channels.forEach((c: GlTf.AnimationChannel) => {
+            const channel = {
+                nodeId: assertDefined(c.target.node),
+                times: samplers[c.sampler].times,
+                values: samplers[c.sampler].floats,
+            };
+
+            switch(c.target.path) {
+                case 'translation': translations.push(channel); break;
+                case 'rotation': rotations.push(channel); break;
+                case 'scale': scales.push(channel); break;
+                case 'weight': weights.push(channel); break;
+            }
+        });
+
+        const maxTime = Math.max(...anim.samplers.map(s => assertDefined(asset.gltf.accessors![s.input].max)[0]));
+
+        res.animations.push({
+            name: anim.name,
+            maxTime,
+            scales,
+            rotations,
+            translations,
+            weights
+        });
+    }
+}
+
 function loadImages(res: GltfResource, asset: GltfAsset): Promise<void>[] {
     const images = defaultValue(asset.gltf.images, []);
     const texturePromises = [];
@@ -588,7 +637,7 @@ function loadNodes(res: GltfResource, asset: GltfAsset) {
 
     for (let id = 0; id < nodes.length; id++) {
         const gltfNode = assertDefined(nodes[id]);
-        
+
         const scale = defaultValue(gltfNode.scale, [1, 1, 1]);
         const rotation = defaultValue(gltfNode.rotation, [0, 0, 0, 1]);
         const translation = defaultValue(gltfNode.translation, [0, 0, 0]);
@@ -681,7 +730,7 @@ export class GltfLoader implements ResourceLoader {
         loadMeshes(resource, asset);
         loadNodes(resource, asset);
         loadScenes(resource, asset);
-        // loadAnimations(resource, asset);
+        loadAnimations(resource, asset);
 
         // Wait for all textures to finish loading before continuing
         await Promise.all(texPromises);
@@ -702,7 +751,7 @@ export class GltfLoader implements ResourceLoader {
             for (let idx in resource.imageData) {
                 const imageData = resource.imageData[idx];
                 const tex = resource.textures[idx];
-    
+
                 if (imageData instanceof ImageBitmap) {
                     tex.id = context.renderer.createTexture(tex.name, {
                         usage: Gfx.Usage.Static,
@@ -710,15 +759,15 @@ export class GltfLoader implements ResourceLoader {
                         format: Gfx.TexelFormat.U8x3,
                         maxAnistropy: 16,
                     }, imageData);
-    
+
                     imageData.close();
                 }
             }
-    
+
             delete resource.imageData;
             resource.status = ResourceStatus.Loaded;
-        } 
-        
+        }
+
         else {
             // This browser (Safari) doesn't support createImageBitmap(), which means we have to do JPEG decompression
             // here on the main thread. Use an HtmlImageElement to do this before submitting to WebGL.
@@ -730,20 +779,20 @@ export class GltfLoader implements ResourceLoader {
                     texLoadedCount += 1;
                     continue;
                 }
-    
+
                 if (imageData instanceof ArrayBuffer) {
                     // @TODO: Support other file type (PNG) by using the mimetype from the response
                     var blob = new Blob([imageData], { type: "image/jpeg" });
                     let imageUrl = window.URL.createObjectURL(blob);
-    
+
                     // Create an image element to do async JPEG/PNG decoding
                     resource.imageData[idx] = new Image();
                     (resource.imageData[idx] as HTMLImageElement).src = imageUrl;
-    
+
                     // Continue calling loadSync until the image is loaded and decoded
                     resource.status = ResourceStatus.LoadingSync;
                 }
-    
+
                 if ((resource.imageData[idx] as HTMLImageElement).complete) {
                     tex.id = context.renderer.createTexture(tex.name, {
                         usage: Gfx.Usage.Static,
