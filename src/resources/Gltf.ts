@@ -197,16 +197,17 @@ interface GltfBufferView {
 }
 
 interface GltfPrimitive {
-    vertexLayout: Gfx.VertexLayout,
+    vertexLayout: Gfx.VertexLayout;
+    vertexBuffers: GltfBufferView[];
     elementCount: number;
     type: Gfx.PrimitiveType;
 
     indexBuffer?: GltfBufferView;
-    indexType?: Gfx.Type
+    indexType?: Gfx.Type;
 
     depthMode?: Gfx.Id;
     cullMode?: Gfx.CullMode;
-    material: GltfMaterial,
+    material: GltfMaterial;
 }
 
 interface GltfMesh {
@@ -446,7 +447,9 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
 
     const shaderDefines: string[] = [];
 
-    let indexBufferView;
+    let indexBufferView: GltfBufferView;
+    const vertexBufferViews: GltfBufferView[] = [];
+
     if (defined(prim.indices)) {
         const acc = assertDefined(gltf.accessors)[prim.indices];
         const viewId = assertDefined(acc.bufferView);
@@ -461,12 +464,13 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
         const view = assertDefined(gltf.bufferViews)[viewIdx];
         let bufferDesc = vertexLayout.buffers[viewIdx];
 
-        loadBufferView(res, asset, viewIdx, Gfx.BufferType.Vertex);
+        const bufferView = loadBufferView(res, asset, viewIdx, Gfx.BufferType.Vertex);
 
         const attribDefine = GLTF_ATTRIBUTE_DEFINES[gltfAttribName];
         if (defined(attribDefine)) shaderDefines.push(attribDefine);
 
         if (!defined(bufferDesc)) {
+            vertexBufferViews[viewIdx] = bufferView;
             bufferDesc = vertexLayout.buffers[viewIdx] = {
                 stride: defaultValue(view.byteStride, 0), // 0 means tightly packed
                 layout: {},
@@ -491,9 +495,10 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
                 const view = assertDefined(gltf.bufferViews)[viewIdx];
                 let bufferDesc = vertexLayout.buffers[viewIdx];
 
-                loadBufferView(res, asset, viewIdx, Gfx.BufferType.Vertex);
+                const bufferView = loadBufferView(res, asset, viewIdx, Gfx.BufferType.Vertex);
 
                 if (!defined(bufferDesc)) {
+                    vertexBufferViews[viewIdx] = bufferView;
                     bufferDesc = vertexLayout.buffers[viewIdx] = {
                         stride: defaultValue(view.byteStride, 0), // 0 means tightly packed
                         layout: {},
@@ -514,6 +519,7 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
 
     return {
         elementCount: indices.count,
+        vertexBuffers: vertexBufferViews,
         type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
         indexType: translateAccessorToType(indices.type, indices.componentType),
         indexBuffer: indicesBufferView,

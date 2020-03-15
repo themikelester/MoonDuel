@@ -83,8 +83,7 @@ export class Demo {
             elementCount: 6, 
             indexBuffer: this.indexBuffer
         });
-        this.model = new Model();
-        this.model.intialize(gfxDevice, renderLists.opaque, this.mesh, this.material);
+        this.model = new Model(gfxDevice, renderLists.opaque, this.mesh, this.material);
     }
 
     update({ }) {

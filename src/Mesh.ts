@@ -1,7 +1,6 @@
 import * as Gfx from './gfx/GfxTypes';
 import { RenderList, renderLists } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
-import { UniformBuffer } from './UniformBuffer';
 import { assertDefined, assert, defined, defaultValue } from './util';
 
 type BufferOrBufferView = Gfx.BufferView | Gfx.Id;
@@ -78,32 +77,37 @@ export class Material {
 }
 
 export class Model {
+    mesh: Mesh;
+    material: Material;
+
     pipeline: Gfx.Id;
     vertexTable: Gfx.Id;
     primitive: RenderPrimitive;
     renderList: RenderList;
 
-    intialize(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
+    constructor(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
         this.renderList = renderList;
+        this.mesh = mesh;
+        this.material = material;
 
         // @TODO: Pipeline caching
         this.pipeline = device.createRenderPipeline(material.shader, renderList.renderFormat, mesh.vertexLayout, material.layout);
         
         this.vertexTable = device.createVertexTable(this.pipeline);
-        for (let i = 0; i < mesh.vertexBuffers.length; i++) {
-            device.setVertexBuffer(this.vertexTable, i, mesh.vertexBuffers[i]);
-        }
+        mesh.vertexBuffers.forEach((buf, i) => {
+            device.setVertexBuffer(this.vertexTable, i, buf);
+        });
 
         this.primitive = {
             renderPipeline: this.pipeline,
-            resourceTable: material.resources,
+            resourceTable: this.material.resources,
             vertexTable: this.vertexTable,
             
-            elementCount: mesh.elementCount,
-            type: mesh.primitiveType,
+            elementCount: this.mesh.elementCount,
+            type: this.mesh.primitiveType,
 
-            indexBuffer: mesh.indexBuffer,
-            indexType: mesh.indexType,
+            indexBuffer: this.mesh.indexBuffer,
+            indexType: this.mesh.indexType,
         }
     }
 }
