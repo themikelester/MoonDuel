@@ -458,24 +458,33 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
 
     // Fill out the VertexLayout based on the primitive's attributes
     const vertexLayout: Gfx.VertexLayout = { buffers: [] };
+    const bufferViewMap: { [viewIdx: number]: number } = {};
     for (let gltfAttribName in prim.attributes) {
         const accessor = assertDefined(gltf.accessors)[prim.attributes[gltfAttribName]];
         const viewIdx = assertDefined(accessor.bufferView, 'Undefined accessor buffers are not yet implemented');
-        const view = assertDefined(gltf.bufferViews)[viewIdx];
-        let bufferDesc = vertexLayout.buffers[viewIdx];
+        const bufferIdx = bufferViewMap[viewIdx];
+        let bufferDesc;
 
-        const bufferView = loadBufferView(res, asset, viewIdx, Gfx.BufferType.Vertex);
+        if (!defined(bufferIdx)) {
+            // This is the first time this buffer view is referenced by an attribute
+            bufferViewMap[viewIdx] = vertexBufferViews.length;
 
-        const attribDefine = GLTF_ATTRIBUTE_DEFINES[gltfAttribName];
-        if (defined(attribDefine)) shaderDefines.push(attribDefine);
+            const bufferView = loadBufferView(res, asset, viewIdx, Gfx.BufferType.Vertex);
 
-        if (!defined(bufferDesc)) {
-            vertexBufferViews[viewIdx] = bufferView;
-            bufferDesc = vertexLayout.buffers[viewIdx] = {
+            const view = assertDefined(gltf.bufferViews)[viewIdx];
+            bufferDesc = {
                 stride: defaultValue(view.byteStride, 0), // 0 means tightly packed
                 layout: {},
             };
+
+            vertexBufferViews.push(bufferView);
+            vertexLayout.buffers.push(bufferDesc);
+        } else {
+            bufferDesc = vertexLayout.buffers[bufferIdx];
         }
+
+        const attribDefine = GLTF_ATTRIBUTE_DEFINES[gltfAttribName];
+        if (defined(attribDefine)) shaderDefines.push(attribDefine);
 
         bufferDesc.layout[GLTF_VERTEX_ATTRIBUTES[gltfAttribName]] = {
             type: translateAccessorToType(accessor.type, accessor.componentType),
