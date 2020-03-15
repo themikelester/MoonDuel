@@ -42,6 +42,7 @@ function executeRenderList(gfxDevice: Gfx.Renderer, list: RenderList) {
         const prim = list.primitives[i];
 
         gfxDevice.bindPipeline(prim.renderPipeline);
+        gfxDevice.bindVertices(prim.vertexTable);
         gfxDevice.bindResources(prim.resourceTable);
 
         gfxDevice.setCullMode(list.defaultCullMode);
