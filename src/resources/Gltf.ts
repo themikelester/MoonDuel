@@ -367,79 +367,13 @@ const GLTF_ATTRIBUTE_DEFINES: { [index: string]: string } = {
 // --------------------------------------------------------------------------------
 // GLTF parsing helpers
 // --------------------------------------------------------------------------------
-function loadScene(res: GltfResource, asset: GltfAsset, sceneId: number) {
-    const scene = assertDefined(asset.gltf.scenes)[sceneId];
-
-    if (scene.nodes) {
-        for (let index of scene.nodes) {
-            res.rootNodeIds.push(index);
-            const node = assertDefined(asset.gltf.nodes)[index];
-            loadNode(res, asset, node);
-        }
-    }
-}
-
-function loadNode(res: GltfResource, asset: GltfAsset, gltfNode: GlTf.Node): GltfNode {
-    const scale = defaultValue(gltfNode.scale, [1, 1, 1]);
-    const rotation = defaultValue(gltfNode.rotation, [0, 0, 0, 1]);
-    const translation = defaultValue(gltfNode.translation, [0, 0, 0]);
-
-    const node: GltfNode = {
-        name: gltfNode.name,
-        scale: vec3.fromValues(scale[0], scale[1], scale[2]),
-        rotation: quat.fromValues(rotation[0], rotation[1], rotation[2], rotation[3]),
-        translation: vec3.fromValues(translation[0], translation[1], translation[2]),
-        morphWeight: defaultValue(gltfNode.weights, [0])[0],
-    }
-
-    if (defined(gltfNode.matrix)) node.transform = mat4.fromValues.apply(null, gltfNode.matrix);
-    else node.transform = mat4.fromRotationTranslationScale(mat4.create(), node.rotation, node.translation, node.scale);
-
-    if (defined(gltfNode.mesh)) {
-        node.mesh = loadMesh(res, asset, gltfNode.mesh);
-    }
-
-    if (defined(gltfNode.children)) {
-        node.children = [];
-        for (let childIdx = 0; childIdx < gltfNode.children.length; childIdx++) {
-            const childId = gltfNode.children[childIdx]
-            const child = assertDefined(asset.gltf.nodes)[childId];
-            loadNode(res, asset, child);
-            node.children.push(childId);
-        }
-    }
-
-    res.nodes.push(node);
-    return node;
-}
-
-function loadMesh(res: GltfResource, asset: GltfAsset, id: number) {
-    const gltfMesh = assertDefined(asset.gltf.meshes)[id];
-
-    // A Mesh has a transform (from its parent node) that is shared between its primitives
-    // A Primitive defines its material as well as draw call parameters
-    const primitives = [];
-    for (let prim of gltfMesh.primitives) {
-        primitives.push(loadPrimitive(res, asset, prim));
-    }
-
-    const mesh: GltfMesh = {
-        name: gltfMesh.name,
-        id,
-        primitives,
-    }
-
-    res.meshes[id] = mesh;
-    return mesh;
-}
-
 function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.MeshPrimitive): GltfPrimitive {
     const prim = gltfPrimitive;
     const gltf = asset.gltf;
 
     let material;
     if (defined(gltfPrimitive.material)) {
-        material = loadMaterial(res, asset, gltfPrimitive.material);
+        material = assertDefined(res.materials[gltfPrimitive.material]);
     } else {
         // @TODO: Default material
         throw new Error('Default material not yet supported');
@@ -537,71 +471,154 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
     };
 }
 
-function loadMaterial(res: GltfResource, asset: GltfAsset, id: number) {
-    const gltfMaterial = assertDefined(asset.gltf.materials)[id];
-    if (defined(res.materials[id])) return res.materials[id];
+function loadImages(res: GltfResource, asset: GltfAsset): Promise<void>[] {
+    const images = defaultValue(asset.gltf.images, []);
+    const texturePromises = [];
+    res.textures = [];
+    res.imageData = [];
 
-    const material: GltfMaterial = {
-        renderFormat: { blendingEnabled: false }, // @TODO: Parse this
-        cullMode: gltfMaterial.doubleSided ? Gfx.CullMode.None : Gfx.CullMode.Back,
-        textures: {},
-    }
-
-    const defaultPbr = {
-        baseColorFactor: [1, 1, 1, 1],
-        metallicFactor: 1,
-        roughnessFactor: 1,
-    };
-    const pbr = defaultValue(gltfMaterial.pbrMetallicRoughness, defaultPbr);
-    // @TODO: Alpha mode
-    // @TODO: Alpha cutoff
-
-    if (pbr.baseColorTexture) {
-        const uvIdx = defaultValue(pbr.baseColorTexture.texCoord, 0);
-        assert(uvIdx === 0, 'Non-zero UV indices not yet supported');
-        const texture = loadImage(res, asset, pbr.baseColorTexture.index);
-        material.textures['baseColorTexture'] = texture;
-    }
-
-    res.materials[id] = material;
-    return material;
-}
-
-function loadImage(res: GltfResource, asset: GltfAsset, id: number): GltfTexture {
-    if (defined(res.textures[id])) return res.textures[id];
-
-    const gltfImage = assertDefined(asset.gltf.images)[id];
-    assertDefined(gltfImage, 'Image loading from a URI is not yet supported');
-
+    // Shared texture properties
     const desc: Gfx.TextureDescriptor = {
         type: Gfx.TextureType.Texture2D,
         format: Gfx.TexelFormat.U8x3,
         usage: Gfx.Usage.Static,
     };
 
-    const name = gltfImage.name || `tex${id}`;
+    for (let id = 0; id < images.length; id++) {
+        const gltfImage = assertDefined(images[id]);
+        const bufferView = assertDefined(gltfImage.bufferView, 'Image loading from a URI is not yet supported');
+        const bufferData = asset.bufferViewData(bufferView);
 
-    // All browser except Safari support JPG/PNG image decoding on a worker via createImageBitmap
-    // Otherwise we'll just send the ArrayBuffer and decode before uploading to the GPU on the main thread
-    const buffer = asset.bufferViewData(assertDefined(gltfImage.bufferView));
-    let imageDataPromise: Promise<ArrayBuffer | ImageBitmap>;
-    if (defined(self.createImageBitmap)) {
-        const blob = new Blob([buffer], { type: assertDefined(gltfImage.mimeType) });
-        imageDataPromise = createImageBitmap(blob);
-    } else {
-        imageDataPromise = Promise.resolve(buffer.buffer);
+        const name = gltfImage.name || `tex${id}`;
+
+        // All browser except Safari support JPG/PNG image decoding on a worker via createImageBitmap
+        // Otherwise we'll just send the ArrayBuffer and decode before uploading to the GPU on the main thread
+        let imageDataPromise: Promise<ArrayBuffer | ImageBitmap>;
+        if (defined(self.createImageBitmap)) {
+            const blob = new Blob([bufferData], { type: assertDefined(gltfImage.mimeType) });
+            imageDataPromise = createImageBitmap(blob);
+        } else {
+            imageDataPromise = Promise.resolve(bufferData.buffer);
+        }
+
+        // Wait for the imageData to be ready before pushing to main thread
+        // @NOTE: Make sure we make large data transferrable to avoid costly copies between threads
+        texturePromises.push(imageDataPromise.then(imageData => {
+            res.transferList.push(imageData);
+            res.imageData[id] = imageData;
+        }));
+
+        const tex = { name, index: id, id: -1, desc };
+        res.textures[id] = tex;
     }
 
-    // Wait for the imageData to be ready before pushing to main thread
-    // @NOTE: Make sure we make large data transferrable to avoid costly copies between threads
-    res.promises.push(imageDataPromise.then(imageData => {
-        res.transferList.push(imageData);
-        res.imageData[id] = imageData;
-    }));
+    return texturePromises;
+}
 
-    const tex = { name, index: id, id: -1, desc };
-    res.textures[id] = tex;
-    return tex;
+function loadMaterials(res: GltfResource, asset: GltfAsset) {
+    const materials = defaultValue(asset.gltf.materials, []);
+    res.materials = [];
+
+    for (let id = 0; id < materials.length; id++) {
+        const gltfMaterial = assertDefined(materials[id]);
+
+        const material: GltfMaterial = {
+            renderFormat: { blendingEnabled: false }, // @TODO: Parse this
+            cullMode: gltfMaterial.doubleSided ? Gfx.CullMode.None : Gfx.CullMode.Back,
+            textures: {},
+        }
+
+        const defaultPbr = {
+            baseColorFactor: [1, 1, 1, 1],
+            metallicFactor: 1,
+            roughnessFactor: 1,
+        };
+
+        const pbr = defaultValue(gltfMaterial.pbrMetallicRoughness, defaultPbr);
+        // @TODO: Alpha mode
+        // @TODO: Alpha cutoff
+
+        if (pbr.baseColorTexture) {
+            const uvIdx = defaultValue(pbr.baseColorTexture.texCoord, 0);
+            assert(uvIdx === 0, 'Non-zero UV indices not yet supported');
+            const texture = assertDefined(res.textures[pbr.baseColorTexture.index]);
+            material.textures['baseColorTexture'] = texture;
+        }
+
+        res.materials[id] = material;
+    }
+}
+
+function loadMeshes(res: GltfResource, asset: GltfAsset) {
+    const meshes = defaultValue(asset.gltf.meshes, []);
+    res.meshes = [];
+
+    for (let id = 0; id < meshes.length; id++) {
+        const gltfMesh = assertDefined(meshes[id]);
+
+        // A Mesh has a transform (from its parent node) that is shared between its primitives
+        // A Primitive defines its material as well as draw call parameters
+        const primitives = [];
+        for (let prim of gltfMesh.primitives) {
+            primitives.push(loadPrimitive(res, asset, prim));
+        }
+
+        const mesh: GltfMesh = {
+            name: gltfMesh.name,
+            id,
+            primitives,
+        }
+
+        res.meshes[id] = mesh;
+    }
+}
+
+function loadScenes(res: GltfResource, asset: GltfAsset) {
+    const defaultSceneId = defaultValue(asset.gltf.scene, 0);
+    if (defaultSceneId) {
+        const scenes = assertDefined(asset.gltf.scenes);
+        const defaultScene = assertDefined(scenes[defaultSceneId]);
+        res.rootNodeIds = defaultValue(defaultScene.nodes, []);
+    }
+}
+
+function loadNodes(res: GltfResource, asset: GltfAsset) {
+    const nodes = defaultValue(asset.gltf.nodes, []);
+    res.nodes = [];
+
+    for (let id = 0; id < nodes.length; id++) {
+        const gltfNode = assertDefined(nodes[id]);
+        
+        const scale = defaultValue(gltfNode.scale, [1, 1, 1]);
+        const rotation = defaultValue(gltfNode.rotation, [0, 0, 0, 1]);
+        const translation = defaultValue(gltfNode.translation, [0, 0, 0]);
+
+        const node: GltfNode = {
+            name: gltfNode.name,
+            scale: vec3.fromValues(scale[0], scale[1], scale[2]),
+            rotation: quat.fromValues(rotation[0], rotation[1], rotation[2], rotation[3]),
+            translation: vec3.fromValues(translation[0], translation[1], translation[2]),
+            morphWeight: defaultValue(gltfNode.weights, [0])[0],
+        }
+
+        if (defined(gltfNode.matrix)) node.transform = mat4.fromValues.apply(null, gltfNode.matrix);
+        else node.transform = mat4.fromRotationTranslationScale(mat4.create(), node.rotation, node.translation, node.scale);
+
+        if (defined(gltfNode.mesh)) {
+            node.mesh = assertDefined(res.meshes[gltfNode.mesh]);
+        }
+
+        if (defined(gltfNode.children)) {
+            node.children = [];
+            for (let childIdx = 0; childIdx < gltfNode.children.length; childIdx++) {
+                const childId = gltfNode.children[childIdx]
+                const child = assertDefined(asset.gltf.nodes)[childId];
+                node.children.push(childId);
+            }
+        }
+
+        res.nodes.push(node);
+    }
 }
 
 function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType: Gfx.BufferType): GltfBufferView {
@@ -656,20 +673,18 @@ export class GltfLoader implements ResourceLoader {
         resource.animations = [];
         resource.rootNodeIds = [];
 
-        resource.promises = [];
         resource.imageData = [];
         resource.bufferData = [];
 
-        // Load the GLTF file starting with the root scene
-        const sceneId = defaultValue(asset.gltf.scene, 0);
-        loadScene(resource, asset, sceneId);
-        // if (defined(asset.gltf.animations)) {
-        //     loadAnimations(asset.gltf.animations);
-        // }
+        const texPromises = loadImages(resource, asset);
+        loadMaterials(resource, asset);
+        loadMeshes(resource, asset);
+        loadNodes(resource, asset);
+        loadScenes(resource, asset);
+        // loadAnimations(resource, asset);
 
-        // @TODO: This shouldn't be part of the resource class
-        await Promise.all(resource.promises);
-        delete resource.promises;
+        // Wait for all textures to finish loading before continuing
+        await Promise.all(texPromises);
 
         resource.status = ResourceStatus.LoadingSync
     }
