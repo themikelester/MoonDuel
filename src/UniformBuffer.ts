@@ -3,6 +3,38 @@ import { vec2, vec3, vec4 } from 'gl-matrix';
 import { assertDefined } from './util';
 
 // --------------------------------------------------------------------------------
+// Defining a PackedBuffer is a lot easier than manually computing offsets. E.g:
+//   public static bufferLayout: Gfx.BufferLayout = computePackedBufferLayout({
+//     g_camPos: { type: Gfx.Type.Float3 },
+//     g_proj: { type: Gfx.Type.Float4x4 },
+//     g_viewProj: { type: Gfx.Type.Float4x4 },
+//   });
+// --------------------------------------------------------------------------------
+export interface BufferPackedLayout {
+  [name: string]: {
+    type: Gfx.Type,
+    count?: number,
+  }
+}
+
+export function computePackedBufferLayout(packedLayout: BufferPackedLayout): Gfx.BufferLayout {
+  const layout: Gfx.BufferLayout = {};
+
+  let bufferSize = 0;
+  const names = Object.keys(packedLayout);
+  for (let i = 0; i < names.length; i++) {
+      const attrib = packedLayout[names[i]];
+      layout[names[i]] ={
+        ...attrib,
+        offset: bufferSize,
+      };
+      bufferSize += Gfx.TranslateTypeToSize(attrib.type);
+  }
+
+  return layout;
+}
+
+// --------------------------------------------------------------------------------
 // A convenience class which allocates a uniform buffer based on a BufferLayout, 
 // and also provides functions to write data to that buffer based on a uniform name.
 // NOTE: !!! Data will not be written to the GPU buffer until you call write() !!!

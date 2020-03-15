@@ -1,4 +1,5 @@
 import * as Gfx from './gfx/GfxTypes';
+import { computePackedBufferLayout } from './UniformBuffer';
 
 // --------------------------------------------------------------------------------
 // A buffer of uniforms that may be useful to many shaders, e.g. camera parameters.
@@ -44,17 +45,4 @@ export class GlobalUniforms {
     get buffer(): Gfx.Id {
         return this._buffer;
     }
-}
-
-function computePackedBufferLayout(uniforms: any): Gfx.BufferLayout {
-    // Compute size and offsets
-    let bufferSize = 0;
-    const names = Object.keys(uniforms);
-    for (let i = 0; i < names.length; i++) {
-        const uniform = uniforms[names[i]];
-        uniform.offset = bufferSize;
-        bufferSize += Gfx.TranslateTypeToSize(uniform.type);
-    }
-
-    return uniforms;
 }
