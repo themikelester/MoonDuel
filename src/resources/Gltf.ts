@@ -229,7 +229,7 @@ export interface GltfSkin {
     name?: string;
     inverseBindMatrices?: Float32Array;
     skeleton?: number;
-    joints: GltfNode[];
+    joints: number[];
 }
 
 interface GltfMaterial {
@@ -639,7 +639,7 @@ function loadSkins(res: GltfResource, asset: GltfAsset) {
         res.skins[id] = {
             name: skin.name,
             skeleton: skin.skeleton,
-            joints: skin.joints.map(i => assertDefined(res.nodes[i])),
+            joints: skin.joints,
         }
         
         if (defined(skin.inverseBindMatrices)) {

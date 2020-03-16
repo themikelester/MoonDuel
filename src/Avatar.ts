@@ -8,7 +8,7 @@ import { GlobalUniforms } from "./GlobalUniforms";
 import vert_source from './shaders/skinned.vert';
 import frag_source from './shaders/simple.frag';
 import { UniformBuffer, computePackedBufferLayout } from "./UniformBuffer";
-import { vec4, vec3 } from "gl-matrix";
+import { vec4, vec3, mat4, quat } from "gl-matrix";
 import { defaultValue, assert, assertDefined } from "./util";
 import { Skin, Skeleton } from "./Skeleton";
 
@@ -54,7 +54,7 @@ export class AvatarManager {
                 const gltf = resource as GltfResource;
 
                 // Parse skeleton
-                const skin = assertDefined((gltf.skins.length > 0) ? Skin.fromGltf(gltf.skins[0]) : undefined);
+                const skin = assertDefined((gltf.skins.length > 0) ? Skin.fromGltf(gltf, 0) : undefined);
                 assert(skin.bones.length === kAvatarBoneCount);
 
                 for (let gltfMesh of gltf.meshes) {
@@ -88,7 +88,13 @@ export class AvatarManager {
         for (let i = 0; i < this.models.length; i++) {
             const model = this.models[i];
 
-            this.materialUniforms.setFloats('u_bones', model.skeleton.boneBuffer);
+            model.skeleton.evaluate();
+
+            const boneFloats = this.materialUniforms.getFloatArray('u_bones');
+            for (let i = 0; i < model.skeleton.bones.length; i++) {
+                const bone = model.skeleton.bones[i];
+                mat4.multiply(boneFloats.subarray(i * 16, i * 16 + 16), bone.model, model.ibms[i]);
+            }
             this.materialUniforms.write(gfxDevice);
 
             model.renderList.push(model.primitive);

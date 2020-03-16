@@ -126,6 +126,7 @@ function hasAttribute(layout: Gfx.VertexLayout, attributeName: string) {
 
 export class SkinnedModel extends Model {
     skeleton: Skeleton;
+    ibms: mat4[];
 
     constructor(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
         assert(hasAttribute(mesh.vertexLayout, 'a_joints'), 'Supplies mesh is missing attribute required for skinning: "a_joints"');
@@ -136,5 +137,6 @@ export class SkinnedModel extends Model {
     bindSkeleton(skeleton: Skeleton, inverseBindMatrices: mat4[]) {
         assert(skeleton.bones.length === inverseBindMatrices.length);
         this.skeleton = skeleton;
+        this.ibms = inverseBindMatrices;
     }
 }
