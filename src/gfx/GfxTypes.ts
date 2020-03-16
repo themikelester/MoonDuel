@@ -155,6 +155,23 @@ export enum Type {
   Texture2D = 0xF0,  
   Texture3D = 0xF1,  
   TextureCube = 0xF2,
+
+  Short_Norm = 0x100,      
+  Short2_Norm,     
+  Short3_Norm,     
+  Short4_Norm,     
+  Ushort_Norm,    
+  Ushort2_Norm,    
+  Ushort3_Norm,    
+  Ushort4_Norm,    
+  Char_Norm,     
+  Char2_Norm,      
+  Char3_Norm,      
+  Char4_Norm,      
+  Uchar_Norm,      
+  Uchar2_Norm,     
+  Uchar3_Norm,     
+  Uchar4_Norm,    
 }
 
 export enum TextureType {

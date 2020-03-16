@@ -60,7 +60,8 @@ function TranslateGlType(glType: GLInt): Gfx.Type {
 }
 
 function TranslateTypeToComponentCount(type: Gfx.Type): GLInt {
-  switch (type) {
+  const rootType = type & 0xFF;
+  switch (rootType) {
     case Gfx.Type.Float:   return 1;
     case Gfx.Type.Float2:  return 2;
     case Gfx.Type.Float3:  return 3;
@@ -98,6 +99,7 @@ function TranslateTypeToComponentCount(type: Gfx.Type): GLInt {
 }
 
 function TranslateTypeToBaseGlType(type: Gfx.Type): GLInt {
+  const rootType = type & 0xFF;
   switch (type) {
     case Gfx.Type.Float:   return gl.FLOAT;
     case Gfx.Type.Float2:  return gl.FLOAT;
@@ -148,8 +150,8 @@ function TranslatePrimitiveType(primType: Gfx.PrimitiveType) {
   }
 }
 
-
 function TranslateTypeToGlType(type: Gfx.Type): GLInt {
+  const rootType = type & 0xFF;
   switch (type) {
     case Gfx.Type.Float:   return gl.FLOAT;
     case Gfx.Type.Float2:  return gl.FLOAT_VEC2;
@@ -184,6 +186,28 @@ function TranslateTypeToGlType(type: Gfx.Type): GLInt {
     case Gfx.Type.Half3:   return gl.HALF_FLOAT_VEC3;
     case Gfx.Type.Half4:   return gl.HALF_FLOAT_VEC4;
     default: return error(`Unsupported type: ${type}`);
+  }
+}
+
+function isTypeNormalized(type: Gfx.Type): boolean {
+  switch (type) {
+    case Gfx.Type.Short_Norm:   return true;
+    case Gfx.Type.Short2_Norm:  return true;
+    case Gfx.Type.Short3_Norm:  return true;
+    case Gfx.Type.Short4_Norm:  return true;
+    case Gfx.Type.Ushort_Norm:  return true;
+    case Gfx.Type.Ushort2_Norm: return true;
+    case Gfx.Type.Ushort3_Norm: return true;
+    case Gfx.Type.Ushort4_Norm: return true;
+    case Gfx.Type.Char_Norm:    return true;
+    case Gfx.Type.Char2_Norm:   return true;
+    case Gfx.Type.Char3_Norm:   return true;
+    case Gfx.Type.Char4_Norm:   return true;
+    case Gfx.Type.Uchar_Norm:   return true;
+    case Gfx.Type.Uchar2_Norm:  return true;
+    case Gfx.Type.Uchar3_Norm:  return true;
+    case Gfx.Type.Uchar4_Norm:  return true;
+    default: return false;
   }
 }
 
@@ -598,8 +622,11 @@ function bindBufferVertexAttributes(pipeline: RenderPipeline, bufferWithOffset: 
     if (!bufferWithOffset.buffer) {
       gl.disableVertexAttribArray(shaderAttrib.location);     
     } else {
+      const type = TranslateTypeToBaseGlType(bufferAttrib.type);
+      const normalized = isTypeNormalized(bufferAttrib.type);
+
       gl.enableVertexAttribArray(shaderAttrib.location);
-      gl.vertexAttribPointer(shaderAttrib.location, shaderAttrib.components, shaderAttrib.glType, true, bufferDesc.stride, bufferAttrib.offset + bufferWithOffset.offset);
+      gl.vertexAttribPointer(shaderAttrib.location, shaderAttrib.components, type, normalized, bufferDesc.stride, bufferAttrib.offset + bufferWithOffset.offset);
 
       if (bufferDesc.stepMode === Gfx.StepMode.Instance) {
         if (gl.instancedArrays) gl.instancedArrays.vertexAttribDivisorANGLE(shaderAttrib.location, 1);
