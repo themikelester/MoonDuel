@@ -45,16 +45,22 @@ export class Skin {
 // These will be manipulated during animation, and loaded into uniform buffers during rendering.
 export class Skeleton {
     bones: Bone[];
-    boneMatrices: Float32Array;
+    boneBuffer: Float32Array; // Column-major packed float array containing mat4's for every bone
+    boneMatrices: mat4[]; // 16-float views into the bone buffer (no extra storage)
 
     constructor(bones: Bone[]) {
         // Copy the bones so that they can be manipulated independently of other Skeletons
         this.bones = bones.slice( 0 );
-        this.boneMatrices = new Float32Array(bones.length * 16);
+        this.boneBuffer = new Float32Array(bones.length * 16);
+        this.boneMatrices = bones.map((b, i) => this.boneBuffer.subarray(i * 16, i * 16 + 16));
 
         for (let i = 0; i < bones.length; i++) {
-            mat4.identity(this.boneMatrices.subarray(i * 16, i * 16 + 16));
+            mat4.identity(this.boneMatrices[i]);
         }
+    }
+
+    evaluate() {
+
     }
 }
 

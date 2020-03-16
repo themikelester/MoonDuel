@@ -88,7 +88,7 @@ export class AvatarManager {
         for (let i = 0; i < this.models.length; i++) {
             const model = this.models[i];
 
-            this.materialUniforms.setFloats('u_bones', model.skeleton.boneMatrices);
+            this.materialUniforms.setFloats('u_bones', model.skeleton.boneBuffer);
             this.materialUniforms.write(gfxDevice);
 
             model.renderList.push(model.primitive);
