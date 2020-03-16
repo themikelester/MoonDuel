@@ -1,15 +1,15 @@
-#version 100
-// @TODO: This should be set externally?
-#define MAX_BONES 19
-
 precision mediump float;
+
+#ifndef k_MaxBones
+#   defined k_MaxBones 32
+#endif
 
 attribute vec3 a_pos;
 attribute vec4 a_joints;
 attribute vec4 a_weights;
 
 uniform mat4 g_viewProj;
-uniform mat4 u_bones[MAX_BONES];
+uniform mat4 u_bones[k_MaxBones];
 
 void main()
 {

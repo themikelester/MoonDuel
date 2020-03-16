@@ -41,9 +41,9 @@ module.exports = {
         use: {
           loader: 'webpack-glsl-minify',
           options: {
-            preserveDefines: false,
+            preserveDefines: true,
             preserveUniforms: true,
-            preserveVariables: false,
+            preserveVariables: true,
           }
         }
       },

@@ -5,8 +5,8 @@ import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from "./RenderList";
 import { GlobalUniforms } from "./GlobalUniforms";
 
-import simple_vert from './shaders/skinned.vert';
-import simple_frag from './shaders/simple.frag';
+import vert_source from './shaders/skinned.vert';
+import frag_source from './shaders/simple.frag';
 import { UniformBuffer, computePackedBufferLayout } from "./UniformBuffer";
 import { vec4, vec3 } from "gl-matrix";
 import { defaultValue, assert, assertDefined } from "./util";
@@ -15,8 +15,8 @@ import { Skin, Skeleton } from "./Skeleton";
 const kAvatarBoneCount = 19;
 
 class AvatarShader implements Gfx.ShaderDescriptor {
-    private static vert = simple_vert;
-    private static frag = simple_frag;
+    private static vert = vert_source;
+    private static frag = frag_source;
     
     public static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
         u_color: { type: Gfx.Type.Float4 },
@@ -29,12 +29,12 @@ class AvatarShader implements Gfx.ShaderDescriptor {
     };
 
     name = 'AvatarShader';
-    vertSource = AvatarShader.vert.sourceCode;
+    defines = `#define k_MaxBones ${kAvatarBoneCount}\n`;
+    vertSource = [this.defines, AvatarShader.vert.sourceCode];
     fragSource = AvatarShader.frag.sourceCode;
     resourceLayout = AvatarShader.resourceLayout;
     id: Gfx.Id;
 }
-
 export class AvatarManager {
     shader: Gfx.Id;
     materialUniforms: UniformBuffer;
