@@ -64,7 +64,7 @@ export class UniformBuffer {
       const uniform = this.bufferLayout[names[i]];
       if (uniform.offset > lastUniform.offset) lastUniform = uniform;
     }
-    this.bufferSize = lastUniform.offset + Gfx.TranslateTypeToSize(lastUniform.type) * defaultValue(lastUniform.count, 1);
+    this.bufferSize = lastUniform.offset + getUniformSize(lastUniform);
 
     this.bufferData = new ArrayBuffer(this.bufferSize);
     this.bufferBytes = new Uint8Array(this.bufferData);
@@ -102,21 +102,21 @@ export class UniformBuffer {
   setBytes(name: string, value: Uint8Array) {
     const uniform = this.bufferLayout[name];
     if (!uniform) throw new Error(`Attempted to set unknown uniform ${name}`);
-    if (value.byteLength !== Gfx.TranslateTypeToSize(uniform.type) * (uniform.count || 1)) throw new Error('Invalid size');
+    if (value.byteLength !== getUniformSize(uniform)) throw new Error('Invalid size');
     this.bufferBytes.set(value, uniform.offset);
   }
 
   setFloats(name: string, value: Float32Array) {
     const uniform = this.bufferLayout[name];
     if (!uniform) throw new Error(`Attempted to set unknown uniform ${name}`);
-    if (value.byteLength !== Gfx.TranslateTypeToSize(uniform.type) * (uniform.count || 1)) throw new Error('Invalid size');
+    if (value.byteLength !== getUniformSize(uniform)) throw new Error('Invalid size');
     this.bufferFloats.set(value, uniform.offset / 4);
   }
 
   getFloatArray(name: string) {
     const uniform = this.bufferLayout[name];
     if (!uniform) throw new Error(`Attempted to set unknown uniform ${name}`);
-    return new Float32Array(this.bufferData, uniform.offset, Gfx.TranslateTypeToSize(uniform.type) / 4);
+    return new Float32Array(this.bufferData, uniform.offset, getUniformSize(uniform) / 4);
   }
 
   write(renderer: Gfx.Renderer) {
@@ -126,4 +126,8 @@ export class UniformBuffer {
   terminate(renderer: Gfx.Renderer) {
     renderer.removeBuffer(this.buffer);
   }
+}
+
+function getUniformSize(uniform: Gfx.BufferLayout[0]): number {
+  return Gfx.TranslateTypeToSize(uniform.type) * defaultValue(uniform.count, 1);
 }
