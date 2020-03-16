@@ -70,7 +70,7 @@ export class AvatarManager {
 
                         const material = new Material(gfxDevice, this.shader);
                         const model = new SkinnedModel(gfxDevice, renderLists.opaque, mesh, material);
-                        model.bindSkeleton(new Skeleton(skin.bones), skin.inverseBindMatrices);
+                        model.bindSkeleton(new Skeleton(skin), skin.inverseBindMatrices);
                         
                         model.material.setUniformBuffer(gfxDevice, 'uniforms', this.materialUniforms.getBuffer());
                         model.material.setUniformBuffer(gfxDevice, 'globalUniforms', globalUniforms.buffer);
@@ -88,13 +88,13 @@ export class AvatarManager {
         for (let i = 0; i < this.models.length; i++) {
             const model = this.models[i];
 
+            const headJoint = assertDefined(model.skeleton.bones.find(b => b.name === 'Skeleton_neck_joint_2'));
+            headJoint.rotation = quat.rotateX(headJoint.rotation, headJoint.rotation, Math.PI * 0.01);
+
             model.skeleton.evaluate();
 
             const boneFloats = this.materialUniforms.getFloatArray('u_bones');
-            for (let i = 0; i < model.skeleton.bones.length; i++) {
-                const bone = model.skeleton.bones[i];
-                mat4.multiply(boneFloats.subarray(i * 16, i * 16 + 16), bone.model, model.ibms[i]);
-            }
+            model.skeleton.writeToBuffer(boneFloats);
             this.materialUniforms.write(gfxDevice);
 
             model.renderList.push(model.primitive);

@@ -11,12 +11,15 @@ export interface Bone {
     scale: vec3;
     
     local: mat4; // Bone space to parent space
-    model: mat4; // Bind space to model space (concatenation of all toParents above this bone)
+    model: mat4; // Bone space to model space (concatenation of all toParents above this bone)
 
     parent?: Bone;
 }
 
+// --------------------------------------------------------------------------------
+// Skin:
 // A heirarchy of bones for a specific mesh, the inverse bind matrices which bring each vertex into bone space.
+// --------------------------------------------------------------------------------
 export class Skin {
     bones: Bone[];
     inverseBindMatrices: mat4[];
@@ -75,21 +78,26 @@ export class Skin {
     }
 }
 
+// --------------------------------------------------------------------------------
+// Skeleton:
 // A Skin instance where each bone can be posed individually. Manages its own array of matrices.
 // These will be manipulated during animation, and loaded into uniform buffers during rendering.
+// --------------------------------------------------------------------------------
 export class Skeleton {
-    bones: Bone[];
-    boneBuffer: Float32Array; // Column-major packed float array containing mat4's for every bone
+    bones: Bone[]; // Unique copies of the skin's bones that can be manipulated independently
+    boneBuffer: Float32Array;
+    inverseBindMatrices: mat4[]; // Soft-references to the pose space to bone space transforms held by the skin
 
-    constructor(bones: Bone[]) {
+    constructor(skin: Skin) {
         // Copy the bones so that they can be manipulated independently of other Skeletons
-        this.bones = bones.slice( 0 );
-        this.boneBuffer = new Float32Array(bones.length * 16);
+        this.bones = skin.bones.slice( 0 );
+        this.boneBuffer = new Float32Array(skin.bones.length * 16);
+        this.inverseBindMatrices = skin.inverseBindMatrices;
         
         for (let i = 0; i < this.bones.length; i++) {
             const bone = this.bones[i];
             bone.local = mat4.fromRotationTranslationScale(mat4.create(), bone.rotation, bone.translation, bone.scale);
-            bone.model = this.boneBuffer.subarray(i * 16, i * 16 + 16); // Bone's model matrix maps directly into boneBuffer
+            bone.model = mat4.create();
         }
     }
 
@@ -102,6 +110,15 @@ export class Skeleton {
                 // assert(!bone.parent.dirty)
                 mat4.multiply(bone.model, bone.parent.model, bone.local);
             } else mat4.copy(bone.model, bone.local);
+        }
+    }
+
+    writeToBuffer(view: Float32Array) {
+        // Write the bind space to model space transforms to an ArrayBuffer view. This is expected to be part of a uniform buffer.
+        // @NOTE: A Bone's model matrix transforms from bone to model space, and the inverse bind matrices from bind to bone space
+        for (let i = 0; i < this.bones.length; i++) {
+            const bone = this.bones[i];
+            mat4.multiply(view.subarray(i * 16, i * 16 + 16), bone.model, this.inverseBindMatrices[i]);
         }
     }
 }
