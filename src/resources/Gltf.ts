@@ -130,7 +130,7 @@ export class GltfAsset {
             data = new typedArray(
                 bufferView.buffer, 
                 bufferView.byteOffset + defaultValue(acc.byteOffset, 0), 
-                acc.count
+                acc.count * elementsPerType
             );
         } else {
             data = new typedArray(byteSize);
@@ -493,8 +493,8 @@ function loadAnimations(res: GltfResource, asset: GltfAsset) {
             // @TODO: TransferList for animation data
             // @TODO: Can this data be more compressed?
             return {
-                times: asset.accessorData(sampler.input),
-                floats: asset.accessorData(sampler.output)
+                times: asset.accessorData(sampler.input) as Float32Array,
+                floats: asset.accessorData(sampler.output) as Float32Array,
             }
         });
         
