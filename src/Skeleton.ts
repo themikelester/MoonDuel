@@ -13,7 +13,10 @@ export interface Bone {
     local: mat4; // Bone space to parent space
     model: mat4; // Bone space to model space (concatenation of all toParents above this bone)
 
-    parent?: Bone;
+    parentId?: number;
+
+    // @HACK:
+    nodeId: number;
 }
 
 // --------------------------------------------------------------------------------
@@ -35,24 +38,25 @@ export class Skin {
         const bones: Bone[] = [];
         const ibms: mat4[] = [];
 
-        function toBone(jointId: number, parent?: Bone) {
+        function toBone(jointId: number, parentId?: number) {
             const joint = gltf.nodes[jointId];
-            const bone = {
+            const bone: Bone = {
                 name: defaultValue(joint.name, `Bone${bones.length}`),
-                parent,
+                parentId,
                 translation: joint.translation,
                 rotation: joint.rotation,
                 scale: assertUniformScale(joint.scale),
                 local: mat4.create(),
                 model: mat4.create(),
+                nodeId: jointId,
             };
 
             nodeBoneMap[jointId] = bones.length;
-            bones.push(bone);
+            const boneId = bones.push(bone) - 1;
             
             if (defined(joint.children)) {
                 for (let i = 0; i < joint.children.length; i++) {
-                    toBone(joint.children[i], bone);
+                    toBone(joint.children[i], boneId);
                 }
             }
         }
@@ -96,6 +100,11 @@ export class Skeleton {
         
         for (let i = 0; i < this.bones.length; i++) {
             const bone = this.bones[i];
+            
+            bone.translation = vec3.clone(skin.bones[i].translation);
+            bone.rotation = quat.clone(skin.bones[i].rotation);
+            bone.scale = vec3.clone(skin.bones[i].scale);
+
             bone.local = mat4.fromRotationTranslationScale(mat4.create(), bone.rotation, bone.translation, bone.scale);
             bone.model = mat4.create();
         }
@@ -106,9 +115,9 @@ export class Skeleton {
             const bone = this.bones[i];
             mat4.fromRotationTranslationScale(bone.local, bone.rotation, bone.translation, bone.scale);
 
-            if (bone.parent) {
+            if (defined(bone.parentId)) {
                 // assert(!bone.parent.dirty)
-                mat4.multiply(bone.model, bone.parent.model, bone.local);
+                mat4.multiply(bone.model, this.bones[bone.parentId].model, bone.local);
             } else mat4.copy(bone.model, bone.local);
         }
     }
