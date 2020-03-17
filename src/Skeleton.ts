@@ -88,25 +88,30 @@ export class Skin {
 // These will be manipulated during animation, and loaded into uniform buffers during rendering.
 // --------------------------------------------------------------------------------
 export class Skeleton {
-    bones: Bone[]; // Unique copies of the skin's bones that can be manipulated independently
+    bones: Bone[] = []; // Unique copies of the skin's bones that can be manipulated independently
     boneBuffer: Float32Array;
     inverseBindMatrices: mat4[]; // Soft-references to the pose space to bone space transforms held by the skin
 
     constructor(skin: Skin) {
         // Copy the bones so that they can be manipulated independently of other Skeletons
-        this.bones = skin.bones.slice( 0 );
         this.boneBuffer = new Float32Array(skin.bones.length * 16);
         this.inverseBindMatrices = skin.inverseBindMatrices;
         
-        for (let i = 0; i < this.bones.length; i++) {
-            const bone = this.bones[i];
-            
-            bone.translation = vec3.clone(skin.bones[i].translation);
-            bone.rotation = quat.clone(skin.bones[i].rotation);
-            bone.scale = vec3.clone(skin.bones[i].scale);
+        for (let i = 0; i < skin.bones.length; i++) {
+            this.bones[i] = {
+                name: skin.bones[i].name,
+                nodeId: skin.bones[i].nodeId,
+                parentId: skin.bones[i].parentId,
 
-            bone.local = mat4.fromRotationTranslationScale(mat4.create(), bone.rotation, bone.translation, bone.scale);
-            bone.model = mat4.create();
+                translation: vec3.clone(skin.bones[i].translation),
+                rotation: quat.clone(skin.bones[i].rotation),
+                scale: vec3.clone(skin.bones[i].scale),
+
+                local: mat4.create(),
+                model: mat4.create(),
+            }
+
+            mat4.fromRotationTranslationScale(mat4.create(), this.bones[i].rotation, this.bones[i].translation, this.bones[i].scale);
         }
     }
 
