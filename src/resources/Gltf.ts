@@ -114,7 +114,7 @@ export class GltfAsset {
      * - `accessor.bufferView` is undefined: create a buffer initialized with zeroes.
      * - `accessor.sparse` is defined: Copy underlying buffer view and apply values from `sparse`.
      */
-    accessorData(index: GlTf.GlTfId): Uint8Array {
+    accessorData(index: GlTf.GlTfId): ArrayBufferView {
         if (!this.gltf.accessors) {
             /* istanbul ignore next */
             throw new Error('No accessors views found.');
@@ -122,11 +122,18 @@ export class GltfAsset {
         const acc = this.gltf.accessors[index];
         const elementsPerType = GLTF_ELEMENTS_PER_TYPE[acc.type];
         let data;
+
+        const typedArray = GLTF_COMPONENT_TYPE_ARRAYS[acc.componentType];
+        const byteSize = typedArray.BYTES_PER_ELEMENT * elementsPerType * acc.count;
         if (acc.bufferView !== undefined) {
-            data = this.bufferViewData(acc.bufferView);
+            const bufferView = this.bufferViewData(acc.bufferView);
+            data = new typedArray(
+                bufferView.buffer, 
+                bufferView.byteOffset + defaultValue(acc.byteOffset, 0), 
+                acc.count
+            );
         } else {
-            const byteSize = GLTF_COMPONENT_TYPE_ARRAYS[acc.componentType].BYTES_PER_ELEMENT * elementsPerType * acc.count;
-            data = new Uint8Array(byteSize);
+            data = new typedArray(byteSize);
         }
 
         if (acc.sparse) {
@@ -319,10 +326,6 @@ function translateModeToPrimitiveType(mode: number): Gfx.PrimitiveType {
     }
 }
 
-function toFloatArray(byteArray: Uint8Array) {
-    return new Float32Array(byteArray.buffer, byteArray.byteOffset, byteArray.byteLength / 4);
-}
-
 /** Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#accessor-element-size */
 const GLTF_COMPONENT_TYPE_ARRAYS: { [index: number]: any } = {
     5120: Int8Array,
@@ -490,8 +493,8 @@ function loadAnimations(res: GltfResource, asset: GltfAsset) {
             // @TODO: TransferList for animation data
             // @TODO: Can this data be more compressed?
             return {
-                times: toFloatArray(asset.accessorData(sampler.input)),
-                floats: toFloatArray(asset.accessorData(sampler.output))
+                times: asset.accessorData(sampler.input),
+                floats: asset.accessorData(sampler.output)
             }
         });
         
@@ -635,7 +638,7 @@ function loadSkins(res: GltfResource, asset: GltfAsset) {
 
     for (let id = 0; id < skins.length; id++) {
         const skin = skins[id];
-        
+
         res.skins[id] = {
             name: skin.name,
             skeleton: skin.skeleton,
@@ -643,7 +646,7 @@ function loadSkins(res: GltfResource, asset: GltfAsset) {
         }
         
         if (defined(skin.inverseBindMatrices)) {
-            const ibmData = toFloatArray(asset.accessorData(skin.inverseBindMatrices));
+            const ibmData = asset.accessorData(skin.inverseBindMatrices) as Float32Array;
             res.skins[id].inverseBindMatrices = ibmData;
             res.transferList.push(ibmData.buffer);
         }
