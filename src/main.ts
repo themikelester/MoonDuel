@@ -73,6 +73,7 @@ class Main {
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
         } else {
+            // Show debug menu by default on development builds
             DebugMenu.show();
         }
 
