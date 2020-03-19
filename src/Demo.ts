@@ -53,9 +53,6 @@ export class Demo {
 
         resources.load('data/Duck.glb', 'gltf', (error, resource) => {
             if (error) { console.error(`Failed to load resource`, error); }
-            else {
-                console.log(resource);
-            }
         });
 
         this.shader = gfxDevice.createShader(new SimpleShader());
