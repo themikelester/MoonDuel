@@ -3,6 +3,7 @@
   "private": true,
   "license": "MIT",
   "devDependencies": {
+    "@types/dat.gui": "^0.7.5",
     "cache-loader": "^4.1.0",
     "clean-webpack-plugin": "^3.0.0",
     "copy-webpack-plugin": "^5.1.1",
@@ -24,6 +25,7 @@
     "worker-loader": "^2.0.0"
   },
   "dependencies": {
+    "dat.gui": "^0.7.6",
     "gl-matrix": "^3.2.1"
   },
   "scripts": {

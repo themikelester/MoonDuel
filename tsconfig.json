@@ -18,7 +18,7 @@
         ],
         "sourceMap": true,
         "moduleResolution": "node",
-        "module": "commonjs",
+        "module": "esnext",
         "types": []
     },
     "include": [

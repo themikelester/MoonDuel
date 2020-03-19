@@ -13,6 +13,7 @@ import { InputManager } from './Input';
 import { ResourceManager } from './resources/ResourceLoading';
 
 import { AvatarManager } from './Avatar';
+import { DebugMenu } from './DebugMenu';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -71,6 +72,8 @@ class Main {
 
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
+        } else {
+            DebugMenu.show();
         }
 
         this._updateLoop(window.performance.now());
@@ -88,22 +91,21 @@ class Main {
     }
 
     private _updateLoop = (time: number) => {
-        if (this.paused)
-            return;
-
-        this.dt = time - this.realTime;
-        this.realTime = time;
-
-        this.resources.update();
-        this.cameraSystem.update(this);
-        this.demo.update(this);
-        this.avatars.update(this);
-
-        this.compositor.render();
-        this.demo.render(this);
-        this.avatars.render(this);
-
-        this.input.afterFrame();
+        if (!this.paused) {
+            this.dt = time - this.realTime;
+            this.realTime = time;
+    
+            this.resources.update();
+            this.cameraSystem.update(this);
+            this.demo.update(this);
+            this.avatars.update(this);
+    
+            this.compositor.render();
+            this.demo.render(this);
+            this.avatars.render(this);
+    
+            this.input.afterFrame();
+        }
 
         window.requestAnimationFrame(this._updateLoop);
     };

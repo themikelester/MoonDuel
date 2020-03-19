@@ -5,6 +5,7 @@ import { Camera } from './Camera';
 import { GlobalUniforms } from './GlobalUniforms';
 import { vec3, mat4 } from 'gl-matrix';
 import { InputManager } from './Input';
+import { DebugMenu } from './DebugMenu';
 
 const scratchVec3a = vec3.create();
 const scratchVec3b = vec3.create();
@@ -60,6 +61,12 @@ export class OrbitCameraController implements CameraController {
     public txVel: number = 0;
     public tyVel: number = 0;
     public shouldOrbit: boolean = true;
+
+    constructor() {
+        const menu = DebugMenu.addFolder('OrbitCamera');
+        menu.add(this, 'orbitSpeed', -1.0, 1.0);
+        menu.add(this, 'shouldOrbit', -1.0, 1.0);
+    }
 
     public update(inputManager: InputManager, dt: number): boolean {
         if (inputManager.isKeyDownEventTriggered('KeyR')) {
