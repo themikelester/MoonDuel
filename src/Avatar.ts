@@ -1,5 +1,5 @@
 import { ResourceManager } from "./resources/ResourceLoading";
-import { GltfResource } from "./resources/Gltf";
+import { GltfResource, GltfAnimation, Sampler } from "./resources/Gltf";
 import { Mesh, Model, Material, SkinnedModel } from "./Mesh";
 import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from "./RenderList";
@@ -39,6 +39,9 @@ export class AvatarManager {
     shader: Gfx.Id;
     materialUniforms: UniformBuffer;
     models: SkinnedModel[] = [];
+    skin: Skin;
+
+    animations: GltfAnimation[] = [];
 
     initialize({ gfxDevice, resources, globalUniforms }: { gfxDevice: Gfx.Renderer, resources: ResourceManager, globalUniforms: GlobalUniforms }) {
         this.shader = gfxDevice.createShader(new AvatarShader());
@@ -53,8 +56,12 @@ export class AvatarManager {
             else {
                 const gltf = resource as GltfResource;
 
+                // @HACK:
+                this.animations = gltf.animations;
+
                 // Parse skeleton
                 const skin = assertDefined((gltf.skins.length > 0) ? Skin.fromGltf(gltf, 0) : undefined);
+                this.skin = skin;
                 assert(skin.bones.length === kAvatarBoneCount);
 
                 for (let gltfMesh of gltf.meshes) {
@@ -81,15 +88,37 @@ export class AvatarManager {
         });
     }
 
-    update() {
+    update({ realTime }: { realTime: number }) {
+        const anim = this.animations[0];
+        if (anim) {
+            const t = (realTime / 1000.0) % anim.maxTime;
+    
+            for (let i = 0; i < anim.rotations.length; i++) {
+                const data = anim.rotations[i];
+                const bone = assertDefined(this.models[0].skeleton.bones.find(b => b.nodeId === data.nodeId));
+                evalRotation(t, data, bone.rotation);
+            }
+    
+            for (let i = 0; i < anim.translations.length; i++) {
+                const data = anim.translations[i];
+                const bone = assertDefined(this.models[0].skeleton.bones.find(b => b.nodeId === data.nodeId));
+                evalTranslation(t, data, bone.translation);
+            }
+    
+            for (let i = 0; i < anim.scales.length; i++) {
+                const data = anim.scales[i];
+                const bone = assertDefined(this.models[0].skeleton.bones.find(b => b.nodeId === data.nodeId));
+                evalTranslation(t, data, bone.scale);
+            }
+        }
     }
 
     render({ gfxDevice }: { gfxDevice: Gfx.Renderer }) {
         for (let i = 0; i < this.models.length; i++) {
             const model = this.models[i];
 
-            const headJoint = assertDefined(model.skeleton.bones.find(b => b.name === 'Skeleton_neck_joint_2'));
-            headJoint.rotation = quat.rotateX(headJoint.rotation, headJoint.rotation, Math.PI * 0.01);
+            // const headJoint = assertDefined(model.skeleton.bones.find(b => b.name === 'Skeleton_arm_joint_L__4_'));
+            // headJoint.rotation = quat.rotateX(headJoint.rotation, headJoint.rotation, Math.PI * 0.01);
 
             model.skeleton.evaluate();
 
@@ -101,3 +130,52 @@ export class AvatarManager {
         }
     }
 }
+
+function evalRotation(time: number, sampler: Sampler, result: quat): quat {
+    const keyCount = sampler.times.length;
+    let t = 1.0;
+    let a = keyCount-1;
+    let b = keyCount-1;
+  
+    // Naive linear search for frame on either side of time
+    for (let i = 0; i < keyCount; i++) {
+      const t1 = sampler.times[i];
+      if (t1 > time) {
+        const t0 = sampler.times[Math.max(i-1, 0)];
+        t = time - t0;
+        b = i;
+        a = Math.max(i-1, 0);
+        break;
+      }
+    }  
+  
+    let va = sampler.values.subarray(a * 4, a * 4 + 4) as quat;
+    let vb = sampler.values.subarray(b * 4, b * 4 + 4) as quat;
+    const r = quat.lerp(result, va, vb, t);
+    return r;
+  }
+  
+  function evalTranslation(time: number, sampler: Sampler, result: vec3): vec3 {
+    const keyCount = sampler.times.length;
+    let t = 1.0;
+    let a = keyCount-1;
+    let b = keyCount-1;
+  
+    // Naive linear search for frame on either side of time
+    for (let i = 0; i < keyCount; i++) {
+      const t1 = sampler.times[i];
+      if (t1 > time) {
+        const t0 = sampler.times[Math.max(i-1, 0)];
+        t = time - t0;
+        b = i;
+        a = Math.max(i-1, 0);
+        break;
+      }
+    }  
+  
+    let va = sampler.values.subarray(a * 3, a * 3 + 3) as vec3;
+    let vb = sampler.values.subarray(b * 3, b * 3 + 3) as vec3;
+    const r = vec3.lerp(result, va, vb, t);
+    return r;
+  }
+  

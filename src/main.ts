@@ -97,6 +97,7 @@ class Main {
         this.resources.update();
         this.cameraSystem.update(this);
         this.demo.update(this);
+        this.avatars.update(this);
 
         this.compositor.render();
         this.demo.render(this);
