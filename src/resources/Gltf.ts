@@ -213,7 +213,7 @@ interface GltfPrimitive {
     material: GltfMaterial;
 }
 
-interface GltfMesh {
+export interface GltfMesh {
     name: string;
     id: number;
     primitives: GltfPrimitive[];
@@ -228,7 +228,8 @@ export interface GltfNode {
     transform?: mat4;
     morphWeight: number;
 
-    mesh?: GltfMesh;
+    meshId?: number;
+    skinId?: number;
     children?: number[];
 }
 
@@ -655,7 +656,7 @@ function loadSkins(res: GltfResource, asset: GltfAsset) {
 
 function loadScenes(res: GltfResource, asset: GltfAsset) {
     const defaultSceneId = defaultValue(asset.gltf.scene, 0);
-    if (defaultSceneId) {
+    if (defined(defaultSceneId)) {
         const scenes = assertDefined(asset.gltf.scenes);
         const defaultScene = assertDefined(scenes[defaultSceneId]);
         res.rootNodeIds = defaultValue(defaultScene.nodes, []);
@@ -685,7 +686,11 @@ function loadNodes(res: GltfResource, asset: GltfAsset) {
         else node.transform = mat4.fromRotationTranslationScale(mat4.create(), node.rotation, node.translation, node.scale);
 
         if (defined(gltfNode.mesh)) {
-            node.mesh = assertDefined(res.meshes[gltfNode.mesh]);
+            node.meshId = gltfNode.mesh;
+        }
+
+        if (defined(gltfNode.skin)) {
+            node.skinId = gltfNode.skin;
         }
 
         if (defined(gltfNode.children)) {
