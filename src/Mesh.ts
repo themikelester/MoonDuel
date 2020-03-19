@@ -129,8 +129,8 @@ export class SkinnedModel extends Model {
     ibms: mat4[];
 
     constructor(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
-        assert(hasAttribute(mesh.vertexLayout, 'a_joints'), 'Supplies mesh is missing attribute required for skinning: "a_joints"');
-        assert(hasAttribute(mesh.vertexLayout, 'a_weights'), 'Supplies mesh is missing attribute required for skinning: "a_weights"');
+        assert(hasAttribute(mesh.vertexLayout, 'a_joints'), 'Supplied mesh is missing attribute required for skinning: "a_joints"');
+        assert(hasAttribute(mesh.vertexLayout, 'a_weights'), 'Supplied mesh is missing attribute required for skinning: "a_weights"');
         super(device, renderList, mesh, material);
     }
 
