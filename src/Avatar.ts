@@ -102,7 +102,7 @@ export class AvatarManager {
             for (let i = 0; i < anim.translations.length; i++) {
                 const data = anim.translations[i];
                 const bone = assertDefined(this.models[0].skeleton.bones.find(b => b.nodeId === data.nodeId));
-                evalTranslation(t, data, bone.translation);
+                evalTranslation(t, data, bone.position);
             }
     
             for (let i = 0; i < anim.scales.length; i++) {

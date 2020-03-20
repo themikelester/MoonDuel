@@ -2,24 +2,22 @@ import { vec3, quat, mat4 } from "gl-matrix";
 import { assert, defaultValue, defined, assertDefined } from "./util";
 import { GltfSkin, GltfNode, GltfResource } from './resources/Gltf';
 import { equalsEpsilon, IdentityMat4 } from "./MathHelpers";
+import { Object3D } from "./Object3D";
 
-export interface Bone {
-    name: string;
+export class Bone extends Object3D {
+    constructor(public nodeId: number) { super(); }
     
-    translation: vec3;
-    rotation: quat;
-    scale: vec3;
-    
-    local: mat4; // Bone space to parent space
-    model: mat4; // Bone space to model space (concatenation of all toParents above this bone)
+    parent: Nullable<Bone> = null;
+    children: Bone[] = [];
 
-    // @TODO: If we guarantee that parents come before children in the bone array, we can just store parent
-    parent: Nullable<Bone>;
-    children: Bone[];
-
-    // @HACK:
-    nodeId: number;
-    dirty?: boolean;
+    clone(recursive: boolean) { 
+        const bone = new Bone(this.nodeId).copy(this, recursive);
+        bone.parent = this.parent;
+        if (!recursive) {
+            bone.children = this.children.slice();
+        }
+        return bone;
+    }
 }
 
 // --------------------------------------------------------------------------------
@@ -42,33 +40,29 @@ export class Skin {
 
         // @TODO: Construct the bone array such that parents are guaranteed to come before all of their children
         // @NOTE: This allows hierarchy-dependent operations such as model matrix computation to be carried out linearly over the array
-        for (let i = skin.joints.length-1; i >= 0; i--) {
+        for (let i = 0; i < skin.joints.length; i++) {
             const jointId = skin.joints[i]; 
             const joint = gltf.nodes[jointId];
-            bones[i] = {
-                name: defaultValue(joint.name, `Bone${bones.length}`),
-                translation: joint.translation,
-                rotation: joint.rotation,
-                scale: assertUniformScale(joint.scale),
-                local: mat4.create(),
-                model: mat4.create(),
-                nodeId: jointId,
-                parent: null,
-                children: [],
-            };
+
+            const bone = new Bone(jointId);
+            bone.name = defaultValue(joint.name, `Bone${bones.length}`),
+            bone.position = joint.translation,
+            bone.rotation = joint.rotation,
+            bone.scale = assertUniformScale(joint.scale),
+
+            bones.push(bone);
         }
         
         for (let i = 0; i < skin.joints.length; i++) {
             const jointId = skin.joints[i]; 
             const joint = gltf.nodes[jointId];
             if (joint.children) {
-                bones[i].children = [];
                 for (let childId of joint.children) {
                     const child = bones.find(b => b.nodeId === childId);
                     // If the node's child is not a bone, ignore it
                     if (defined(child)) {
                         child.parent = bones[i];
-                        bones[i].children!.push(child!);
+                        bones[i].children.push(child);
                     }
                 }
             }
@@ -99,22 +93,10 @@ export class Skeleton {
 
     constructor(skin: Skin) {
         // Copy the bones so that they can be manipulated independently of other Skeletons
+        this.bones = skin.bones.map(b => b.clone(false));
         this.boneBuffer = new Float32Array(skin.bones.length * 16);
         this.inverseBindMatrices = skin.inverseBindMatrices;
         
-        for (let i = 0; i < skin.bones.length; i++) {
-            this.bones[i] = {
-                ...skin.bones[i],
-
-                translation: vec3.clone(skin.bones[i].translation),
-                rotation: quat.clone(skin.bones[i].rotation),
-                scale: vec3.clone(skin.bones[i].scale),
-
-                local: mat4.create(),
-                model: mat4.create(),
-            }
-        }
-
         // Remap parents and children from the skin to skeleton bones
         for (const bone of this.bones) {
             if (defined(bone.parent)) bone.parent = assertDefined(this.bones[skin.bones.indexOf(bone.parent)]);
@@ -130,8 +112,8 @@ export class Skeleton {
     }
 
     evaluateBone(bone: Bone, parentToWorld: mat4) {
-        mat4.fromRotationTranslationScale(bone.local, bone.rotation, bone.translation, bone.scale);
-        const localToWorld = mat4.multiply(bone.model, parentToWorld, bone.local);
+        mat4.fromRotationTranslationScale(bone.matrix, bone.rotation, bone.position, bone.scale);
+        const localToWorld = mat4.multiply(bone.matrixWorld, parentToWorld, bone.matrix);
         if (bone.children) {
             for (const child of bone.children) {
                 this.evaluateBone(child, localToWorld);
@@ -144,7 +126,7 @@ export class Skeleton {
         // @NOTE: A Bone's model matrix transforms from bone to model space, and the inverse bind matrices from bind to bone space
         for (let i = 0; i < this.bones.length; i++) {
             const bone = this.bones[i];
-            mat4.multiply(view.subarray(i * 16, i * 16 + 16), bone.model, this.inverseBindMatrices[i]);
+            mat4.multiply(view.subarray(i * 16, i * 16 + 16), bone.matrixWorld, this.inverseBindMatrices[i]);
         }
     }
 }

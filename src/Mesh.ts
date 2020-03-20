@@ -4,6 +4,7 @@ import { RenderPrimitive } from './RenderPrimitive';
 import { assertDefined, assert, defined, defaultValue } from './util';
 import { vec3, quat, mat4 } from 'gl-matrix';
 import { Skeleton } from './Skeleton';
+import { Object3D } from './Object3D';
 
 type BufferOrBufferView = Gfx.BufferView | Gfx.Id;
 function toBufferView(val: BufferOrBufferView): Gfx.BufferView {
@@ -80,7 +81,7 @@ export class Material {
     }
 }
 
-export class Model {
+export class Model extends Object3D {
     mesh: Mesh;
     material: Material;
 
@@ -90,6 +91,8 @@ export class Model {
     renderList: RenderList;
 
     constructor(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
+        super();
+
         this.renderList = renderList;
         this.mesh = mesh;
         this.material = material;
