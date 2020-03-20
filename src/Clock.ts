@@ -1,6 +1,7 @@
 import { DebugMenu } from "./DebugMenu";
 
 export class Clock {
+    // All times are in milliseconds (ms)
     public dt: number = 0;
     public time: number = 0;
     public realDt: number = 0;
