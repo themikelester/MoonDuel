@@ -64,10 +64,12 @@ export class Skin {
             if (joint.children) {
                 bones[i].children = [];
                 for (let childId of joint.children) {
-                    // assert(defined(bones[j]), 'Children must occur after their parent in the node list');
                     const child = bones.find(b => b.nodeId === childId);
-                    assertDefined(child).parent = bones[i];
-                    bones[i].children!.push(child!);
+                    // If the node's child is not a bone, ignore it
+                    if (defined(child)) {
+                        child.parent = bones[i];
+                        bones[i].children!.push(child!);
+                    }
                 }
             }
         }
