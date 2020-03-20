@@ -8,6 +8,7 @@ export class Clock {
     public time: number = 0;
     public realDt: number = 0;
     public realTime: number = 0;
+    public startTime: number = performance.now();
 
     public paused = false;
     public speed = 1.0;
