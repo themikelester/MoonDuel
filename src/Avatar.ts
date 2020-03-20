@@ -13,6 +13,7 @@ import { vec4, vec3, mat4, quat } from "gl-matrix";
 import { defaultValue, assert, assertDefined, defined } from "./util";
 import { Skin, Skeleton } from "./Skeleton";
 import { Object3D } from "./Object3D";
+import { Clock } from "./Clock";
 
 const kMaxAvatarBoneCount = 32;
 
@@ -186,10 +187,10 @@ export class AvatarManager {
         return obj;
     }
 
-    update({ realTime }: { realTime: number }) {
+    update({ clock }: { clock: Clock }) {
         const anim = this.animations[0];
         if (anim) {
-            const t = (realTime / 1000.0) % anim.maxTime;
+            const t = (clock.time / 1000.0) % anim.maxTime;
     
             for (let i = 0; i < anim.rotations.length; i++) {
                 const data = anim.rotations[i];

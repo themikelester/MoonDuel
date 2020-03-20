@@ -6,6 +6,7 @@ import { Camera } from './Camera';
 
 // Modules
 import { CameraSystem } from './CameraSystem';
+import { Clock } from './Clock';
 import { Compositor } from './Compositor';
 import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
@@ -27,10 +28,9 @@ class Main {
 
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
-    public dt: number = 0;
-    public realTime: number = 0;
 
     // Modules
+    public clock = new Clock();
     public cameraSystem = new CameraSystem(this.camera);
     public compositor = new Compositor(this.canvas, this.gfxDevice);
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
@@ -59,6 +59,7 @@ class Main {
 
         // Initialize Modules
         this.resources.initialize(this.gfxDevice);
+        this.clock.initialize();
         this.input.initialize(this);
         this.cameraSystem.initialize();
         this.compositor.initialize();
@@ -93,9 +94,7 @@ class Main {
 
     private _updateLoop = (time: number) => {
         if (!this.paused) {
-            this.dt = time - this.realTime;
-            this.realTime = time;
-    
+            this.clock.update(time);    
             this.resources.update();
             this.cameraSystem.update(this);
             this.demo.update(this);

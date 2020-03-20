@@ -6,6 +6,7 @@ import { GlobalUniforms } from './GlobalUniforms';
 import { vec3, mat4 } from 'gl-matrix';
 import { InputManager } from './Input';
 import { DebugMenu } from './DebugMenu';
+import { Clock } from './Clock';
 
 const scratchVec3a = vec3.create();
 const scratchVec3b = vec3.create();
@@ -30,8 +31,8 @@ export class CameraSystem {
         this.camera.setPerspective(this.camera.fov, aspect, this.camera.near, this.camera.far);
     }
 
-    update({ globalUniforms, input, dt }: { globalUniforms: GlobalUniforms, input: InputManager, dt: number }) {
-        this.controller.update(input, dt);
+    update({ globalUniforms, input, clock }: { globalUniforms: GlobalUniforms, input: InputManager, clock: Clock }) {
+        this.controller.update(input, clock.dt);
 
         const camPos = this.camera.getPos(this.camPos);
         globalUniforms.setUniform('g_camPos', new Float32Array([camPos[0], camPos[1], camPos[2]]));
