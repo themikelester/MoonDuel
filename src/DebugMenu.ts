@@ -17,6 +17,8 @@ interface IDebugMenu {
 
     show(): void;
     hide(): void;
+
+    update(): void;
 }
 
 class DebugMenuShim implements IDebugMenu {
@@ -60,6 +62,14 @@ class DebugMenuShim implements IDebugMenu {
     }
 
     hide() {}
+
+    update() {
+        if (this.gui && !this.gui.closed) {
+            for (var i in this.gui.__controllers) {
+                this.gui.__controllers[i].updateDisplay();
+            }
+        }
+    }
 }
 
 

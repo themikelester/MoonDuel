@@ -105,8 +105,10 @@ class Main {
             this.avatars.render(this);
     
             this.input.afterFrame();
-        }
 
+            DebugMenu.update();
+        }
+        
         window.requestAnimationFrame(this._updateLoop);
     };
 
