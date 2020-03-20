@@ -1,6 +1,6 @@
 import { vec3, quat, mat4 } from "gl-matrix";
 import { assert, defaultValue, defined, assertDefined } from "./util";
-import { equalsEpsilon, IdentityMat4 } from "./MathHelpers";
+import { IdentityMat4 } from "./MathHelpers";
 import { Object3D, IObject3D } from "./Object3D";
 
 export interface IBone extends IObject3D {    
@@ -95,12 +95,4 @@ export class Skeleton {
             view.set(this.boneBuffer);
         }
     }
-}
-
-// --------------------------------------------------------------------------------
-// Helpers
-// --------------------------------------------------------------------------------
-function assertUniformScale(scale: vec3): vec3 {
-    assert(equalsEpsilon(scale[0], scale[1]) && equalsEpsilon(scale[0], scale[2]));
-    return scale;
 }
