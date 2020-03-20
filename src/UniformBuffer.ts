@@ -1,5 +1,5 @@
 import * as Gfx from './gfx/GfxTypes';
-import { vec2, vec3, vec4 } from 'gl-matrix';
+import { vec2, vec3, vec4, mat4 } from 'gl-matrix';
 import { assertDefined, defaultValue } from './util';
 
 // --------------------------------------------------------------------------------
@@ -97,6 +97,11 @@ export class UniformBuffer {
     this.bufferView.setFloat32(uniform.offset + 4, v[1], true); 
     this.bufferView.setFloat32(uniform.offset + 8, v[2], true); 
     this.bufferView.setFloat32(uniform.offset + 12, v[3], true); 
+  }
+
+  setMat4(name: string, m: mat4) {
+    const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
+    this.bufferFloats.set(m, uniform.offset / 4);
   }
 
   setBytes(name: string, value: Uint8Array) {
