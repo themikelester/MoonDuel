@@ -46,10 +46,11 @@ class ModelShader implements Gfx.ShaderDescriptor {
 
     public static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
         u_color: { type: Gfx.Type.Float4 },
+        u_model: { type: Gfx.Type.Float4x4 },
     });
 
     public static resourceLayout = {
-        uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: AvatarShader.uniformLayout },
+        uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: ModelShader.uniformLayout },
         globalUniforms: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
     };
 
@@ -67,7 +68,8 @@ export class AvatarManager {
     shader: Gfx.Id;
     modelShader: Gfx.Id;
 
-    materialUniforms: UniformBuffer;
+    skinnedUniforms: UniformBuffer;
+    modelUniforms: UniformBuffer;
     models: Model[] = [];
     skinnedModels: SkinnedModel[] = [];
     skin: Skin;
@@ -83,11 +85,15 @@ export class AvatarManager {
         this.modelShader = gfxDevice.createShader(new ModelShader());
 
         // @TODO: UniformBuffer should support x instances 
-        this.materialUniforms = new UniformBuffer('AvatarMaterial', gfxDevice, AvatarShader.uniformLayout);
-        this.materialUniforms.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
-        this.materialUniforms.write(gfxDevice);
+        this.skinnedUniforms = new UniformBuffer('AvatarMaterial', gfxDevice, AvatarShader.uniformLayout);
+        this.skinnedUniforms.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
+        this.skinnedUniforms.write(gfxDevice);
 
-        resources.load('data/CesiumMan.glb', 'gltf', (error, resource) => {
+        this.modelUniforms = new UniformBuffer('ModelMaterial', gfxDevice, ModelShader.uniformLayout);
+        this.modelUniforms.setVec4('u_color', vec4.fromValues(0, 0, 1, 1));
+        this.modelUniforms.write(gfxDevice);
+
+        resources.load('data/Avatar.glb', 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
 
             const gltf = resource as GltfResource;
@@ -97,7 +103,6 @@ export class AvatarManager {
 
             this.rootNodes = gltf.rootNodeIds.map(nodeId => this.loadNode(gltf, nodeId));
             this.rootNodes.forEach(node => {
-                vec3.scale(node.scale, node.scale, 10.0);
                 node.updateMatrix();
                 node.updateMatrixWorld(false, true);
             });
@@ -122,7 +127,7 @@ export class AvatarManager {
             const material = new Material(this.gfxDevice, this.shader);
             const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, mesh, material);
             model.bindSkeleton(new Skeleton(skin));
-            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', this.materialUniforms.getBuffer());
+            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', this.skinnedUniforms.getBuffer());
             model.material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
             this.skinnedModels.push(model);
 
@@ -148,7 +153,7 @@ export class AvatarManager {
 
             const material = new Material(this.gfxDevice, this.modelShader);
             const model = new Model(this.gfxDevice, renderLists.opaque, mesh, material);
-            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', this.materialUniforms.getBuffer());
+            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', this.modelUniforms.getBuffer());
             model.material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
             this.models.push(model);
 
@@ -220,9 +225,20 @@ export class AvatarManager {
             model.updateMatrixWorld(true, true);
             model.skeleton.evaluate(model.matrixWorld);
 
-            const boneFloats = this.materialUniforms.getFloatArray('u_bones');
+            const boneFloats = this.skinnedUniforms.getFloatArray('u_bones');
             model.skeleton.writeToBuffer(boneFloats);
-            this.materialUniforms.write(gfxDevice);
+            this.skinnedUniforms.write(gfxDevice);
+
+            model.renderList.push(model.primitive);
+        }
+
+        for (let i = 0; i < this.models.length; i++) {
+            const model = this.models[i];
+
+            model.updateMatrixWorld(true, true);
+
+            this.modelUniforms.setMat4('u_model', model.matrixWorld);
+            this.modelUniforms.write(gfxDevice);
 
             model.renderList.push(model.primitive);
         }

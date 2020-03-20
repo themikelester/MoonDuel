@@ -4,17 +4,19 @@ import { GlobalUniforms } from './GlobalUniforms';
 import * as Gfx from './gfx/GfxTypes';
 import { renderLists, RenderList } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
-import { UniformBuffer } from './UniformBuffer';
+import { UniformBuffer, computePackedBufferLayout } from './UniformBuffer';
 import { ResourceManager } from './resources/ResourceLoading';
 import { Material, Mesh, Model } from './Mesh';
+import { IdentityMat4 } from './MathHelpers';
 
 class SimpleShader implements Gfx.ShaderDescriptor {
     private static vert = simple_vert;
     private static frag = simple_frag;
     
-    public static uniformLayout: Gfx.BufferLayout = {
-        u_color: { offset: 0, type: Gfx.Type.Float4 },
-    };
+    public static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
+        u_color: { type: Gfx.Type.Float4 },
+        u_model: { type: Gfx.Type.Float4x4 },
+    });
 
     public static resourceLayout = {
         uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: SimpleShader.uniformLayout },
@@ -59,6 +61,7 @@ export class Demo {
 
         this.uniformBuffer = new UniformBuffer('PlaneUniforms', gfxDevice, SimpleShader.uniformLayout);
         this.uniformBuffer.setFloats('u_color', new Float32Array([0, 0, 1, 1]));
+        this.uniformBuffer.setMat4('u_model', IdentityMat4);
         this.uniformBuffer.write(gfxDevice);
 
         this.material = new Material(gfxDevice, this.shader);
