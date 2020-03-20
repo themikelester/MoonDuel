@@ -69,7 +69,7 @@ export class AvatarManager {
     modelShader: Gfx.Id;
 
     skinnedUniforms: UniformBuffer;
-    modelUniforms: UniformBuffer;
+    modelUniforms: UniformBuffer[] = [];
     models: Model[] = [];
     skinnedModels: SkinnedModel[] = [];
     skin: Skin;
@@ -88,10 +88,6 @@ export class AvatarManager {
         this.skinnedUniforms = new UniformBuffer('AvatarMaterial', gfxDevice, AvatarShader.uniformLayout);
         this.skinnedUniforms.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
         this.skinnedUniforms.write(gfxDevice);
-
-        this.modelUniforms = new UniformBuffer('ModelMaterial', gfxDevice, ModelShader.uniformLayout);
-        this.modelUniforms.setVec4('u_color', vec4.fromValues(0, 0, 1, 1));
-        this.modelUniforms.write(gfxDevice);
 
         resources.load('data/Avatar.glb', 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -151,9 +147,14 @@ export class AvatarManager {
                 primitiveType: prim.type,
             });
 
+            const ubo = new UniformBuffer('ModelMaterial', this.gfxDevice, ModelShader.uniformLayout);
+            ubo.setVec4('u_color', vec4.fromValues(0, 0, 1, 1));
+            ubo.write(this.gfxDevice);
+            this.modelUniforms.push(ubo);
+
             const material = new Material(this.gfxDevice, this.modelShader);
             const model = new Model(this.gfxDevice, renderLists.opaque, mesh, material);
-            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', this.modelUniforms.getBuffer());
+            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo.getBuffer());
             model.material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
             this.models.push(model);
 
@@ -237,8 +238,8 @@ export class AvatarManager {
 
             model.updateMatrixWorld(true, true);
 
-            this.modelUniforms.setMat4('u_model', model.matrixWorld);
-            this.modelUniforms.write(gfxDevice);
+            this.modelUniforms[i].setMat4('u_model', model.matrixWorld);
+            this.modelUniforms[i].write(gfxDevice);
 
             model.renderList.push(model.primitive);
         }
