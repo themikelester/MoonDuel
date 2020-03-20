@@ -24,7 +24,6 @@ export const enum InitErrorCode {
 class Main {
     public toplevel: HTMLElement;
     public canvas: HTMLCanvasElement = document.createElement('canvas');
-    public paused: boolean = false;
 
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
@@ -68,8 +67,8 @@ class Main {
         this.avatars.initialize(this);
         
         // Handle resizing
-        window.onresize = this._onResize.bind(this);
-        this._onResize();
+        window.onresize = this.onResize.bind(this);
+        this.onResize();
 
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
@@ -78,41 +77,30 @@ class Main {
             DebugMenu.show();
         }
 
-        this._updateLoop(window.performance.now());
+        this.update(window.performance.now());
 
         return InitErrorCode.SUCCESS;
     }
 
-    public setPaused(v: boolean): void {
-        if (this.paused === v)
-            return;
+    private update(time: number) {
+        this.clock.update(time);    
+        this.resources.update();
+        this.cameraSystem.update(this);
+        this.demo.update(this);
+        this.avatars.update(this);
 
-        this.paused = true;
-        if (!this.paused)
-            window.requestAnimationFrame(this._updateLoop);
-    }
+        this.compositor.render();
+        this.demo.render(this);
+        this.avatars.render(this);
 
-    private _updateLoop = (time: number) => {
-        if (!this.paused) {
-            this.clock.update(time);    
-            this.resources.update();
-            this.cameraSystem.update(this);
-            this.demo.update(this);
-            this.avatars.update(this);
-    
-            this.compositor.render();
-            this.demo.render(this);
-            this.avatars.render(this);
-    
-            this.input.afterFrame();
+        this.input.afterFrame();
 
-            DebugMenu.update();
-        }
-        
-        window.requestAnimationFrame(this._updateLoop);
+        DebugMenu.update();
+
+        window.requestAnimationFrame(this.update.bind(this));
     };
 
-    private _onResize() {
+    private onResize() {
         this.cameraSystem.resize(window.innerWidth, window.innerHeight);
         this.compositor.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
     }
