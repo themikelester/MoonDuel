@@ -70,7 +70,6 @@ export class AvatarManager {
     skinnedModels: SkinnedModel[] = [];
     skin: Skin;
 
-    skins: Skin[];
     rootNodes: Object3D[];
     animations: GltfAnimation[] = [];
 
@@ -94,10 +93,6 @@ export class AvatarManager {
             // @HACK:
             this.animations = gltf.animations;
 
-            // Parse skeleton(s)
-            // @TODO: This in the GLTF loader
-            this.skins = gltf.skins;
-
             this.rootNodes = gltf.rootNodeIds.map(nodeId => this.loadNode(gltf, nodeId));
             this.rootNodes.forEach(node => {
                 vec3.scale(node.scale, node.scale, 10.0); 
@@ -109,7 +104,7 @@ export class AvatarManager {
 
     loadSkinnedModel(gltf: GltfResource, meshId: number, skinId: number): Object3D {
         const gltfMesh = gltf.meshes[meshId];
-        const skin = this.skins[skinId];
+        const skin = gltf.skins[skinId];
         const obj = new Object3D();
 
         for (let prim of gltfMesh.primitives) {
