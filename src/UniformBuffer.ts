@@ -75,28 +75,22 @@ export class UniformBuffer {
 
   setFloat(name: string, value: number) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
-    this.bufferView.setFloat32(uniform.offset, value, true); 
+    this.bufferFloats[uniform.offset / 4] = value;
   }
 
   setVec2(name: string, v: vec2) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
-    this.bufferView.setFloat32(uniform.offset + 0, v[0], true); 
-    this.bufferView.setFloat32(uniform.offset + 4, v[1], true); 
+    this.bufferFloats.set(v, uniform.offset / 4);
   }
 
   setVec3(name: string, v: vec3) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
-    this.bufferView.setFloat32(uniform.offset + 0, v[0], true); 
-    this.bufferView.setFloat32(uniform.offset + 4, v[1], true); 
-    this.bufferView.setFloat32(uniform.offset + 8, v[2], true); 
+    this.bufferFloats.set(v, uniform.offset / 4);
   }
 
   setVec4(name: string, v: vec4) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
-    this.bufferView.setFloat32(uniform.offset + 0, v[0], true); 
-    this.bufferView.setFloat32(uniform.offset + 4, v[1], true); 
-    this.bufferView.setFloat32(uniform.offset + 8, v[2], true); 
-    this.bufferView.setFloat32(uniform.offset + 12, v[3], true); 
+    this.bufferFloats.set(v, uniform.offset / 4);
   }
 
   setMat4(name: string, m: mat4) {
@@ -105,15 +99,13 @@ export class UniformBuffer {
   }
 
   setBytes(name: string, value: Uint8Array) {
-    const uniform = this.bufferLayout[name];
-    if (!uniform) throw new Error(`Attempted to set unknown uniform ${name}`);
+    const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
     if (value.byteLength !== getUniformSize(uniform)) throw new Error('Invalid size');
     this.bufferBytes.set(value, uniform.offset);
   }
 
   setFloats(name: string, value: Float32Array) {
-    const uniform = this.bufferLayout[name];
-    if (!uniform) throw new Error(`Attempted to set unknown uniform ${name}`);
+    const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
     if (value.byteLength !== getUniformSize(uniform)) throw new Error('Invalid size');
     this.bufferFloats.set(value, uniform.offset / 4);
   }
