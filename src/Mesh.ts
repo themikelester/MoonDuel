@@ -137,9 +137,7 @@ export class SkinnedModel extends Model {
         super(device, renderList, mesh, material);
     }
 
-    bindSkeleton(skeleton: Skeleton, inverseBindMatrices: mat4[]) {
-        assert(skeleton.bones.length === inverseBindMatrices.length);
+    bindSkeleton(skeleton: Skeleton) {
         this.skeleton = skeleton;
-        this.ibms = inverseBindMatrices;
     }
 }

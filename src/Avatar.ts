@@ -9,7 +9,7 @@ import skinnedVertSource from './shaders/skinned.vert';
 import simpleVertSource from './shaders/simple.vert';
 import frag_source from './shaders/simple.frag';
 import { UniformBuffer, computePackedBufferLayout } from "./UniformBuffer";
-import { vec4, vec3, quat } from "gl-matrix";
+import { vec4, vec3, mat4, quat } from "gl-matrix";
 import { defaultValue, assert, assertDefined, defined } from "./util";
 import { Skin, Skeleton } from "./Skeleton";
 import { Object3D } from "./Object3D";
@@ -96,11 +96,7 @@ export class AvatarManager {
 
             // Parse skeleton(s)
             // @TODO: This in the GLTF loader
-            this.skins = gltf.skins.map((gltfSkin, idx) => {
-                const skin = Skin.fromGltf(gltf, idx);
-                assert(skin.bones.length <= kMaxAvatarBoneCount);
-                return skin;
-            });
+            this.skins = gltf.skins;
 
             this.rootNodes = gltf.rootNodeIds.map(nodeId => this.loadNode(gltf, nodeId));
             this.rootNodes.forEach(node => {
@@ -128,7 +124,7 @@ export class AvatarManager {
 
             const material = new Material(this.gfxDevice, this.shader);
             const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, mesh, material);
-            model.bindSkeleton(new Skeleton(skin), skin.inverseBindMatrices);
+            model.bindSkeleton(new Skeleton(skin));
             model.material.setUniformBuffer(this.gfxDevice, 'uniforms', this.materialUniforms.getBuffer());
             model.material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
             this.skinnedModels.push(model);

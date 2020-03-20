@@ -1,7 +1,7 @@
 import { vec3, quat, mat4 } from "gl-matrix";
 import { assert, assertDefined, defined } from "./util";
 
-export class Object3D {
+export interface IObject3D {
     name: string;
 
     position: vec3;
@@ -11,8 +11,25 @@ export class Object3D {
     matrix: mat4; // local space to parent space
     matrixWorld: mat4; // local space to world space (concatenation of all parents above this object)
 
-    parent: Nullable<Object3D>;
-    children: Object3D[];
+    parent: Nullable<IObject3D>;
+    children: IObject3D[];
+
+    matrixWorldDirty: boolean;
+    matrixDirty: boolean;
+}
+
+export class Object3D implements IObject3D {
+    name: string;
+
+    position: vec3;
+    rotation: quat;
+    scale: vec3;
+
+    matrix: mat4; // local space to parent space
+    matrixWorld: mat4; // local space to world space (concatenation of all parents above this object)
+
+    parent: Nullable<this>;
+    children: this[];
 
     matrixWorldDirty: boolean = true;
     matrixDirty: boolean = true;
@@ -59,7 +76,7 @@ export class Object3D {
     /**
 	 * Adds object as child of this object.
 	 */
-    add(object: Object3D, ...others: Object3D[]): this {
+    add(object: this, ...others: this[]): this {
         assertDefined(object);
         assert(object !== this, `Object can't be added as a child of itself`);
 
@@ -80,7 +97,7 @@ export class Object3D {
 	/**
 	 * Removes object as child of this object.
 	 */
-    remove(object: Object3D, ...others: Object3D[]): this {
+    remove(object: this, ...others: this[]): this {
         const index = this.children.indexOf(object);
 
         if (index !== - 1) {
@@ -91,12 +108,13 @@ export class Object3D {
         return this;
     }
 
-    clone(recursive?: boolean): Object3D {
-        return new Object3D().copy(this, recursive);
+    clone(recursive?: boolean): this {
+        return new (<any>this.constructor)().copy(this, recursive);
     }
 
     copy(source: this, recursive: boolean = true): this {
         this.name = source.name;
+        
 
         vec3.copy(this.position, source.position);
         quat.copy(this.rotation, source.rotation);

@@ -1,8 +1,9 @@
 import * as Gfx from '../gfx/GfxTypes';
 import { assert, defaultValue, defined, assertDefined } from '../util';
 import * as GlTf from './Gltf.d';
-import { vec3, vec4, quat, mat4 } from 'gl-matrix';
+import { vec3, quat, mat4 } from 'gl-matrix';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
+import { Bone, Skin } from '../Skeleton';
 
 // --------------------------------------------------------------------------------
 // GLB (Binary GLTF decoding)
@@ -233,11 +234,11 @@ export interface GltfNode {
     children?: number[];
 }
 
-export interface GltfSkin {
+export interface GltfSkin extends Skin {
     name?: string;
-    inverseBindMatrices?: Float32Array;
+    inverseBindMatrices?: mat4[];
     skeleton?: number;
-    joints: number[];
+    bones: Bone[];
 }
 
 interface GltfMaterial {
@@ -635,21 +636,61 @@ function loadMeshes(res: GltfResource, asset: GltfAsset) {
 
 function loadSkins(res: GltfResource, asset: GltfAsset) {
     const skins = defaultValue(asset.gltf.skins, []);
+    const nodes = defaultValue(res.nodes, []);
     res.skins = [];
 
     for (let id = 0; id < skins.length; id++) {
         const skin = skins[id];
+        const bones = [];
+        const ibms = [];
+        
+        // @TODO: Construct the bone array such that parents are guaranteed to come before all of their children
+        // @NOTE: This allows hierarchy-dependent operations such as model matrix computation to be carried out linearly over the array
+        for (let i = 0; i < skin.joints.length; i++) {
+            const jointId = skin.joints[i]; 
+            const joint = nodes[jointId];
+
+            const bone = new Bone(jointId);
+            bone.name = defaultValue(joint.name, `Bone${jointId}`),
+            bone.position = joint.translation,
+            bone.rotation = joint.rotation,
+            bone.scale = joint.scale,
+
+            bones.push(bone);
+        }
+        
+        // Map children and parents
+        for (let i = 0; i < skin.joints.length; i++) {
+            const jointId = skin.joints[i]; 
+            const joint = nodes[jointId];
+            if (joint.children) {
+                for (let childId of joint.children) {
+                    const child = bones.find(b => b.nodeId === childId);
+                    // If the node's child is not a bone, ignore it
+                    if (defined(child)) {
+                        child.parent = bones[i];
+                        bones[i].children.push(child);
+                    }
+                }
+            }
+        }
+
+        // Inverse bind matrices are in the same order as the skin.joints array
+        // This has been re-arranged, so remap them here
+        if (defined(skin.inverseBindMatrices)) {
+            const ibmData = asset.accessorData(skin.inverseBindMatrices) as Float32Array;
+            res.transferList.push(ibmData.buffer);
+
+            for (let i = 0; i < skin.joints.length; i++) {
+                ibms[i] = ibmData.subarray(i * 16, i * 16 + 16);
+            }
+        }
 
         res.skins[id] = {
             name: skin.name,
             skeleton: skin.skeleton,
-            joints: skin.joints,
-        }
-        
-        if (defined(skin.inverseBindMatrices)) {
-            const ibmData = asset.accessorData(skin.inverseBindMatrices) as Float32Array;
-            res.skins[id].inverseBindMatrices = ibmData;
-            res.transferList.push(ibmData.buffer);
+            bones,
+            inverseBindMatrices: ibms,
         }
     }
 }
