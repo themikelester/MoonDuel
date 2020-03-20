@@ -682,7 +682,12 @@ function loadNodes(res: GltfResource, asset: GltfAsset) {
             morphWeight: defaultValue(gltfNode.weights, [0])[0],
         }
 
-        if (defined(gltfNode.matrix)) node.transform = mat4.fromValues.apply(null, gltfNode.matrix);
+        if (defined(gltfNode.matrix)) { 
+            node.transform = new Float32Array(gltfNode.matrix);
+            mat4.getRotation(node.rotation, node.transform);
+            mat4.getTranslation(node.translation, node.transform);
+            mat4.getScaling(node.scale, node.transform);
+        }
         else node.transform = mat4.fromRotationTranslationScale(mat4.create(), node.rotation, node.translation, node.scale);
 
         if (defined(gltfNode.mesh)) {
