@@ -36,7 +36,7 @@ class AsyncResourceManager {
         try { await loader.loadAsync(resource); }
         catch(error) { 
           resource.status = ResourceStatus.Failed; 
-          resource.error = error.message;
+          resource.error = error.stack;
         }
       }
 
