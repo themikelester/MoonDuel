@@ -233,7 +233,7 @@ export class AvatarManager {
         if (defined(node.skinId)) {
             const meshId = assertDefined(node.meshId);
             obj = this.loadSkinnedModel(gltf, meshId, node.skinId);
-        } else if (node.meshId) {
+        } else if (defined(node.meshId)) {
             obj = this.loadModel(gltf, node.meshId);
         } else {
             obj = new Object3D();
