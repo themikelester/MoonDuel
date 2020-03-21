@@ -36,7 +36,7 @@ export class Camera {
     this.right = vec3.create();
 
     fovY = defaultValue(fovY, 60.0 / 180 * Math.PI);
-    near = defaultValue(near, 0.1);
+    near = defaultValue(near, 1.0);
     far = defaultValue(far, 2000);
     aspectRatio = defaultValue(aspectRatio, 1);
     this.setPerspective(fovY, aspectRatio, near, far);
