@@ -617,7 +617,7 @@ function loadTextures(res: GltfResource, asset: GltfAsset): Promise<void>[] {
     // Shared texture properties
     const defaultTexDesc: Gfx.TextureDescriptor = {
         type: Gfx.TextureType.Texture2D,
-        format: Gfx.TexelFormat.U8x3,
+        format: Gfx.TexelFormat.U8x4,
         usage: Gfx.Usage.Static,
     };
 
