@@ -262,9 +262,12 @@ export interface GltfSkin extends Skin {
 }
 
 interface GltfMaterial {
+    name: string;
     renderFormat: Gfx.RenderFormat;
     cullMode: Gfx.CullMode;
-    textures: { [name: string]: GltfTexture };
+    
+    technique?: GltfTechnique;
+    values?: { [uniformName: string]: any };
 }
 
 interface GltfTexture {
@@ -272,7 +275,7 @@ interface GltfTexture {
     desc: Gfx.TextureDescriptor,
     name: string,
     id: Gfx.Id;
-    index: number;
+    imageIndex: number;
 }
 
 function translateAccessorToType(type: string, componentType: number): Gfx.Type {
@@ -365,6 +368,25 @@ function translateModeToPrimitiveType(mode: number): Gfx.PrimitiveType {
             throw new Error('Invalid GLTF primitive mode');
     }
 }
+
+/** Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#sampler */
+const GLTF_SAMPLER_MAG_FILTER: { [index: number]: any } = {
+    9728: Gfx.TextureFilter.Nearest,
+    9729: Gfx.TextureFilter.Linear,
+};
+
+const GLTF_SAMPLER_MIN_FILTER: { [index: number]: any } = {
+    9728: Gfx.TextureFilter.Nearest,
+    9729: Gfx.TextureFilter.Linear,
+    // 9984: NEAREST_MIPMAP_NEAREST
+    // 9985: LINEAR_MIPMAP_NEAREST
+    // 9986: NEAREST_MIPMAP_LINEAR
+    // 9987: LINEAR_MIPMAP_LINEAR
+};
+
+const GLTF_SAMPLER_WRAP: { [index: number]: any } = {
+    // Currently unsupported
+};
 
 /** Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#accessor-element-size */
 const GLTF_COMPONENT_TYPE_ARRAYS: { [index: number]: any } = {
@@ -570,25 +592,32 @@ function loadAnimations(res: GltfResource, asset: GltfAsset) {
     }
 }
 
-function loadImages(res: GltfResource, asset: GltfAsset): Promise<void>[] {
+function loadTextures(res: GltfResource, asset: GltfAsset): Promise<void>[] {
     const images = defaultValue(asset.gltf.images, []);
+    const textures = defaultValue(asset.gltf.textures, []);
+    const samplers = defaultValue(asset.gltf.samplers, []);
+
     const texturePromises = [];
     res.textures = [];
     res.imageData = [];
 
     // Shared texture properties
-    const desc: Gfx.TextureDescriptor = {
+    const defaultTexDesc: Gfx.TextureDescriptor = {
         type: Gfx.TextureType.Texture2D,
         format: Gfx.TexelFormat.U8x3,
         usage: Gfx.Usage.Static,
     };
 
+    // Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#sampler
+    const defaultSampler = {
+        wrapS: 10497,
+        wrapT: 10497
+    }
+
     for (let id = 0; id < images.length; id++) {
         const gltfImage = assertDefined(images[id]);
         const bufferView = assertDefined(gltfImage.bufferView, 'Image loading from a URI is not yet supported');
         const bufferData = asset.bufferViewData(bufferView);
-
-        const name = gltfImage.name || `tex${id}`;
 
         // All browser except Safari support JPG/PNG image decoding on a worker via createImageBitmap
         // Otherwise we'll just send the ArrayBuffer and decode before uploading to the GPU on the main thread
@@ -606,10 +635,33 @@ function loadImages(res: GltfResource, asset: GltfAsset): Promise<void>[] {
             res.transferList.push(imageData);
             res.imageData[id] = imageData;
         }));
-
-        const tex = { name, index: id, id: -1, desc };
-        res.textures[id] = tex;
     }
+
+    res.textures = textures.map(src => {
+        const sampler = defaultValue(samplers[src.sampler!], defaultSampler);
+        const desc = { ...defaultTexDesc };
+
+        if (defined(sampler.magFilter)) {
+            desc.defaultMagFilter = GLTF_SAMPLER_MAG_FILTER[sampler.magFilter];
+            if (!defined(desc.defaultMagFilter)) console.warn(`Unsupported texture mag filter: ${sampler.magFilter}`);
+        }
+
+        if (defined(sampler.minFilter)) {
+            desc.defaultMagFilter = GLTF_SAMPLER_MIN_FILTER[sampler.minFilter];
+            if (!defined(desc.defaultMagFilter)) console.warn(`Unsupported texture min filter: ${sampler.magFilter}`);
+        }
+
+        if (defined(sampler.wrapS) || defined(sampler.wrapT)) {
+            if (!defined(desc.defaultMagFilter)) console.warn(`Texture wrapping not yet supported: ${sampler.magFilter}`);
+        }
+
+        return {
+            name: src.name,
+            desc,
+            imageIndex: assertDefined(src.source),
+            id: -1,
+        }
+    });
 
     return texturePromises;
 }
@@ -618,34 +670,21 @@ function loadMaterials(res: GltfResource, asset: GltfAsset) {
     const materials = defaultValue(asset.gltf.materials, []);
     res.materials = [];
 
-    for (let id = 0; id < materials.length; id++) {
-        const gltfMaterial = assertDefined(materials[id]);
-
+    res.materials = materials.map((src, i) => {
         const material: GltfMaterial = {
+            name: defaultValue(src.name, `Material${i}`),
             renderFormat: { blendingEnabled: false }, // @TODO: Parse this
-            cullMode: gltfMaterial.doubleSided ? Gfx.CullMode.None : Gfx.CullMode.Back,
-            textures: {},
+            cullMode: src.doubleSided ? Gfx.CullMode.None : Gfx.CullMode.Back,
         }
 
-        const defaultPbr = {
-            baseColorFactor: [1, 1, 1, 1],
-            metallicFactor: 1,
-            roughnessFactor: 1,
-        };
-
-        const pbr = defaultValue(gltfMaterial.pbrMetallicRoughness, defaultPbr);
-        // @TODO: Alpha mode
-        // @TODO: Alpha cutoff
-
-        if (pbr.baseColorTexture) {
-            const uvIdx = defaultValue(pbr.baseColorTexture.texCoord, 0);
-            assert(uvIdx === 0, 'Non-zero UV indices not yet supported');
-            const texture = assertDefined(res.textures[pbr.baseColorTexture.index]);
-            material.textures['baseColorTexture'] = texture;
+        const ext = src.extensions?.KHR_techniques_webgl;
+        if (defined(ext)) {
+            material.technique = res.techniques[ext.technique];
+            material.values = ext.values;
         }
 
-        res.materials[id] = material;
-    }
+        return material;
+    });
 }
 
 function loadMeshes(res: GltfResource, asset: GltfAsset) {
@@ -882,7 +921,7 @@ export class GltfLoader implements ResourceLoader {
         resource.imageData = [];
         resource.bufferData = [];
 
-        const texPromises = loadImages(resource, asset);
+        const texPromises = loadTextures(resource, asset);
         loadTechniques(resource, asset);
         loadMaterials(resource, asset);
         loadMeshes(resource, asset);
@@ -920,23 +959,15 @@ export class GltfLoader implements ResourceLoader {
         }
 
         // Upload textures to the GPU
+        // @TODO: Currently creating multiple copies of textures to support different sampler parameter sets
         if (defined(self.createImageBitmap)) {
-            for (let idx in resource.imageData) {
-                const imageData = resource.imageData[idx];
-                const tex = resource.textures[idx];
-
-                if (imageData instanceof ImageBitmap) {
-                    tex.id = context.renderer.createTexture(tex.name, {
-                        usage: Gfx.Usage.Static,
-                        type: Gfx.TextureType.Texture2D,
-                        format: Gfx.TexelFormat.U8x3,
-                        maxAnistropy: 16,
-                    }, imageData);
-
-                    imageData.close();
-                }
+            for (const texture of resource.textures) {
+                const imageData = resource.imageData[texture.imageIndex] as ImageBitmap;
+                assert(imageData instanceof ImageBitmap);
+                texture.id = context.renderer.createTexture(texture.name, texture.desc, imageData);
             }
 
+            for (const imageData of resource.imageData) { (imageData as ImageBitmap).close(); }
             delete resource.imageData;
             resource.status = ResourceStatus.Loaded;
         }
@@ -945,10 +976,9 @@ export class GltfLoader implements ResourceLoader {
             // This browser (Safari) doesn't support createImageBitmap(), which means we have to do JPEG decompression
             // here on the main thread. Use an HtmlImageElement to do this before submitting to WebGL.
             let texLoadedCount = 0;
-            for (let idx in resource.imageData) {
-                const imageData = resource.imageData[idx];
-                const tex = resource.textures[idx];
-                if (tex.id !== -1) {
+            for (const texture of resource.textures) {
+                const imageData = resource.imageData[texture.imageIndex];
+                if (texture.id !== -1) {
                     texLoadedCount += 1;
                     continue;
                 }
@@ -959,20 +989,20 @@ export class GltfLoader implements ResourceLoader {
                     let imageUrl = window.URL.createObjectURL(blob);
 
                     // Create an image element to do async JPEG/PNG decoding
-                    resource.imageData[idx] = new Image();
-                    (resource.imageData[idx] as HTMLImageElement).src = imageUrl;
+                    resource.imageData[texture.imageIndex] = new Image();
+                    (resource.imageData[texture.imageIndex] as HTMLImageElement).src = imageUrl;
 
                     // Continue calling loadSync until the image is loaded and decoded
                     resource.status = ResourceStatus.LoadingSync;
                 }
 
-                if ((resource.imageData[idx] as HTMLImageElement).complete) {
-                    tex.id = context.renderer.createTexture(tex.name, {
+                if ((resource.imageData[texture.imageIndex] as HTMLImageElement).complete) {
+                    texture.id = context.renderer.createTexture(texture.name, {
                         usage: Gfx.Usage.Static,
                         type: Gfx.TextureType.Texture2D,
                         format: Gfx.TexelFormat.U8x3,
                         maxAnistropy: 16,
-                    }, resource.imageData[idx] as HTMLImageElement);
+                    }, resource.imageData[texture.imageIndex] as HTMLImageElement);
                 }
             }
 
