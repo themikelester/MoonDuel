@@ -47,7 +47,6 @@ export class UniformBuffer {
   private bufferData: ArrayBuffer;
   private bufferBytes: Uint8Array;
   private bufferFloats: Float32Array;
-  private bufferView: DataView;
   private buffer: Gfx.Id;
 
   getBuffer() { return this.buffer }
@@ -69,7 +68,6 @@ export class UniformBuffer {
     this.bufferData = new ArrayBuffer(this.bufferSize);
     this.bufferBytes = new Uint8Array(this.bufferData);
     this.bufferFloats = new Float32Array(this.bufferData);
-    this.bufferView = new DataView(this.bufferData);
     this.buffer = renderer.createBuffer(name, Gfx.BufferType.Uniform, Gfx.Usage.Dynamic, this.bufferSize);
   }
 
@@ -98,15 +96,15 @@ export class UniformBuffer {
     this.bufferFloats.set(m, uniform.offset / 4);
   }
 
-  setBytes(name: string, value: Uint8Array) {
+  setBytes(name: string, value: ArrayLike<number>) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
-    if (value.byteLength !== getUniformSize(uniform)) throw new Error('Invalid size');
+    if (value.length !== getUniformSize(uniform)) throw new Error('Invalid size');
     this.bufferBytes.set(value, uniform.offset);
   }
 
-  setFloats(name: string, value: Float32Array) {
+  setFloats(name: string, value: ArrayLike<number>) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
-    if (value.byteLength !== getUniformSize(uniform)) throw new Error('Invalid size');
+    if (value.length !== getUniformSize(uniform) / 4) throw new Error('Invalid size');
     this.bufferFloats.set(value, uniform.offset / 4);
   }
 
