@@ -14,7 +14,7 @@ const BINARY_CHUNK_TYPES = { JSON: 0x4e4f534a, BIN: 0x004e4942 };
 
 // @TODO: This should be shared with the whole engine
 let textDecoder = new TextDecoder();
-function decodeText(array: ArrayBufferView): string {
+function decodeText(array: ArrayBufferView | ArrayBuffer): string {
     return textDecoder.decode(array);
 }
 
@@ -179,6 +179,26 @@ export class GltfAsset {
 // --------------------------------------------------------------------------------
 // GLTF Loader
 // --------------------------------------------------------------------------------
+export interface GltfShader {
+    id: Gfx.Id;
+    name: string;
+
+    fsIndex: number;
+    vsIndex: number;
+}
+
+export interface GltfTechnique {
+    shader: GltfShader;
+    attributes: { [name: string]: { semantic: string }};
+    uniforms: { [name: string]: {
+        type: Gfx.Type;
+        count?: number;
+        node?: number;
+        semantic?: string;
+        value?: any;
+    }}
+}
+
 export interface Sampler {
     nodeId: number;
     times: Float32Array;
@@ -305,6 +325,24 @@ function translateAccessorToType(type: string, componentType: number): Gfx.Type 
     }
 
     return gfxType;
+}
+
+function translateTypeToType(type: number): Gfx.Type {
+    switch (type) {
+        case 5124: return Gfx.Type.Int;
+        case 5126: return Gfx.Type.Float;
+        case 35664: return Gfx.Type.Float2;
+        case 35665: return Gfx.Type.Float3;
+        case 35666: return Gfx.Type.Float4;
+        case 35667: return Gfx.Type.Int2
+        case 35668: return Gfx.Type.Int3
+        case 35669: return Gfx.Type.Int4
+        case 35675: return Gfx.Type.Float3x3;
+        case 35676: return Gfx.Type.Float4x4;
+        case 35678: return Gfx.Type.Texture2D;
+        default:
+            throw new Error('Invalid GLTF component type');
+    }
 }
 
 function translateModeToPrimitiveType(mode: number): Gfx.PrimitiveType {
@@ -752,6 +790,39 @@ function loadNodes(res: GltfResource, asset: GltfAsset) {
     }
 }
 
+function loadTechniques(res: GltfResource, asset: GltfAsset) {
+    if (!asset.gltf.extensionsUsed?.includes('KHR_techniques_webgl')) { return; }
+    const ext = assertDefined(asset.gltf.extensions.KHR_techniques_webgl);
+
+    res.shaderData = ext.shaders.map((src: any, idx: number) => {
+        const bufferViewId = assertDefined(src.bufferView, 'Shader loading from URI not yet supported');
+        const data = new Uint8Array(asset.bufferViewData(bufferViewId)).buffer;
+        res.transferList.push(data);
+        return data;
+    });
+
+    res.shaders = ext.programs.map((src: any) => ({
+        id: -1, // Set during loadSync() once the shader source has been compiled
+        name: src.name,
+        fsIndex: src.fragmentShader,
+        vsIndex: src.vertexShader,
+    }));
+
+    res.techniques = ext.techniques.map((src: any, idx: number) => {
+        const uniforms: GltfTechnique['uniforms'] = {};
+        for (const uniformName in defaultValue(src.uniforms, {})) {
+            const srcUni = src.uniforms[uniformName];
+            uniforms[uniformName] = { ...srcUni, type: translateTypeToType(srcUni.type) };
+        }
+        
+        return {
+            shader: res.shaders[src.program],
+            attributes: defaultValue(src.attributes, {}),
+            uniforms,
+        };
+    });
+}
+
 function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType: Gfx.BufferType): GltfBufferView {
     if (defined(res.bufferViews[id])) return res.bufferViews[id];
 
@@ -779,12 +850,15 @@ export interface GltfResource extends Resource {
     textures: GltfTexture[];
     bufferViews: GltfBufferView[];
     animations: GltfAnimation[];
+    shaders: GltfShader[];
+    techniques: GltfTechnique[];
     rootNodeIds: number[];
 
     // Transient Data
     promises: Promise<any>[];
     imageData: (ArrayBuffer | ImageBitmap | HTMLImageElement)[];
     bufferData: ArrayBuffer[];
+    shaderData: ArrayBuffer[];
 }
 
 export class GltfLoader implements ResourceLoader {
@@ -809,6 +883,7 @@ export class GltfLoader implements ResourceLoader {
         resource.bufferData = [];
 
         const texPromises = loadImages(resource, asset);
+        loadTechniques(resource, asset);
         loadMaterials(resource, asset);
         loadMeshes(resource, asset);
         loadNodes(resource, asset);
@@ -828,6 +903,20 @@ export class GltfLoader implements ResourceLoader {
             const bufferView = resource.bufferViews[idx];
             const bufferData = resource.bufferData[idx];
             bufferView.id = context.renderer.createBuffer(bufferView.name, bufferView.type, Gfx.Usage.Static, bufferData);
+        }
+
+        // Create programs
+        for (const shader of defaultValue(resource.shaders, [])) {
+            const vertSourceBuf = resource.shaderData[shader.vsIndex];
+            const fragSourceBuf = resource.shaderData[shader.fsIndex];
+            
+            const desc: Gfx.ShaderDescriptor = {
+                name: shader.name,
+                vertSource: decodeText(vertSourceBuf),
+                fragSource: decodeText(fragSourceBuf),
+            }
+            
+            shader.id = context.renderer.createShader(desc);
         }
 
         // Upload textures to the GPU
