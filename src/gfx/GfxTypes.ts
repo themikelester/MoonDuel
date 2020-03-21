@@ -80,7 +80,6 @@ export interface ShaderDescriptor {
   name: string,
   vertSource: string | string[],
   fragSource: string | string[],
-  resourceLayout: ShaderResourceLayout; 
 }
 
 // --------------------------------------------------------------------------------------------------
@@ -352,8 +351,6 @@ export interface Renderer {
     
     writeBufferData(bufferId: Id, dstOffset: number, srcBytes: (ArrayBuffer | ArrayBufferView)): void;
     writeTextureData(textureId: Id, image: HTMLImageElement | HTMLCanvasElement | ArrayBuffer | ImageBitmap): void;
-
-    getResourceLayout(shaderId: Id): ResourceLayout;
 
     readPixels(offsetX: number, offsetY: number, width: number, height: number, result: Uint8Array): void;
 }

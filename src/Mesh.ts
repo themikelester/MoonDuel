@@ -54,9 +54,9 @@ export class Material {
     layout: Gfx.ResourceLayout;
     resources: Gfx.Id;
 
-    constructor(device: Gfx.Renderer, shader: Gfx.Id) {
+    constructor(device: Gfx.Renderer, shader: Gfx.Id, resourceLayout: Gfx.ResourceLayout) {
         this.shader = shader;
-        this.layout = device.getResourceLayout(shader);
+        this.layout = resourceLayout;
         this.resources = device.createResourceTable(this.layout);
     }
 

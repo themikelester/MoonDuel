@@ -36,7 +36,6 @@ class AvatarShader implements Gfx.ShaderDescriptor {
     defines = `#define k_MaxBones ${kMaxAvatarBoneCount}\n`;
     vertSource = [this.defines, AvatarShader.vert.sourceCode];
     fragSource = AvatarShader.frag.sourceCode;
-    resourceLayout = AvatarShader.resourceLayout;
     id: Gfx.Id;
 }
 
@@ -57,7 +56,6 @@ class ModelShader implements Gfx.ShaderDescriptor {
     name = 'ModelShader';
     vertSource = ModelShader.vert.sourceCode;
     fragSource = ModelShader.frag.sourceCode;
-    resourceLayout = ModelShader.resourceLayout;
     id: Gfx.Id;
 }
 
@@ -86,8 +84,6 @@ export class AvatarManager {
 
         // @TODO: UniformBuffer should support x instances 
         this.skinnedUniforms = new UniformBuffer('AvatarMaterial', gfxDevice, AvatarShader.uniformLayout);
-        this.skinnedUniforms.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
-        this.skinnedUniforms.write(gfxDevice);
 
         resources.load('data/Avatar.glb', 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -120,11 +116,15 @@ export class AvatarManager {
                 primitiveType: prim.type,
             });
 
-            const material = new Material(this.gfxDevice, this.shader);
+            const material = new Material(this.gfxDevice, this.shader, AvatarShader.resourceLayout);
             const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, mesh, material);
             model.bindSkeleton(new Skeleton(skin));
             model.material.setUniformBuffer(this.gfxDevice, 'uniforms', this.skinnedUniforms.getBuffer());
             model.material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
+
+            this.skinnedUniforms.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
+            this.skinnedUniforms.write(this.gfxDevice);
+
             this.skinnedModels.push(model);
 
             obj.add(model);
@@ -152,7 +152,7 @@ export class AvatarManager {
             ubo.write(this.gfxDevice);
             this.modelUniforms.push(ubo);
 
-            const material = new Material(this.gfxDevice, this.modelShader);
+            const material = new Material(this.gfxDevice, this.modelShader, ModelShader.resourceLayout);
             const model = new Model(this.gfxDevice, renderLists.opaque, mesh, material);
             model.material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo.getBuffer());
             model.material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);

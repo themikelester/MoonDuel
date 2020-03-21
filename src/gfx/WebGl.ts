@@ -401,8 +401,6 @@ interface Shader {
   glProgram: GLInt,
   reflection: ShaderReflection,
   uniformVals: { [name: string]: Float32Array },
-  uniformLayout: UniformLayout,
-  resourceLayout: Gfx.ResourceLayout,
 }
 
 interface UniformLayout {
@@ -444,7 +442,8 @@ interface RenderPipeline {
   shader: Shader,
   renderFormat: Gfx.RenderFormat, 
   vertexLayout: Gfx.VertexLayout,
-  resourceLayout: Gfx.ResourceLayout,
+  resourceLayout: Gfx.ShaderResourceLayout,
+  uniformLayout: UniformLayout,
 }
 
 interface VertexTable {
@@ -975,7 +974,7 @@ export class WebGlRenderer implements Gfx.Renderer {
   
   bindResources(resourceTableId: Gfx.Id): void {
     const table = this.resourceTables.get(resourceTableId);
-    const uniLayout = this.pipeline.shader.uniformLayout;
+    const uniLayout = this.pipeline.uniformLayout;
     const shaderRefl = this.pipeline.shader.reflection;
     const shaderName = this.pipeline.shader.name;
   
@@ -1078,64 +1077,27 @@ export class WebGlRenderer implements Gfx.Renderer {
     }
   }
 
-  createRenderPipeline(shaderId: Gfx.Id, renderFormat: Gfx.RenderFormat, vertexLayout: Gfx.VertexLayout, resourceLayout: Gfx.ResourceLayout): Gfx.Id {
+  createRenderPipeline(shaderId: Gfx.Id, renderFormat: Gfx.RenderFormat, vertexLayout: Gfx.VertexLayout, resourceLayout: Gfx.ShaderResourceLayout): Gfx.Id {
     const shader = this.shaders.get(shaderId);
-
-    if (this.debugEnabled) {
-      // Ensure the vertexLayout supplies all Attributes required by the Shader
-      const requiredAttrs = Object.keys(shader.reflection.attributes);
-      requiredAttrs.forEach(a => {
-        const attrBuf = vertexLayout.buffers.find(buffer => buffer && buffer.layout[a] !== undefined);
-        assert(attrBuf !== undefined, `VertexLayout does not supply attribute ${a} required by Shader '${shader.name}'`);
-      });
-
-      // Ensure the resourceLayout supplies all the resources required by the Shader
-      const resourceList = Object.keys(resourceLayout).map(name => resourceLayout[name]);
-      const uniNames = Object.keys(shader.uniformLayout);
-      for (let i = 0; i < uniNames.length; i++) {
-        const binding = shader.uniformLayout[uniNames[i]];
-        if (!resourceList.find(b => b.index === binding.index)) {
-          error(`ResourceLayout does not supply a texture at index ${binding.index} required by uniform '${uniNames[i]}' of Shader '${shader.name}'`);
-        }
-      }
-
-      if (!this.isGfxFeatureSupported(Gfx.Feature.Instancing)) {
-        vertexLayout.buffers.forEach(buffer => {
-          assert(buffer.stepMode !== Gfx.StepMode.Instance, "Instancing is not supported by this WebGL context")
-        })
-      } 
-    }
-
-    return this.renderPipelines.create({ shader, renderFormat, vertexLayout, resourceLayout });
-  }
-
-  removeRenderPipeline(pipelineId: Gfx.Id): void  {
-    this.renderPipelines.delete(pipelineId);
-  }
-
-  createShader(desc: Gfx.ShaderDescriptor) {
-    return this._createShader(desc.name, desc.vertSource, desc.fragSource, desc.resourceLayout);
-  }
-
-  _createShader(name: string, vsIn: string | string[], fsIn: string | string[], resourceLayout: Gfx.ShaderResourceLayout): number {
-    assert(resourceLayout !== undefined, 'A ShaderResourceLayout must be passed to createShader to define uniform binding locations.' +
-      'In WebGL2/GLSL300 it may be possible to define binding locations completely within the shader');
-
-    // If the sources are arrays, join them with line directives so that error line numbers are still readable
-    const vs = vsIn instanceof Array ? vsIn.join('\n#line 0\n') : vsIn;
-    const fs = fsIn instanceof Array ? fsIn.join('\n#line 0\n') : fsIn;
-
-    // Compile and link the shader
-    const glProgram = createProgramFromSource(name, vs, fs);
-    const reflection = reflectShader(glProgram);
 
     // For convenience, extract the resource bindings as an array
     const resourceNames = Object.keys(resourceLayout);
     const resourceList = resourceNames.map(name => resourceLayout[name]);
+    const reflection = shader.reflection;
 
-    // Ensure that all uniforms/textures are defined in the resourceLayout
-    // @TODO: ShaderReflection should treat textures and uniforms the same
     if (this.debugEnabled) {
+      // Ensure that a full ShaderResourceLayout has been passed and provides uniform locations within each uniform buffer
+      for (const name of resourceNames) {
+        const resourceBinding = resourceLayout[name];
+        if (resourceBinding.type === Gfx.BindingType.UniformBuffer) {
+          assert((resourceBinding as Gfx.UniformBufferResourceBinding).layout !== undefined, 
+            `A BufferLayout must be provided for UniformBuffer "${name}" in the ResourceLayout passed to createRenderPipeline()` +
+            'to define uniform binding locations. In WebGL2/GLSL300 it may be possible to define binding locations completely within the shader'
+          );    
+        }
+      }
+
+      // Ensure that all uniforms are defined in the resourceLayout
       for (let i = 0; i < reflection.uniforms.length; i++) {
         const uniform = reflection.uniforms[i];
         const binding = resourceList.find(l => !isTextureResourceBinding(l) && l.layout && l.layout[uniform.name]) as Gfx.UniformBufferResourceBinding;
@@ -1149,12 +1111,27 @@ export class WebGlRenderer implements Gfx.Renderer {
         }
       }
 
+      // Ensure that all textures are defined in the resourceLayout
+      // @TODO: ShaderReflection should treat textures and uniforms the same
       for (let i = 0; i < reflection.textureArray.length; i++) {
         const uniRefl = reflection.textureArray[i];
         const binding = resourceList.find((l, i) => isTextureResourceBinding(l) && resourceNames[i] === uniRefl.name) as Gfx.TextureResourceBinding;
         assert(binding !== undefined, `Shader '${name}' expects texture '${uniRefl.name}', but it is not defined in the ShaderResourceLayout`);
         assert((binding.count || 1) === uniRefl.count, `Shader '${name}' expects texture '${uniRefl.name}' to be an array of length ${uniRefl.count}, but the ResourceLayout specifies length ${binding.count}`);
       }
+
+      // Ensure the vertexLayout supplies all Attributes required by the Shader
+      const requiredAttrs = Object.keys(reflection.attributes);
+      requiredAttrs.forEach(a => {
+        const attrBuf = vertexLayout.buffers.find(buffer => buffer && buffer.layout[a] !== undefined);
+        assert(attrBuf !== undefined, `VertexLayout does not supply attribute ${a} required by Shader '${shader.name}'`);
+      });
+
+      if (!this.isGfxFeatureSupported(Gfx.Feature.Instancing)) {
+        vertexLayout.buffers.forEach(buffer => {
+          assert(buffer.stepMode !== Gfx.StepMode.Instance, "Instancing is not supported by this WebGL context")
+        })
+      } 
     }
 
     // Map individual uniforms to the locations in the bound uniform buffers
@@ -1169,6 +1146,26 @@ export class WebGlRenderer implements Gfx.Renderer {
       const binding = resourceLayout[uniform.name];
       uniformLayout[uniform.name] = { offset: 0, index: binding.index };
     }
+
+    return this.renderPipelines.create({ shader, renderFormat, vertexLayout, resourceLayout, uniformLayout });
+  }
+
+  removeRenderPipeline(pipelineId: Gfx.Id): void  {
+    this.renderPipelines.delete(pipelineId);
+  }
+
+  createShader(desc: Gfx.ShaderDescriptor) {
+    return this._createShader(desc.name, desc.vertSource, desc.fragSource);
+  }
+
+  _createShader(name: string, vsIn: string | string[], fsIn: string | string[]): number {
+    // If the sources are arrays, join them with line directives so that error line numbers are still readable
+    const vs = vsIn instanceof Array ? vsIn.join('\n#line 0\n') : vsIn;
+    const fs = fsIn instanceof Array ? fsIn.join('\n#line 0\n') : fsIn;
+
+    // Compile and link the shader
+    const glProgram = createProgramFromSource(name, vs, fs);
+    const reflection = reflectShader(glProgram);
 
     // Allocate space to shadow each uniform value
     const uniformVals = {} as { [name: string]: Float32Array };
@@ -1189,7 +1186,7 @@ export class WebGlRenderer implements Gfx.Renderer {
     // Update our shadow state to ensure that the correct shader gets re-bound
     this.current.shader = undefined;
     
-    return this.shaders.create({ name, glProgram, reflection, uniformVals, uniformLayout, resourceLayout });
+    return this.shaders.create({ name, glProgram, reflection, uniformVals });
   }
 
   removeShader(shaderId: Gfx.Id): void {
@@ -1322,11 +1319,6 @@ export class WebGlRenderer implements Gfx.Renderer {
     }
     
     this.buffers.delete(bufferId);
-  }
-
-  getResourceLayout(shaderId: Gfx.Id) {
-    const shader = this.shaders.get(shaderId);
-    return shader.resourceLayout;
   }
 
   readPixels(offsetX: number, offsetY: number, width: number, height: number, result: Uint8Array): void {
