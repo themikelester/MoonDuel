@@ -338,7 +338,7 @@ function TranslateGfxTextureFilter(filter: Gfx.TextureFilter) {
   switch (filter) {
     case Gfx.TextureFilter.Nearest: return gl.NEAREST;
     case Gfx.TextureFilter.Linear: return gl.LINEAR;
-    default: return error('Unsupported texture filter: ${filter)');
+    default: return error(`Unsupported texture filter: ${filter}`);
   }
 }
 
