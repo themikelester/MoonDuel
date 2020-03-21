@@ -409,8 +409,7 @@ const GLTF_ELEMENTS_PER_TYPE: { [index: string]: number } = {
     MAT4: 16,
 };
 
-// Remap GLTF vertex attribute names to our own
-const GLTF_VERTEX_ATTRIBUTES: { [index: string]: string } = {
+const kDefaultVertexAttributeSemanticMap: { [semantic: string]: string } = {
     POSITION: 'a_pos',
     NORMAL: 'a_normal',
     TANGENT: 'a_tangent',
@@ -458,6 +457,16 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
         indexBufferView = loadBufferView(res, asset, viewId, Gfx.BufferType.Index);
     }
 
+    // If the material specifies vertex attribute names, use those. Otherwise use the defaults.
+    const attribNameMap: { [semantic: string]: string } = kDefaultVertexAttributeSemanticMap;
+    if (defined(material.technique)) {
+        const attribNames = Object.keys(material.technique.attributes);
+        for (const name of attribNames) { 
+            const semantic = material.technique.attributes[name].semantic;
+            attribNameMap[semantic] = name;
+        }
+    }
+
     // Fill out the VertexLayout based on the primitive's attributes
     const vertexLayout: Gfx.VertexLayout = { buffers: [] };
     const bufferViewMap: { [viewIdx: number]: number } = {};
@@ -488,7 +497,9 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
         const attribDefine = GLTF_ATTRIBUTE_DEFINES[gltfAttribName];
         if (defined(attribDefine)) shaderDefines.push(attribDefine);
 
-        bufferDesc.layout[GLTF_VERTEX_ATTRIBUTES[gltfAttribName]] = {
+        const shaderAttribName = kDefaultVertexAttributeSemanticMap[gltfAttribName];
+
+        bufferDesc.layout[shaderAttribName] = {
             type: translateAccessorToType(accessor.type, accessor.componentType),
             offset: accessor.byteOffset || 0,
         };
@@ -516,7 +527,9 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
                     };
                 }
 
-                bufferDesc.layout[GLTF_VERTEX_ATTRIBUTES[`MORPH0_${semantic}`]] = {
+                const shaderAttribName = kDefaultVertexAttributeSemanticMap[`MORPH0_${semantic}`];
+
+                bufferDesc.layout[shaderAttribName] = {
                     type: translateAccessorToType(accessor.type, accessor.componentType),
                     offset: accessor.byteOffset || 0,
                 };
