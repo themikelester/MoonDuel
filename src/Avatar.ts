@@ -139,7 +139,7 @@ export class AvatarManager {
                 resourceLayout[texName] = { index: i, type: Gfx.BindingType.Texture };
             }
 
-            const material = new Material(this.gfxDevice, technique.shader.id, resourceLayout);
+            const material = new Material(this.gfxDevice, prim.material.name, technique.shader.id, resourceLayout);
             const model = new Model(this.gfxDevice, renderLists.opaque, mesh, material);
 
             // Set static uniforms from the values provided in the GLTF material
@@ -201,7 +201,7 @@ export class AvatarManager {
                 resourceLayout[texName] = { index: i, type: Gfx.BindingType.Texture };
             }
 
-            const material = new Material(this.gfxDevice, technique.shader.id, resourceLayout);
+            const material = new Material(this.gfxDevice, prim.material.name, technique.shader.id, resourceLayout);
             const model = new Model(this.gfxDevice, renderLists.opaque, mesh, material);
 
             // Set static uniforms from the values provided in the GLTF material

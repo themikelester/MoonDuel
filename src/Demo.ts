@@ -64,7 +64,7 @@ export class Demo {
         this.uniformBuffer.setMat4('u_model', IdentityMat4);
         this.uniformBuffer.write(gfxDevice);
 
-        this.material = new Material(gfxDevice, this.shader, SimpleShader.resourceLayout);
+        this.material = new Material(gfxDevice, 'simple', this.shader, SimpleShader.resourceLayout);
         this.material.setUniformBuffer(gfxDevice, 'uniforms', this.uniformBuffer.getBuffer());
         this.material.setUniformBuffer(gfxDevice, 'globalUniforms', globalUniforms.buffer);
         

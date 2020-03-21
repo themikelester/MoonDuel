@@ -50,12 +50,14 @@ export class Mesh {
 // Material is basically an instance of a Shader. All the necessary Uniforms and Textures are collected here.
 // @NOTE: It does not perform any allocation. These resources may be shared between multiple materials.
 export class Material {
+    name: string;
     shader: Gfx.Id;
     layout: Gfx.ResourceLayout;
     resources: Gfx.Id;
 
-    constructor(device: Gfx.Renderer, shader: Gfx.Id, resourceLayout: Gfx.ResourceLayout) {
+    constructor(device: Gfx.Renderer, name: string, shader: Gfx.Id, resourceLayout: Gfx.ResourceLayout) {
         this.shader = shader;
+        this.name = name;
         this.layout = resourceLayout;
         this.resources = device.createResourceTable(this.layout);
     }
