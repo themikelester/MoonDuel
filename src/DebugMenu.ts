@@ -22,13 +22,11 @@ interface IDebugMenu {
 }
 
 class DebugMenuShim implements IDebugMenu {
-    gui: any;
-    _folderName: string;
-    _add: IArguments[] = [];
-    _folders: { [name: string]: DebugMenuShim } = {}
+    private _gui: any;
+    private _add: IArguments[] = [];
+    private _folders: { [name: string]: DebugMenuShim } = {}
 
-    constructor(folderName?: string) {
-        if (folderName) this._folderName = folderName;
+    constructor() {
     }
 
     add(target: Object, propName:string, min?: number | boolean | string[] | Object, max?: number, step?: number): void { 
@@ -36,37 +34,37 @@ class DebugMenuShim implements IDebugMenu {
     }
 
     addFolder(propName:string): IDebugMenu {
-        this._folders[propName] = new DebugMenuShim(propName);
+        this._folders[propName] = new DebugMenuShim();
         return this._folders[propName];
     }
 
     async show() {
         // The first time we show the menu, dynamically download and execute the dat.gui bundle
-        if (this.gui === undefined) { 
+        if (this._gui === undefined) { 
             const dat = await import(/* webpackChunkName: "dat-gui" */ 'dat.gui'); 
-            this.gui = new dat.GUI()
+            this._gui = new dat.GUI()
         }
 
         // Call all buffered shim functions (recursively for folders)
-        for (const args of this._add) { this.gui.add.apply(this.gui, args); }
+        for (const args of this._add) { this._gui.add.apply(this._gui, args); }
         for (const folderName in this._folders) { 
-            this._folders[folderName].gui = this.gui.addFolder(folderName);
+            this._folders[folderName]._gui = this._gui.addFolder(folderName);
             this._folders[folderName].show() 
         };
 
         // Replace this shim with a real dat.gui object
-        this.add = this.gui.add.bind(this.gui);
-        this.addFolder = this.gui.addFolder.bind(this.gui);
-        this.show = this.gui.show.bind(this.gui);
-        this.hide = this.gui.hide.bind(this.gui);
+        this.add = this._gui.add.bind(this._gui);
+        this.addFolder = this._gui.addFolder.bind(this._gui);
+        this.show = this._gui.show.bind(this._gui);
+        this.hide = this._gui.hide.bind(this._gui);
     }
 
     hide() {}
 
     update() {
-        if (this.gui && !this.gui.closed) {
-            for (var i in this.gui.__controllers) {
-                this.gui.__controllers[i].updateDisplay();
+        if (this._gui && !this._gui.closed) {
+            for (var i in this._gui.__controllers) {
+                this._gui.__controllers[i].updateDisplay();
             }
         }
     }
