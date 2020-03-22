@@ -11,6 +11,8 @@ type StateModules = {
 }
 
 export class StateManager {
+    clearing: boolean = false;
+
     initialize(modules: StateModules) {
         DebugMenu.add(this, 'clearState');
 
@@ -25,7 +27,10 @@ export class StateManager {
         }
     
         const stateString = JSON.stringify(stateObj);
-    
+
+        // If clearState() has been called, ensure we don't save state until the page finishes reloading
+        if (this.clearing) return; 
+
         window.localStorage.setItem(kStateStorageKey, stateString);
     }
     
@@ -50,6 +55,7 @@ export class StateManager {
 
     clearState() {
         window.localStorage.removeItem(kStateStorageKey);
+        this.clearing = true;
         location.reload();
     }
 
