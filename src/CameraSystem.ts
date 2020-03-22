@@ -52,6 +52,8 @@ export class CameraSystem {
 export interface CameraController {
     camera: Camera;
     update(inputManager: InputManager, dt: number): boolean;
+    toJSON(): string;
+    fromJSON(data: any): void;
 }
 
 const vec3Up = vec3.fromValues(0, 1, 0);
