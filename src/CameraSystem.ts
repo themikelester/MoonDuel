@@ -80,23 +80,6 @@ export class OrbitCameraController implements CameraController {
     }
 
     public update(inputManager: InputManager, dt: number): boolean {
-        if (inputManager.isKeyDownEventTriggered('KeyR')) {
-            this.shouldOrbit = !this.shouldOrbit;
-        }
-
-        if (inputManager.isKeyDownEventTriggered('Numpad5')) {
-            this.shouldOrbit = false;
-            this.xVel = this.yVel = 0;
-        }
-
-        if (inputManager.isKeyDownEventTriggered('KeyB')) {
-            this.shouldOrbit = false;
-            this.xVel = this.yVel = 0;
-            this.txVel = this.tyVel = 0;
-            this.xVel = this.yVel = this.zVel = 0;
-            vec3.set(this.translation, 0, 0, 0);
-        }
-
         const shouldOrbit = this.shouldOrbit;
 
         const invertXMult = inputManager.invertX ? -1 : 1;
