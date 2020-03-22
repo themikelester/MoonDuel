@@ -39,6 +39,14 @@ export class CameraSystem {
         globalUniforms.setUniform('g_proj', Float32Array.from(this.camera.projectionMatrix));
         globalUniforms.setUniform('g_viewProj', Float32Array.from(this.camera.viewProjMatrix));
     }
+
+    toJSON(): string {
+        return this.controller.toJSON();
+    }
+
+    fromJSON(data: string) {
+        return this.controller.fromJSON(data);
+    }
 }
 
 export interface CameraController {
@@ -164,6 +172,22 @@ export class OrbitCameraController implements CameraController {
         }
 
         return false;
+    }
+
+    toJSON() {
+        const xyzPos = new Float32Array([this.x, this.y, this.z, this.translation[0], this.translation[1], this.translation[2]]);
+        return btoa(String.fromCharCode.apply(null, new Uint8Array(xyzPos.buffer)));
+    }
+
+    fromJSON(data: string) {
+        const byteString = atob(data);
+        const bufView = new Uint8Array(6 * 4);
+        for (let i = 0, strLen = byteString.length; i < strLen; i++) { bufView[i] = byteString.charCodeAt(i); }
+        const xyzPos = new Float32Array(bufView.buffer);
+        this.x = xyzPos[0];
+        this.y = xyzPos[1];
+        this.z = xyzPos[2];
+        vec3.copy(this.translation, xyzPos.subarray(3));
     }
 }
 

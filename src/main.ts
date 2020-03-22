@@ -3,8 +3,10 @@ import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
 import { WebGlRenderer } from './gfx/WebGl';
 import { Renderer } from './gfx/GfxTypes';
 import { Camera } from './Camera';
+import { DebugMenu } from './DebugMenu';
 
 // Modules
+import { AvatarManager } from './Avatar';
 import { CameraSystem } from './CameraSystem';
 import { Clock } from './Clock';
 import { Compositor } from './Compositor';
@@ -12,9 +14,7 @@ import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
 import { InputManager } from './Input';
 import { ResourceManager } from './resources/ResourceLoading';
-
-import { AvatarManager } from './Avatar';
-import { DebugMenu } from './DebugMenu';
+import { StateManager } from './SaveState';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -37,6 +37,7 @@ class Main {
     public input = new InputManager();
     public resources = new ResourceManager();
     public avatars = new AvatarManager();
+    public state = new StateManager();
     
     constructor() {
         this.init();
@@ -65,6 +66,7 @@ class Main {
         this.globalUniforms.initialize();
         this.demo.initialize(this);
         this.avatars.initialize(this);
+        this.state.initialize(this);
         
         // Handle resizing
         window.onresize = this.onResize.bind(this);
@@ -88,6 +90,7 @@ class Main {
         this.cameraSystem.update(this);
         this.demo.update(this);
         this.avatars.update(this);
+        this.state.update(this);
 
         this.compositor.render();
         this.demo.render(this);
