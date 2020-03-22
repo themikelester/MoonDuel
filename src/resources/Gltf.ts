@@ -458,20 +458,21 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
     }
 
     // If the material specifies vertex attribute names, use those. Otherwise use the defaults.
-    const attribNameMap: { [semantic: string]: string } = kDefaultVertexAttributeSemanticMap;
+    let attribNameMap: { [semantic: string]: string };
     if (defined(material.technique)) {
+        attribNameMap = {};
         const attribNames = Object.keys(material.technique.attributes);
         for (const name of attribNames) { 
             const semantic = material.technique.attributes[name].semantic;
             attribNameMap[semantic] = name;
         }
-    }
+    } else attribNameMap = kDefaultVertexAttributeSemanticMap;
 
     // Fill out the VertexLayout based on the primitive's attributes
     const vertexLayout: Gfx.VertexLayout = { buffers: [] };
     const bufferViewMap: { [viewIdx: number]: number } = {};
-    for (let gltfAttribName in prim.attributes) {
-        const accessor = assertDefined(gltf.accessors)[prim.attributes[gltfAttribName]];
+    for (let semantic in prim.attributes) {
+        const accessor = assertDefined(gltf.accessors)[prim.attributes[semantic]];
         const viewIdx = assertDefined(accessor.bufferView, 'Undefined accessor buffers are not yet implemented');
         const bufferIdx = bufferViewMap[viewIdx];
         let bufferDesc;
@@ -494,10 +495,10 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
             bufferDesc = vertexLayout.buffers[bufferIdx];
         }
 
-        const attribDefine = GLTF_ATTRIBUTE_DEFINES[gltfAttribName];
+        const attribDefine = GLTF_ATTRIBUTE_DEFINES[semantic];
         if (defined(attribDefine)) shaderDefines.push(attribDefine);
 
-        const shaderAttribName = kDefaultVertexAttributeSemanticMap[gltfAttribName];
+        const shaderAttribName = assertDefined(attribNameMap[semantic], `Unknown vertex attribute semantic: ${semantic}`);
 
         bufferDesc.layout[shaderAttribName] = {
             type: translateAccessorToType(accessor.type, accessor.componentType),
@@ -527,7 +528,7 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
                     };
                 }
 
-                const shaderAttribName = kDefaultVertexAttributeSemanticMap[`MORPH0_${semantic}`];
+                const shaderAttribName = attribNameMap[`MORPH0_${semantic}`];
 
                 bufferDesc.layout[shaderAttribName] = {
                     type: translateAccessorToType(accessor.type, accessor.componentType),
