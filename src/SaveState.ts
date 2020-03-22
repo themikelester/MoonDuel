@@ -24,6 +24,7 @@ export class StateManager {
         const stateObj = {
             version: kStateVersion,
             cameraSystem,
+            DebugMenu, 
         }
     
         const stateString = JSON.stringify(stateObj);
@@ -45,6 +46,7 @@ export class StateManager {
     
         try {
             cameraSystem.fromJSON(state.cameraSystem);
+            DebugMenu.fromJSON(state.DebugMenu);
         } catch(e) {
             console.warn('Failed to load state:', e);
             return false;

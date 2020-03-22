@@ -6,6 +6,9 @@
 // is requested, the dat.gui bundle is downloaded and executed. All the buffered functions are called, and the shim 
 // objects' functions are rebound to the dat.gui functions. 
 // --------------------------------------------------------------------------------------------------------------------
+
+import { defined, assert } from './util';
+
 interface IDebugMenu {
     add(target: Object, propName:string, min?: number, max?: number, step?: number): any;
     add(target: Object, propName:string, status: boolean): any;
@@ -24,7 +27,8 @@ interface IDebugMenu {
 class DebugMenuShim implements IDebugMenu {
     private _gui: any;
     private _add: IArguments[] = [];
-    private _folders: { [name: string]: DebugMenuShim } = {}
+    private _folders: { [name: string]: DebugMenuShim } = {};
+    private _saveObject: Object;
 
     constructor() {
     }
@@ -42,11 +46,15 @@ class DebugMenuShim implements IDebugMenu {
         // The first time we show the menu, dynamically download and execute the dat.gui bundle
         if (this._gui === undefined) { 
             const dat = await import(/* webpackChunkName: "dat-gui" */ 'dat.gui'); 
-            this._gui = new dat.GUI()
+            this._gui = new dat.GUI({ load: this._saveObject });
         }
 
         // Call all buffered shim functions (recursively for folders)
-        for (const args of this._add) { this._gui.add.apply(this._gui, args); }
+        for (const args of this._add) {
+            this._gui.getRoot().remember(args[0]); 
+            this._gui.add.apply(this._gui, args); 
+        }
+
         for (const folderName in this._folders) { 
             this._folders[folderName]._gui = this._gui.addFolder(folderName);
             this._folders[folderName].show() 
@@ -67,6 +75,15 @@ class DebugMenuShim implements IDebugMenu {
                 this._gui.__controllers[i].updateDisplay();
             }
         }
+    }
+
+    toJSON() {
+        return this._gui ? this._gui.getSaveObject() : undefined;
+    }
+
+    fromJSON(saveObject: any) {
+        assert(!defined(this._gui), 'State must be loaded before the DebugMenu is shown');
+        this._saveObject = saveObject;
     }
 }
 
