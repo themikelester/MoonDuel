@@ -28,7 +28,7 @@ class DebugMenuShim implements IDebugMenu {
     private _gui: any;
     private _add: IArguments[] = [];
     private _folders: { [name: string]: DebugMenuShim } = {};
-    private _saveObject: Object;
+    private _saveObject: any;
 
     constructor() {
     }
@@ -48,6 +48,9 @@ class DebugMenuShim implements IDebugMenu {
             const dat = await import(/* webpackChunkName: "dat-gui" */ 'dat.gui'); 
             this._gui = new dat.GUI({ load: this._saveObject });
         }
+
+        // Respect the global 'closed' save state property, even though we're 'showing' for the first time
+        if (this._saveObject?.closed) { this._gui.close(); }
 
         // Call all buffered shim functions (recursively for folders)
         for (const args of this._add) {
