@@ -1,5 +1,5 @@
 import { ResourceManager } from "./resources/ResourceLoading";
-import { GltfResource, GltfAnimation, Sampler } from "./resources/Gltf";
+import { GltfResource, GltfAnimation, Sampler, GltfTechnique } from "./resources/Gltf";
 import { Mesh, Model, Material, SkinnedModel } from "./Mesh";
 import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from "./RenderList";
@@ -25,7 +25,7 @@ class AvatarShader implements Gfx.ShaderDescriptor {
 
     public static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
         u_color: { type: Gfx.Type.Float4 },
-        u_bones: { type: Gfx.Type.Float4x4, count: kMaxAvatarBoneCount },
+        u_joints: { type: Gfx.Type.Float4x4, count: kMaxAvatarBoneCount },
     });
 
     public static resourceLayout = {
@@ -67,13 +67,14 @@ export class AvatarManager {
     shader: Gfx.Id;
     modelShader: Gfx.Id;
 
-    skinnedUniforms: UniformBuffer;
+    skinnedUniforms: UniformBuffer[] = [];
     modelUniforms: UniformBuffer[] = [];
     models: Model[] = [];
     skinnedModels: SkinnedModel[] = [];
-    skin: Skin;
+    skeletons: Skeleton[];
 
-    rootNodes: Object3D[];
+    nodes: Object3D[];
+    rootNodes: Object3D[] = [];
     animations: GltfAnimation[] = [];
 
     initialize({ gfxDevice, resources, globalUniforms }: { gfxDevice: Gfx.Renderer, resources: ResourceManager, globalUniforms: GlobalUniforms }) {
@@ -83,10 +84,7 @@ export class AvatarManager {
         this.shader = gfxDevice.createShader(new AvatarShader());
         this.modelShader = gfxDevice.createShader(new ModelShader());
 
-        // @TODO: UniformBuffer should support x instances 
-        this.skinnedUniforms = new UniformBuffer('AvatarMaterial', gfxDevice, AvatarShader.uniformLayout);
-
-        resources.load('data/Avatar.glb', 'gltf', (error, resource) => {
+        resources.load('data/CesiumMan.glb', 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
 
             const gltf = resource as GltfResource;
@@ -94,7 +92,49 @@ export class AvatarManager {
             // @HACK:
             this.animations = gltf.animations;
 
-            this.rootNodes = gltf.rootNodeIds.map(nodeId => this.loadNode(gltf, nodeId));
+            this.nodes = gltf.nodes.map((node, nodeId) => {
+                let obj;
+
+                if (defined(node.skinId)) {
+                    const meshId = assertDefined(node.meshId);
+                    obj = this.loadSkinnedModel(gltf, meshId, node.skinId);
+                } else if (defined(node.meshId)) {
+                    obj = this.loadModel(gltf, node.meshId);
+                } else {
+                    obj = new Object3D();
+                }
+
+                obj.name = defaultValue(node.name, `Node${nodeId}`);
+                vec3.copy(obj.position, node.translation);
+                quat.copy(obj.rotation, node.rotation);
+                vec3.copy(obj.scale, node.scale);
+                obj.updateMatrix();
+
+                return obj;
+            });
+
+            for (let i = 0; i < gltf.nodes.length; i++) {
+                const src = gltf.nodes[i];
+                const node = this.nodes[i];
+                if (src.children) {
+                    for (const childId of src.children) {
+                        const childObj = this.nodes[childId];
+                        node.add(childObj);
+                    }
+                }
+            }
+
+            this.skeletons = gltf.skins.map(skin => {
+                const bones = skin.joints.map(jointId => this.nodes[jointId]);
+                return new Skeleton(bones, skin.inverseBindMatrices);
+            });
+            
+            for (const model of this.skinnedModels) {
+                model.bindSkeleton(this.skeletons[0]); // @HACK
+            }
+
+            this.rootNodes = gltf.rootNodeIds.map(nodeId => this.nodes[nodeId]);
+
             this.rootNodes.forEach(node => {
                 node.updateMatrix();
                 node.updateMatrixWorld(false, true);
@@ -104,22 +144,9 @@ export class AvatarManager {
 
     loadSkinnedModel(gltf: GltfResource, meshId: number, skinId: number): Object3D {
         const gltfMesh = gltf.meshes[meshId];
-        const skin = gltf.skins[skinId];
         const obj = new Object3D();
 
-        for (let prim of gltfMesh.primitives) {
-            const mesh = new Mesh({
-                vertexLayout: prim.vertexLayout,
-                vertexBuffers: prim.vertexBuffers.map(buf => buf.id),
-                elementCount: prim.elementCount,
-                indexBuffer: prim.indexBuffer ? prim.indexBuffer.id : undefined,
-                indexType: prim.indexType,
-                primitiveType: prim.type,
-            });
-
-            const technique = assertDefined(prim.material.technique);
-            const values = defaultValue(prim.material.values, []);
-
+        function buildResourceLayout(technique: GltfTechnique): Gfx.ShaderResourceLayout {
             // Split textures from uniforms
             const uniforms: BufferPackedLayout = {};
             const textures: string[] = [];
@@ -129,7 +156,7 @@ export class AvatarManager {
                 else { uniforms[name] = uni; }
             }
 
-            // Build a resource layout based on the required uniform
+            // Build a resource layout based on the required uniforms
             const uniformLayout: Gfx.BufferLayout = computePackedBufferLayout(uniforms);
             const resourceLayout: Gfx.ShaderResourceLayout = {
                 uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: uniformLayout }
@@ -138,26 +165,55 @@ export class AvatarManager {
                 const texName = textures[i];
                 resourceLayout[texName] = { index: i, type: Gfx.BindingType.Texture };
             }
+            
+            return  resourceLayout;
+        }
 
-            const material = new Material(this.gfxDevice, prim.material.name, technique.shader.id, resourceLayout);
-            const model = new Model(this.gfxDevice, renderLists.opaque, mesh, material);
+        for (let prim of gltfMesh.primitives) {
+            // @TODO: Move this into GLTF resource
+            const mesh = new Mesh({
+                vertexLayout: prim.vertexLayout,
+                vertexBuffers: prim.vertexBuffers.map(buf => buf.id),
+                elementCount: prim.elementCount,
+                indexBuffer: prim.indexBuffer ? prim.indexBuffer.id : undefined,
+                indexType: prim.indexType,
+                primitiveType: prim.type,
+            });
 
-            // Set static uniforms from the values provided in the GLTF material
+            const technique = prim.material.technique;
+
+            const shader = technique ? technique.shader.id : this.shader;
+            const resourceLayout = technique ? buildResourceLayout(technique) : AvatarShader.resourceLayout;
+            const material = new Material(this.gfxDevice, prim.material.name, shader, resourceLayout);
+            const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, mesh, material);
+
+            // Bind resources to the material
+            const uniformLayout = (resourceLayout.uniforms as Gfx.UniformBufferResourceBinding).layout;
             const ubo = new UniformBuffer(prim.material.name, this.gfxDevice, uniformLayout);
-            for (const name of Object.keys(uniforms)) {
-                if (defined(values[name])) { ubo.setFloats(name, values[name]); }
-            }
-            ubo.write(this.gfxDevice);
-
-
             model.material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo);
-            for (const texName of textures) {
-                const texId = gltf.textures[prim.material.values![texName].index].id;
-                model.material.setTexture(this.gfxDevice, texName, texId);
+            if (defined(resourceLayout.globalUniforms)) {
+                model.material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
             }
 
-            this.modelUniforms.push(ubo);
-            this.models.push(model);
+            if (technique) {
+                const values = assertDefined(prim.material.values);
+
+                // Set static uniforms from the values provided in the GLTF material
+                for (const name of Object.keys(values)) {
+                    const uniform = technique.uniforms[name];
+                    const value = values[name];
+
+                    if (uniform.type === Gfx.Type.Texture2D) {
+                        const texId = gltf.textures[value.index].id;
+                        model.material.setTexture(this.gfxDevice, name, texId);
+                    } else { ubo.setFloats(name, value); }
+                }
+            } else {
+                ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
+            }
+
+            this.skinnedUniforms.push(ubo);
+            this.skinnedModels.push(model);
             obj.add(model);
         }
 
@@ -225,37 +281,7 @@ export class AvatarManager {
 
         return obj;
     }
-
-    loadNode(gltf: GltfResource, nodeId: number): Object3D {
-        const node = gltf.nodes[nodeId];
-        let obj: Object3D;
-
-        if (defined(node.skinId)) {
-            const meshId = assertDefined(node.meshId);
-            obj = this.loadSkinnedModel(gltf, meshId, node.skinId);
-        } else if (defined(node.meshId)) {
-            obj = this.loadModel(gltf, node.meshId);
-        } else {
-            obj = new Object3D();
-        }
-
-        obj.name = defaultValue(node.name, `Node${nodeId}`);
-        vec3.copy(obj.position, node.translation);
-        quat.copy(obj.rotation, node.rotation);
-        vec3.copy(obj.scale, node.scale);
-        obj.updateMatrix();
-
-        if (node.children) {
-            for (const childId of node.children) {
-                const childObj = this.loadNode(gltf, childId);
-                childObj.parent = obj;
-                obj.add(childObj);
-            }
-        }
-
-        return obj;
-    }
-
+    
     update({ clock }: { clock: Clock }) {
         const anim = this.animations[0];
         if (anim) {
@@ -263,34 +289,53 @@ export class AvatarManager {
 
             for (let i = 0; i < anim.rotations.length; i++) {
                 const data = anim.rotations[i];
-                const bone = assertDefined(this.skinnedModels[0].skeleton.bones.find(b => b.nodeId === data.nodeId));
+                const bone = this.nodes[data.nodeId];
                 evalRotation(t, data, bone.rotation);
             }
 
             for (let i = 0; i < anim.translations.length; i++) {
                 const data = anim.translations[i];
-                const bone = assertDefined(this.skinnedModels[0].skeleton.bones.find(b => b.nodeId === data.nodeId));
+                const bone = this.nodes[data.nodeId];
                 evalTranslation(t, data, bone.position);
             }
 
             for (let i = 0; i < anim.scales.length; i++) {
                 const data = anim.scales[i];
-                const bone = assertDefined(this.skinnedModels[0].skeleton.bones.find(b => b.nodeId === data.nodeId));
+                const bone = this.nodes[data.nodeId];
                 evalTranslation(t, data, bone.scale);
             }
         }
     }
 
-    render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera }) {
+    render({ gfxDevice, camera, clock }: { gfxDevice: Gfx.Renderer, camera: Camera, clock: Clock }) {
+        for (const node of this.rootNodes) {
+            node.updateMatrixWorld(true, true);
+        }
+
         for (let i = 0; i < this.skinnedModels.length; i++) {
             const model = this.skinnedModels[i];
+            const uniforms = this.skinnedUniforms[i]; // @TODO: Pull UBO from material
+
+            // const bone = assertDefined(model.skeleton.bones.find(bone => bone.name === 'head'));
+            // quat.rotateX(bone.rotation, bone.rotation, clock.dt / 1000.0 * Math.PI / 32.0);
 
             model.updateMatrixWorld(true, true);
             model.skeleton.evaluate(model.matrixWorld);
 
-            const boneFloats = this.skinnedUniforms.getFloatArray('u_bones');
+            const boneFloats = uniforms.getFloatArray('u_joints');
             model.skeleton.writeToBuffer(boneFloats);
-            this.skinnedUniforms.write(gfxDevice);
+            
+            // @TODO: UniformBuffer.hasUniform()
+            // @TODO: UniformBuffer.trySet()
+            if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
+                uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, model.matrixWorld));
+            } 
+
+            if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
+                uniforms.setMat4('u_model', model.matrixWorld);
+            }      
+
+            uniforms.write(gfxDevice);
 
             model.renderList.push(model.primitive);
         }

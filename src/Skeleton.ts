@@ -3,39 +3,14 @@ import { assert, defaultValue, defined, assertDefined } from "./util";
 import { IdentityMat4 } from "./MathHelpers";
 import { Object3D, IObject3D } from "./Object3D";
 
-export interface IBone extends IObject3D {    
-    nodeId: number;
-    parent: Nullable<IBone>;
-    children: IBone[];
-}
-
-export class Bone extends Object3D implements IBone {
-    constructor(public nodeId: number) { super(); }
-    
-    copy(source: IBone): this { 
-        this.name = source.name;
-        this.nodeId = source.nodeId;
-
-        vec3.copy(this.position, source.position);
-        quat.copy(this.rotation, source.rotation);
-        vec3.copy(this.scale, source.scale);
-
-        this.matrix = mat4.copy(this.matrix, source.matrix);
-        this.matrixWorld = mat4.copy(this.matrixWorld, source.matrixWorld);
-
-        this.children = [];
-        this.parent = null;
-
-        return this;
-    }
-}
+type Bone = Object3D;
 
 // --------------------------------------------------------------------------------
 // Skin:
 // A heirarchy of bones for a specific mesh, the inverse bind matrices which bring each vertex into bone space.
 // --------------------------------------------------------------------------------
 export interface Skin {
-    bones: IBone[];
+    bones: IObject3D[];
     inverseBindMatrices?: mat4[];
 }
 
@@ -49,23 +24,13 @@ export class Skeleton {
     boneBuffer: Float32Array;
     inverseBindMatrices?: mat4[]; // Soft-references to the pose space to bone space transforms held by the skin
 
-    constructor(skin: Skin) {
+    constructor(bones: Bone[], inverseBindMatrices?: mat4[]) {
         // Copy the bones so that they can be manipulated independently of other Skeletons
-        this.bones = skin.bones.map(b => new Bone(b.nodeId).copy(b));
+        this.bones = bones
 
-        this.boneBuffer = new Float32Array(skin.bones.length * 16);
-        this.inverseBindMatrices = defaultValue(skin.inverseBindMatrices, undefined);
+        this.boneBuffer = new Float32Array(bones.length * 16);
+        this.inverseBindMatrices = inverseBindMatrices;
         assert(!defined(this.inverseBindMatrices) || this.bones.length === this.inverseBindMatrices.length);
-        
-        // Remap parents and children from the skin to skeleton bones
-        for (let i = 0; i < this.bones.length; i++) {
-            const src = skin.bones[i];
-            const dst = this.bones[i];
-            if (defined(src.parent)) dst.parent = assertDefined(this.bones[skin.bones.indexOf(src.parent)]);
-            for (let i = 0; i < src.children.length; i++) {
-                dst.children[i] = assertDefined(this.bones[skin.bones.indexOf(src.children[i])]);
-            }        
-        }
     }
 
     evaluate(rootTransform?: mat4) {
