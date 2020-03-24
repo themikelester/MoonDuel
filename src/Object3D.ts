@@ -11,8 +11,8 @@ export interface IObject3D {
     matrix: mat4; // local space to parent space
     matrixWorld: mat4; // local space to world space (concatenation of all parents above this object)
 
-    parent: Nullable<IObject3D>;
-    children: IObject3D[];
+    parent: Nullable<this>;
+    children: this[];
 
     matrixWorldDirty: boolean;
     matrixDirty: boolean;
@@ -39,7 +39,7 @@ export class Object3D implements IObject3D {
 
         this.position = vec3.create();
         this.rotation = quat.create();
-        this.scale = vec3.create();
+        this.scale = vec3.fromValues(1, 1, 1);
 
         this.matrix = mat4.create();
         this.matrixWorld = mat4.create();
