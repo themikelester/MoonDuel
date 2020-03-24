@@ -121,14 +121,6 @@ export class Model extends Object3D {
     }
 }
 
-function hasAttribute(layout: Gfx.VertexLayout, attributeName: string) {
-    const bufferCount = layout.buffers.length;
-    for (let i = 0; i < bufferCount; i++) {
-        if (defined(layout.buffers[i].layout[attributeName])) return true;
-    }
-    return false;
-}
-
 export class SkinnedModel extends Model {
     skeleton: Skeleton;
     ibms: mat4[];
