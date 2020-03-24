@@ -49,7 +49,8 @@ export class UniformBuffer {
   private bufferFloats: Float32Array;
   private buffer: Gfx.Id;
 
-  getBuffer() { return this.buffer }
+  // @TODO: Allow constructor to take a BufferView instead of creating one. Allow multiple UniformBuffers on one GPU buffer
+  getBufferView(): Gfx.BufferView { return { buffer: this.buffer, byteOffset: 0 }; }
   getBufferLayout() { return this.bufferLayout; }
 
   constructor(name: string, renderer: Gfx.Renderer, bufferLayout: Gfx.BufferLayout) {

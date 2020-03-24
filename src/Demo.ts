@@ -65,7 +65,7 @@ export class Demo {
         this.uniformBuffer.write(gfxDevice);
 
         this.material = new Material(gfxDevice, 'simple', this.shader, SimpleShader.resourceLayout);
-        this.material.setUniformBuffer(gfxDevice, 'uniforms', this.uniformBuffer.getBuffer());
+        this.material.setUniformBuffer(gfxDevice, 'uniforms', this.uniformBuffer);
         this.material.setUniformBuffer(gfxDevice, 'globalUniforms', globalUniforms.buffer);
         
         const vertices = new Float32Array([

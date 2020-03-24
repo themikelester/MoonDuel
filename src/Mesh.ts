@@ -5,6 +5,7 @@ import { assertDefined, assert, defined, defaultValue } from './util';
 import { vec3, quat, mat4 } from 'gl-matrix';
 import { Skeleton } from './Skeleton';
 import { Object3D } from './Object3D';
+import { UniformBuffer } from './UniformBuffer';
 
 type BufferOrBufferView = Gfx.BufferView | Gfx.Id;
 function toBufferView(val: BufferOrBufferView): Gfx.BufferView {
@@ -53,25 +54,36 @@ export class Material {
     name: string;
     shader: Gfx.Id;
     layout: Gfx.ResourceLayout;
+
     resources: Gfx.Id;
+    bindings: { [name: string]: UniformBuffer | Gfx.TextureView | Gfx.TextureView[] }; // @TODO: CPU texture type
 
     constructor(device: Gfx.Renderer, name: string, shader: Gfx.Id, resourceLayout: Gfx.ResourceLayout) {
         this.shader = shader;
         this.name = name;
         this.layout = resourceLayout;
         this.resources = device.createResourceTable(this.layout);
+        this.bindings = {};
     }
 
-    setUniformBuffer(device: Gfx.Renderer, name: string, value: Gfx.BufferView | Gfx.Id) {
+    assertReady() {
+        for (const name of Object.keys(this.layout)) {
+            assertDefined(this.bindings[name], `Material expects a binding for ${name}`);
+        }
+    }
+
+    setUniformBuffer(device: Gfx.Renderer, name: string, buffer: UniformBuffer) {
         const binding = assertDefined(this.layout[name], 'Invalid resource name');
         assert(binding.type === Gfx.BindingType.UniformBuffer, 'Mismatching resource type');
-        device.setBuffer(this.resources, binding.index, toBufferView(value));
+        this.bindings[name] = buffer;
+        device.setBuffer(this.resources, binding.index, buffer.getBufferView());
     }
 
     setTexture(device: Gfx.Renderer, name: string, value: Gfx.TextureView) {
         const binding = assertDefined(this.layout[name], 'Invalid resource name') as Gfx.TextureResourceBinding;
         assert(binding.type === Gfx.BindingType.Texture, 'Mismatching resource type');
         assert(!defined(binding.count), 'Use Material.setTextureArray');
+        this.bindings[name] = value;
         device.setTexture(this.resources, binding.index, value as Gfx.TextureView);
     }
 
@@ -79,6 +91,7 @@ export class Material {
         const binding = assertDefined(this.layout[name], 'Invalid resource name') as Gfx.TextureResourceBinding;
         assert(binding.type === Gfx.BindingType.Texture, 'Mismatching resource type');
         assert(defined(binding.count), 'Use Material.setTextureArray');
+        this.bindings[name] = value;
         device.setTextures(this.resources, binding.index, value);
     }
 }
@@ -89,8 +102,13 @@ export class Model extends Object3D {
 
     pipeline: Gfx.Id;
     vertexTable: Gfx.Id;
-    primitive: RenderPrimitive;
     renderList: RenderList;
+
+    private _primitive: RenderPrimitive;
+    get primitive(): RenderPrimitive {
+        this.material.assertReady();
+        return this._primitive;
+    }
 
     constructor(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
         super();
@@ -107,7 +125,7 @@ export class Model extends Object3D {
             device.setVertexBuffer(this.vertexTable, i, buf);
         });
 
-        this.primitive = {
+        this._primitive = {
             renderPipeline: this.pipeline,
             resourceTable: this.material.resources,
             vertexTable: this.vertexTable,

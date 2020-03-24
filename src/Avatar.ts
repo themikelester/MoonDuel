@@ -150,7 +150,7 @@ export class AvatarManager {
             ubo.write(this.gfxDevice);
 
 
-            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo.getBuffer());
+            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo);
             for (const texName of textures) {
                 const texId = gltf.textures[prim.material.values![texName].index].id;
                 model.material.setTexture(this.gfxDevice, texName, texId);
@@ -212,7 +212,7 @@ export class AvatarManager {
             ubo.write(this.gfxDevice);
 
             // Bind the uniform buffers and textures to the material
-            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo.getBuffer());
+            model.material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo);
             for (const texName of textures) {
                 const texId = gltf.textures[prim.material.values![texName].index].id;
                 model.material.setTexture(this.gfxDevice, texName, texId);
@@ -300,7 +300,7 @@ export class AvatarManager {
 
             model.updateMatrixWorld(true, true);
 
-            this.modelUniforms[i].setMat4('modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, model.matrixWorld));
+            this.modelUniforms[i].setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, model.matrixWorld));
             this.modelUniforms[i].write(gfxDevice);
 
             model.renderList.push(model.primitive);

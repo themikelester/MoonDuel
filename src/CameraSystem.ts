@@ -35,9 +35,9 @@ export class CameraSystem {
         this.controller.update(input, clock.dt);
 
         const camPos = this.camera.getPos(this.camPos);
-        globalUniforms.setUniform('g_camPos', new Float32Array([camPos[0], camPos[1], camPos[2]]));
-        globalUniforms.setUniform('g_proj', Float32Array.from(this.camera.projectionMatrix));
-        globalUniforms.setUniform('g_viewProj', Float32Array.from(this.camera.viewProjMatrix));
+        globalUniforms.buffer.setVec3('g_camPos', camPos);
+        globalUniforms.buffer.setMat4('g_proj', this.camera.projectionMatrix);
+        globalUniforms.buffer.setMat4('g_viewProj', this.camera.viewProjMatrix);
     }
 
     toJSON(): string {

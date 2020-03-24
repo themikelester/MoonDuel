@@ -91,6 +91,7 @@ class Main {
         this.demo.update(this);
         this.avatars.update(this);
         this.state.update(this);
+        this.globalUniforms.update();
 
         this.compositor.render();
         this.demo.render(this);
