@@ -67,8 +67,6 @@ export class AvatarManager {
     shader: Gfx.Id;
     modelShader: Gfx.Id;
 
-    skinnedUniforms: UniformBuffer[] = [];
-    modelUniforms: UniformBuffer[] = [];
     models: Model[] = [];
     skinnedModels: SkinnedModel[] = [];
     skeletons: Skeleton[];
@@ -213,7 +211,6 @@ export class AvatarManager {
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(prim, gltf);
             const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, prim.mesh, material);
-            this.skinnedUniforms.push(material.getUniformBuffer('uniforms'));
             this.skinnedModels.push(model);
             obj.add(model);
         }
@@ -228,7 +225,6 @@ export class AvatarManager {
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(prim, gltf);
             const model = new Model(this.gfxDevice, renderLists.opaque, prim.mesh, material);
-            this.modelUniforms.push(material.getUniformBuffer('uniforms'));
             this.models.push(model);
             obj.add(model);
         }
@@ -268,7 +264,7 @@ export class AvatarManager {
 
         for (let i = 0; i < this.skinnedModels.length; i++) {
             const model = this.skinnedModels[i];
-            const uniforms = this.skinnedUniforms[i]; // @TODO: Pull UBO from material
+            const uniforms = model.material.getUniformBuffer('uniforms');
 
             // const bone = assertDefined(model.skeleton.bones.find(bone => bone.name === 'head'));
             // quat.rotateX(bone.rotation, bone.rotation, clock.dt / 1000.0 * Math.PI / 32.0);
@@ -299,8 +295,9 @@ export class AvatarManager {
 
             model.updateMatrixWorld(true, true);
 
-            this.modelUniforms[i].setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, model.matrixWorld));
-            this.modelUniforms[i].write(gfxDevice);
+            const uniforms = model.material.getUniformBuffer('uniforms');
+            uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, model.matrixWorld));
+            uniforms.write(gfxDevice);
 
             model.renderList.push(model.primitive);
         }
