@@ -79,9 +79,10 @@ export class Demo {
 
         this.mesh = new Mesh({
             vertexLayout, 
-            vertexBuffers: [this.vertexBuffer], 
+            vertexBuffers: [{ buffer: this.vertexBuffer }], 
             elementCount: 6, 
-            indexBuffer: this.indexBuffer
+            indexBuffer: { buffer: this.indexBuffer },
+            primitiveType: Gfx.PrimitiveType.Triangles
         });
         this.model = new Model(gfxDevice, renderLists.opaque, this.mesh, this.material);
     }

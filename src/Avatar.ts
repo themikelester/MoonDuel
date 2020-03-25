@@ -170,16 +170,6 @@ export class AvatarManager {
         }
 
         for (let prim of gltfMesh.primitives) {
-            // @TODO: Move this into GLTF resource
-            const mesh = new Mesh({
-                vertexLayout: prim.vertexLayout,
-                vertexBuffers: prim.vertexBuffers.map(buf => buf.id),
-                elementCount: prim.elementCount,
-                indexBuffer: prim.indexBuffer ? prim.indexBuffer.id : undefined,
-                indexType: prim.indexType,
-                primitiveType: prim.type,
-            });
-
             const technique = prim.material.technique;
 
             const shader = technique ? technique.shader.id : this.shader;
@@ -217,7 +207,7 @@ export class AvatarManager {
                 ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
             }
 
-            const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, mesh, material);
+            const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, prim.mesh, material);
             this.skinnedUniforms.push(ubo);
             this.skinnedModels.push(model);
             obj.add(model);
@@ -254,16 +244,6 @@ export class AvatarManager {
         }
 
         for (let prim of gltfMesh.primitives) {
-            // @TODO: Move this into GLTF resource
-            const mesh = new Mesh({
-                vertexLayout: prim.vertexLayout,
-                vertexBuffers: prim.vertexBuffers.map(buf => buf.id),
-                elementCount: prim.elementCount,
-                indexBuffer: prim.indexBuffer ? prim.indexBuffer.id : undefined,
-                indexType: prim.indexType,
-                primitiveType: prim.type,
-            });
-
             const technique = prim.material.technique;
 
             const shader = technique ? technique.shader.id : this.shader;
@@ -301,7 +281,7 @@ export class AvatarManager {
                 ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
             }
 
-            const model = new Model(this.gfxDevice, renderLists.opaque, mesh, material);
+            const model = new Model(this.gfxDevice, renderLists.opaque, prim.mesh, material);
             this.modelUniforms.push(ubo);
             this.models.push(model);
             obj.add(model);

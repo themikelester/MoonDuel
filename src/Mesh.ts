@@ -12,18 +12,18 @@ function toBufferView(val: BufferOrBufferView): Gfx.BufferView {
     return (val as Gfx.BufferView).buffer ? val as Gfx.BufferView: { buffer: val as Gfx.Id }
 }
 
-export interface MeshDescriptor {
+export interface IMesh {
     vertexLayout: Gfx.VertexLayout;
-    vertexBuffers: BufferOrBufferView[];
+    vertexBuffers: Gfx.BufferView[];
     elementCount: number;
 
-    indexBuffer?: BufferOrBufferView;
+    indexBuffer?: Gfx.BufferView;
     indexType?: Gfx.Type;
 
-    primitiveType?: Gfx.PrimitiveType;
+    primitiveType: Gfx.PrimitiveType;
 }
 
-export class Mesh {
+export class Mesh implements IMesh {
     vertexLayout: Gfx.VertexLayout;
     vertexBuffers: Gfx.BufferView[];
     elementCount: number;
@@ -33,16 +33,16 @@ export class Mesh {
 
     primitiveType: Gfx.PrimitiveType;
 
-    constructor(desc: MeshDescriptor) {
+    constructor(desc: IMesh) {
         this.vertexLayout = desc.vertexLayout;
-        this.vertexBuffers = desc.vertexBuffers.map(b => toBufferView(b));
+        this.vertexBuffers = desc.vertexBuffers;
         this.elementCount = desc.elementCount;
         this.primitiveType = defaultValue(desc.primitiveType, Gfx.PrimitiveType.Triangles);
         
         assert(desc.vertexBuffers.length === desc.vertexLayout.buffers.length);
 
         if (desc.indexBuffer) {
-            this.indexBuffer = toBufferView(desc.indexBuffer);
+            this.indexBuffer = desc.indexBuffer;
             this.indexType = defaultValue(desc.indexType, Gfx.Type.Ushort);
         }
     }
@@ -97,7 +97,7 @@ export class Material {
 }
 
 export class Model extends Object3D {
-    mesh: Mesh;
+    mesh: IMesh;
     material: Material;
 
     pipeline: Gfx.Id;
@@ -110,7 +110,7 @@ export class Model extends Object3D {
         return this._primitive;
     }
 
-    constructor(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
+    constructor(device: Gfx.Renderer, renderList: RenderList, mesh: IMesh, material: Material) {
         super();
 
         this.renderList = renderList;

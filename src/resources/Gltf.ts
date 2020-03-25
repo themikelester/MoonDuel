@@ -4,6 +4,7 @@ import * as GlTf from './Gltf.d';
 import { vec3, quat, mat4 } from 'gl-matrix';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
 import { Skin } from '../Skeleton';
+import { IMesh } from '../Mesh';
 
 // --------------------------------------------------------------------------------
 // GLB (Binary GLTF decoding)
@@ -214,20 +215,14 @@ export interface GltfAnimation {
     weights: Sampler[];
 }
 
-interface GltfBufferView {
-    id: Gfx.Id;
+interface GltfBufferView extends Gfx.BufferView {
+    buffer: Gfx.Id;
     type: Gfx.BufferType;
     name: string;
 }
 
 interface GltfPrimitive {
-    vertexLayout: Gfx.VertexLayout;
-    vertexBuffers: GltfBufferView[];
-    elementCount: number;
-    type: Gfx.PrimitiveType;
-
-    indexBuffer?: GltfBufferView;
-    indexType?: Gfx.Type;
+    mesh: IMesh;
 
     depthMode?: Gfx.Id;
     cullMode?: Gfx.CullMode;
@@ -543,12 +538,14 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
     const indicesBufferView = assertDefined(indexBufferView, 'Only indexed primitives are currently supported');
 
     return {
-        elementCount: indices.count,
-        vertexBuffers: vertexBufferViews,
-        type: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
-        indexType: translateAccessorToType(indices.type, indices.componentType),
-        indexBuffer: indicesBufferView,
-        vertexLayout,
+        mesh: {
+            elementCount: indices.count,
+            vertexBuffers: vertexBufferViews,
+            primitiveType: translateModeToPrimitiveType(defaultValue(prim.mode, 4)),
+            indexType: translateAccessorToType(indices.type, indices.componentType),
+            indexBuffer: indicesBufferView,
+            vertexLayout,
+        },
         material,
     };
 }
@@ -854,7 +851,7 @@ function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType
     res.bufferData[id] = new Uint8Array(asset.bufferViewData(id)).buffer;
     res.transferList.push(res.bufferData[id]);
 
-    const buf = { name, type: bufType, id: bufId };
+    const buf = { name, type: bufType, buffer: bufId };
     res.bufferViews[id] = buf;
     return buf;
 }
@@ -922,7 +919,7 @@ export class GltfLoader implements ResourceLoader {
         for (let idx in resource.bufferData) {
             const bufferView = resource.bufferViews[idx];
             const bufferData = resource.bufferData[idx];
-            bufferView.id = context.renderer.createBuffer(bufferView.name, bufferView.type, Gfx.Usage.Static, bufferData);
+            bufferView.buffer = context.renderer.createBuffer(bufferView.name, bufferView.type, Gfx.Usage.Static, bufferData);
         }
 
         // Create programs
