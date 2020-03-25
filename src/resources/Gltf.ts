@@ -729,7 +729,7 @@ function loadSkins(res: GltfResource, asset: GltfAsset) {
 
     for (let id = 0; id < skins.length; id++) {
         const skin = skins[id];
-        const ibms = [];
+        let ibms = undefined;
 
         // Inverse bind matrices are in the same order as the skin.joints array
         // This has been re-arranged, so remap them here
@@ -738,6 +738,7 @@ function loadSkins(res: GltfResource, asset: GltfAsset) {
             assert(!res.transferList.includes(ibmData.buffer));
             res.transferList.push(ibmData.buffer);
 
+            ibms = [];
             for (let i = 0; i < skin.joints.length; i++) {
                 ibms[i] = ibmData.subarray(i * 16, i * 16 + 16);
             }
