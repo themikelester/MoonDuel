@@ -643,6 +643,7 @@ function loadTextures(res: GltfResource, asset: GltfAsset): Promise<void>[] {
         // Wait for the imageData to be ready before pushing to main thread
         // @NOTE: Make sure we make large data transferrable to avoid costly copies between threads
         texturePromises.push(imageDataPromise.then(imageData => {
+            assert(!res.transferList.includes(imageData));
             res.transferList.push(imageData);
             res.imageData[id] = imageData;
         }));
@@ -733,7 +734,8 @@ function loadSkins(res: GltfResource, asset: GltfAsset) {
         // Inverse bind matrices are in the same order as the skin.joints array
         // This has been re-arranged, so remap them here
         if (defined(skin.inverseBindMatrices)) {
-            const ibmData = asset.accessorData(skin.inverseBindMatrices) as Float32Array;
+            const ibmData = new Float32Array(asset.accessorData(skin.inverseBindMatrices) as Float32Array);
+            assert(!res.transferList.includes(ibmData.buffer));
             res.transferList.push(ibmData.buffer);
 
             for (let i = 0; i < skin.joints.length; i++) {
@@ -814,6 +816,7 @@ function loadTechniques(res: GltfResource, asset: GltfAsset) {
     res.shaderData = ext.shaders.map((src: any, idx: number) => {
         const bufferViewId = assertDefined(src.bufferView, 'Shader loading from URI not yet supported');
         const data = new Uint8Array(asset.bufferViewData(bufferViewId)).buffer;
+        assert(!res.transferList.includes(data));
         res.transferList.push(data);
         return data;
     });
@@ -849,6 +852,7 @@ function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType
     const bufId = -1; // The GPU buffer will be created during loadSync on the main thread
 
     res.bufferData[id] = new Uint8Array(asset.bufferViewData(id)).buffer;
+    assert(!res.transferList.includes(res.bufferData[id]));
     res.transferList.push(res.bufferData[id]);
 
     const buf = { name, type: bufType, buffer: bufId };
@@ -910,6 +914,9 @@ export class GltfLoader implements ResourceLoader {
 
         // Wait for all textures to finish loading before continuing
         await Promise.all(texPromises);
+
+        // Someone leaked the entire GLB buffer!
+        assert(!resource.transferList.includes(buffer));
 
         resource.status = ResourceStatus.LoadingSync
     }
