@@ -90,45 +90,26 @@ export class AvatarManager {
             // @HACK:
             this.animations = gltf.animations;
 
-            this.nodes = gltf.nodes.map((node, nodeId) => {
-                let obj;
+            // Create Object3Ds for each node
+            this.nodes = this.loadNodes(gltf);
 
-                if (defined(node.skinId)) {
-                    const meshId = assertDefined(node.meshId);
-                    obj = this.loadSkinnedModel(gltf, meshId, node.skinId);
-                } else if (defined(node.meshId)) {
-                    obj = this.loadModel(gltf, node.meshId);
-                } else {
-                    obj = new Object3D();
-                }
-
-                obj.name = defaultValue(node.name, `Node${nodeId}`);
-                vec3.copy(obj.position, node.translation);
-                quat.copy(obj.rotation, node.rotation);
-                vec3.copy(obj.scale, node.scale);
-                obj.updateMatrix();
-
-                return obj;
-            });
-
-            for (let i = 0; i < gltf.nodes.length; i++) {
-                const src = gltf.nodes[i];
-                const node = this.nodes[i];
-                if (src.children) {
-                    for (const childId of src.children) {
-                        const childObj = this.nodes[childId];
-                        node.add(childObj);
-                    }
-                }
-            }
-
+            // Create skeletons for each skin
             this.skeletons = gltf.skins.map(skin => {
                 const bones = skin.joints.map(jointId => this.nodes[jointId]);
                 return new Skeleton(bones, skin.inverseBindMatrices);
             });
-            
-            for (const model of this.skinnedModels) {
-                model.bindSkeleton(this.skeletons[0]); // @HACK
+
+            // Load models
+            for (let i = 0; i < gltf.nodes.length; i++) {
+                const src = gltf.nodes[i];
+                const node = this.nodes[i];
+
+                if (defined(src.skinId)) {
+                    const meshId = assertDefined(src.meshId);
+                    this.loadSkinnedModel(gltf, node, meshId, src.skinId);
+                } else if (defined(src.meshId)) {
+                    this.loadModel(gltf, node, src.meshId);
+                }
             }
 
             this.rootNodes = gltf.rootNodeIds.map(nodeId => this.nodes[nodeId]);
@@ -138,6 +119,32 @@ export class AvatarManager {
                 node.updateMatrixWorld(false, true);
             });
         });
+    }
+
+    loadNodes(gltf: GltfResource) {
+        const nodes = gltf.nodes.map((node, nodeId) => {
+            const obj = new Object3D();
+            obj.name = defaultValue(node.name, `Node${nodeId}`);
+            vec3.copy(obj.position, node.translation);
+            quat.copy(obj.rotation, node.rotation);
+            vec3.copy(obj.scale, node.scale);
+            obj.updateMatrix();
+
+            return obj;
+        });
+
+        for (let i = 0; i < gltf.nodes.length; i++) {
+            const src = gltf.nodes[i];
+            const node = nodes[i];
+            if (src.children) {
+                for (const childId of src.children) {
+                    const childObj = nodes[childId];
+                    node.add(childObj);
+                }
+            }
+        }
+
+        return nodes;
     }
 
     createMaterial(prim: GltfPrimitive, gltf: GltfResource) {
@@ -204,32 +211,27 @@ export class AvatarManager {
         return material;
     }
 
-    loadSkinnedModel(gltf: GltfResource, meshId: number, skinId: number): Object3D {
+    loadSkinnedModel(gltf: GltfResource, parent: Object3D, meshId: number, skinId: number) {
         const gltfMesh = gltf.meshes[meshId];
-        const obj = new Object3D();
 
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(prim, gltf);
             const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, prim.mesh, material);
+            model.bindSkeleton(this.skeletons[skinId]);
             this.skinnedModels.push(model);
-            obj.add(model);
+            parent.add(model);
         }
-
-        return obj;
     }
 
-    loadModel(gltf: GltfResource, meshId: number): Object3D {
+    loadModel(gltf: GltfResource, parent: Object3D, meshId: number) {
         const gltfMesh = gltf.meshes[meshId];
-        const obj = new Object3D();
 
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(prim, gltf);
             const model = new Model(this.gfxDevice, renderLists.opaque, prim.mesh, material);
             this.models.push(model);
-            obj.add(model);
+            parent.add(model);
         }
-
-        return obj;
     }
     
     update({ clock }: { clock: Clock }) {
