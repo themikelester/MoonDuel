@@ -213,8 +213,6 @@ export class AvatarManager {
 
                 // @HACK:
                 ubo.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
-                const lightTransform = mat4.targetTo(mat4.create(), vec3.fromValues(100, 100, 100), vec3.fromValues(0,0,0), vec3.fromValues(0,1,0))
-                ubo.setMat4('u_LightTransform0', lightTransform);
             } else {
                 ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
             }
@@ -299,8 +297,6 @@ export class AvatarManager {
 
                 // @HACK:
                 ubo.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
-                const lightTransform = mat4.targetTo(mat4.create(), vec3.fromValues(100, 100, 100), vec3.fromValues(0,0,0), vec3.fromValues(0,1,0))
-                ubo.setMat4('u_LightTransform0', lightTransform);
             } else {
                 ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
             }
