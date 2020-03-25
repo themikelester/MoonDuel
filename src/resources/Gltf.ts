@@ -215,13 +215,13 @@ export interface GltfAnimation {
     weights: Sampler[];
 }
 
-interface GltfBufferView extends Gfx.BufferView {
+export interface GltfBufferView extends Gfx.BufferView {
     buffer: Gfx.Id;
     type: Gfx.BufferType;
     name: string;
 }
 
-interface GltfPrimitive {
+export interface GltfPrimitive {
     mesh: IMesh;
 
     depthMode?: Gfx.Id;
@@ -256,7 +256,7 @@ export interface GltfSkin {
     joints: number[];
 }
 
-interface GltfMaterial {
+export interface GltfMaterial {
     name: string;
     renderFormat: Gfx.RenderFormat;
     cullMode: Gfx.CullMode;
@@ -265,7 +265,7 @@ interface GltfMaterial {
     values?: { [uniformName: string]: any };
 }
 
-interface GltfTexture {
+export interface GltfTexture {
     promise?: Promise<void>,
     desc: Gfx.TextureDescriptor,
     name: string,
