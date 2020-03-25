@@ -1,5 +1,5 @@
 import { ResourceManager } from "./resources/ResourceLoading";
-import { GltfResource, GltfAnimation, Sampler, GltfTechnique } from "./resources/Gltf";
+import { GltfResource, GltfAnimation, Sampler, GltfTechnique, GltfPrimitive } from "./resources/Gltf";
 import { Mesh, Model, Material, SkinnedModel } from "./Mesh";
 import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from "./RenderList";
@@ -142,10 +142,7 @@ export class AvatarManager {
         });
     }
 
-    loadSkinnedModel(gltf: GltfResource, meshId: number, skinId: number): Object3D {
-        const gltfMesh = gltf.meshes[meshId];
-        const obj = new Object3D();
-
+    createMaterial(prim: GltfPrimitive, gltf: GltfResource) {
         function buildResourceLayout(technique: GltfTechnique): Gfx.ShaderResourceLayout {
             // Split textures from uniforms
             const uniforms: BufferPackedLayout = {};
@@ -169,46 +166,54 @@ export class AvatarManager {
             return  resourceLayout;
         }
 
-        for (let prim of gltfMesh.primitives) {
-            const technique = prim.material.technique;
+        const technique = prim.material.technique;
 
-            const shader = technique ? technique.shader.id : this.shader;
-            const resourceLayout = technique ? buildResourceLayout(technique) : AvatarShader.resourceLayout;
-            const material = new Material(this.gfxDevice, prim.material.name, shader, resourceLayout);
+        const shader = technique ? technique.shader.id : this.shader;
+        const resourceLayout = technique ? buildResourceLayout(technique) : AvatarShader.resourceLayout;
+        const material = new Material(this.gfxDevice, prim.material.name, shader, resourceLayout);
 
-            // Bind resources to the material
-            const uniformLayout = (resourceLayout.uniforms as Gfx.UniformBufferResourceBinding).layout;
-            const ubo = new UniformBuffer(prim.material.name, this.gfxDevice, uniformLayout);
-            material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo);
-            if (defined(resourceLayout.globalUniforms)) {
-                material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
-            }
+        // Bind resources to the material
+        const uniformLayout = (resourceLayout.uniforms as Gfx.UniformBufferResourceBinding).layout;
+        const ubo = new UniformBuffer(prim.material.name, this.gfxDevice, uniformLayout);
+        material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo);
+        if (defined(resourceLayout.globalUniforms)) {
+            material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
+        }
 
-            if (technique) {
-                const values = assertDefined(prim.material.values);
+        if (technique) {
+            const values = assertDefined(prim.material.values);
 
-                // Set static uniforms from the values provided in the GLTF material
-                for (const name of Object.keys(technique.uniforms)) {
-                    const uniform = technique.uniforms[name];
-                    const value = defaultValue(values[name], uniform.value);
-                    if (!defined(value)) continue;
+            // Set static uniforms from the values provided in the GLTF material
+            for (const name of Object.keys(technique.uniforms)) {
+                const uniform = technique.uniforms[name];
+                const value = defaultValue(values[name], uniform.value);
+                if (!defined(value)) continue;
 
-                    if (uniform.type === Gfx.Type.Texture2D) {
-                        const texId = gltf.textures[value.index].id;
-                        material.setTexture(this.gfxDevice, name, texId);
-                    } else { 
-                        ubo.setFloats(name, value); 
-                    }
+                if (uniform.type === Gfx.Type.Texture2D) {
+                    const texId = gltf.textures[value.index].id;
+                    material.setTexture(this.gfxDevice, name, texId);
+                } else { 
+                    ubo.setFloats(name, value); 
                 }
-
-                // @HACK:
-                ubo.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
-            } else {
-                ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
             }
 
+            // @HACK:
+            ubo.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
+        } else {
+            ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
+        }
+
+        return material;
+    }
+
+    loadSkinnedModel(gltf: GltfResource, meshId: number, skinId: number): Object3D {
+        const gltfMesh = gltf.meshes[meshId];
+        const obj = new Object3D();
+
+        for (let prim of gltfMesh.primitives) {
+            const material = this.createMaterial(prim, gltf);
             const model = new SkinnedModel(this.gfxDevice, renderLists.opaque, prim.mesh, material);
-            this.skinnedUniforms.push(ubo);
+            this.skinnedUniforms.push(material.getUniformBuffer('uniforms'));
             this.skinnedModels.push(model);
             obj.add(model);
         }
@@ -220,69 +225,10 @@ export class AvatarManager {
         const gltfMesh = gltf.meshes[meshId];
         const obj = new Object3D();
 
-        function buildResourceLayout(technique: GltfTechnique): Gfx.ShaderResourceLayout {
-            // Split textures from uniforms
-            const uniforms: BufferPackedLayout = {};
-            const textures: string[] = [];
-            for (const name of Object.keys(technique.uniforms)) {
-                const uni = technique.uniforms[name];
-                if (uni.type === Gfx.Type.Texture2D) { textures.push(name); }
-                else { uniforms[name] = uni; }
-            }
-
-            // Build a resource layout based on the required uniforms
-            const uniformLayout: Gfx.BufferLayout = computePackedBufferLayout(uniforms);
-            const resourceLayout: Gfx.ShaderResourceLayout = {
-                uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: uniformLayout }
-            };
-            for (let i = 0; i < textures.length; i++) { 
-                const texName = textures[i];
-                resourceLayout[texName] = { index: i, type: Gfx.BindingType.Texture };
-            }
-            
-            return  resourceLayout;
-        }
-
         for (let prim of gltfMesh.primitives) {
-            const technique = prim.material.technique;
-
-            const shader = technique ? technique.shader.id : this.shader;
-            const resourceLayout = technique ? buildResourceLayout(technique) : AvatarShader.resourceLayout;
-            const material = new Material(this.gfxDevice, prim.material.name, shader, resourceLayout);
-
-            // Bind resources to the material
-            const uniformLayout = (resourceLayout.uniforms as Gfx.UniformBufferResourceBinding).layout;
-            const ubo = new UniformBuffer(prim.material.name, this.gfxDevice, uniformLayout);
-            material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo);
-            if (defined(resourceLayout.globalUniforms)) {
-                material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
-            }
-
-            if (technique) {
-                const values = assertDefined(prim.material.values);
-
-                // Set static uniforms from the values provided in the GLTF material
-                for (const name of Object.keys(technique.uniforms)) {
-                    const uniform = technique.uniforms[name];
-                    const value = defaultValue(values[name], uniform.value);
-                    if (!defined(value)) continue;
-
-                    if (uniform.type === Gfx.Type.Texture2D) {
-                        const texId = gltf.textures[value.index].id;
-                        material.setTexture(this.gfxDevice, name, texId);
-                    } else { 
-                        ubo.setFloats(name, value); 
-                    }
-                }
-
-                // @HACK:
-                ubo.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
-            } else {
-                ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
-            }
-
+            const material = this.createMaterial(prim, gltf);
             const model = new Model(this.gfxDevice, renderLists.opaque, prim.mesh, material);
-            this.modelUniforms.push(ubo);
+            this.modelUniforms.push(material.getUniformBuffer('uniforms'));
             this.models.push(model);
             obj.add(model);
         }

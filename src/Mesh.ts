@@ -72,6 +72,12 @@ export class Material {
         }
     }
 
+    getUniformBuffer(name: string): UniformBuffer {
+        const binding = this.bindings[name];
+        assertDefined(binding, `Uniform buffer "${name}" is not bound to material "${this.name}"`);
+        return binding as UniformBuffer;
+    }
+
     setUniformBuffer(device: Gfx.Renderer, name: string, buffer: UniformBuffer) {
         const binding = assertDefined(this.layout[name], 'Invalid resource name');
         assert(binding.type === Gfx.BindingType.UniformBuffer, 'Mismatching resource type');
