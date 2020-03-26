@@ -571,13 +571,19 @@ function reflectShader(program: GLInt): ShaderReflection {
   return reflection;
 }
 
+function addLineNumbersToString(str: string) {
+  return str.split('\n').map((line, index) => `${index + 1}: ${line}`).join('\n');
+}
+
 function compileShader(name: string, type: GLInt, source: string): GLInt {
   const shader = gl.createShader(type);
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const typeString = type === gl.VERTEX_SHADER ? 'Vertex' : 'Fragment';
-    error(`${typeString} compilation failed for shader ${name}:\n  ${gl.getShaderInfoLog(shader)}`);
+    const sourceWithLineNumbers = addLineNumbersToString(source);
+    console.error(sourceWithLineNumbers);
+    error(`${typeString} compilation failed for shader ${name}:\n  ${gl.getShaderInfoLog(shader)}. See source above.`);
   }
   return shader;
 }
