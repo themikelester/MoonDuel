@@ -1,135 +1,139 @@
-import { vec3, quat, mat4 } from "gl-matrix";
-import { assert, assertDefined, defined } from "./util";
+export { Object3D } from 'three/src/core/Object3D';
+export { Vector3 } from 'three/src/math/Vector3';
+export { Quaternion } from 'three/src/math/Quaternion';
 
-export interface IObject3D {
-    name: string;
+// import { vec3, quat, mat4 } from "gl-matrix";
+// import { assert, assertDefined, defined } from "./util";
 
-    position: vec3;
-    rotation: quat;
-    scale: vec3;
+// export interface IObject3D {
+//     name: string;
 
-    matrix: mat4; // local space to parent space
-    matrixWorld: mat4; // local space to world space (concatenation of all parents above this object)
+//     position: vec3;
+//     rotation: quat;
+//     scale: vec3;
 
-    parent: Nullable<this>;
-    children: this[];
+//     matrix: mat4; // local space to parent space
+//     matrixWorld: mat4; // local space to world space (concatenation of all parents above this object)
 
-    matrixWorldDirty: boolean;
-    matrixDirty: boolean;
-}
+//     parent: Nullable<this>;
+//     children: this[];
 
-export class Object3D implements IObject3D {
-    name: string;
+//     matrixWorldDirty: boolean;
+//     matrixDirty: boolean;
+// }
 
-    position: vec3;
-    rotation: quat;
-    scale: vec3;
+// export class Object3D implements IObject3D {
+//     name: string;
 
-    matrix: mat4; // local space to parent space
-    matrixWorld: mat4; // local space to world space (concatenation of all parents above this object)
+//     position: vec3;
+//     rotation: quat;
+//     scale: vec3;
 
-    parent: Nullable<this>;
-    children: this[];
+//     matrix: mat4; // local space to parent space
+//     matrixWorld: mat4; // local space to world space (concatenation of all parents above this object)
 
-    matrixWorldDirty: boolean = true;
-    matrixDirty: boolean = true;
+//     parent: Nullable<this>;
+//     children: this[];
 
-    constructor() {
-        this.name = '';
+//     matrixWorldDirty: boolean = true;
+//     matrixDirty: boolean = true;
 
-        this.position = vec3.create();
-        this.rotation = quat.create();
-        this.scale = vec3.fromValues(1, 1, 1);
+//     constructor() {
+//         this.name = '';
 
-        this.matrix = mat4.create();
-        this.matrixWorld = mat4.create();
+//         this.position = vec3.create();
+//         this.rotation = quat.create();
+//         this.scale = vec3.fromValues(1, 1, 1);
 
-        this.parent = null;
-        this.children = [];
-    }
+//         this.matrix = mat4.create();
+//         this.matrixWorld = mat4.create();
 
-    updateMatrix() {
-        mat4.fromRotationTranslationScale(this.matrix, this.rotation, this.position, this.scale);
-        this.matrixWorldDirty = true;
-    }
+//         this.parent = null;
+//         this.children = [];
+//     }
 
-    updateMatrixWorld(updateParents: boolean, updateChildren: boolean) {
-        const parent = this.parent;
-        if (updateParents === true && defined(parent)) {
-            parent.updateMatrixWorld(true, false);
-        }
+//     updateMatrix() {
+//         mat4.fromRotationTranslationScale(this.matrix, this.rotation, this.position, this.scale);
+//         this.matrixWorldDirty = true;
+//     }
 
-        if (!defined(this.parent)) {
-            mat4.copy(this.matrixWorld, this.matrix);
-        } else {
-            mat4.multiply(this.matrixWorld, this.parent.matrixWorld, this.matrix);
-        }
+//     updateMatrixWorld(updateParents: boolean, updateChildren: boolean) {
+//         const parent = this.parent;
+//         if (updateParents === true && defined(parent)) {
+//             parent.updateMatrixWorld(true, false);
+//         }
 
-        if (updateChildren === true) {
-            const children = this.children;
-            for (let i = 0, l = children.length; i < l; i++) {
-                children[i].updateMatrixWorld(false, true);
-            }
-        }
-    }
+//         if (!defined(this.parent)) {
+//             mat4.copy(this.matrixWorld, this.matrix);
+//         } else {
+//             mat4.multiply(this.matrixWorld, this.parent.matrixWorld, this.matrix);
+//         }
 
-    /**
-	 * Adds object as child of this object.
-	 */
-    add(object: this, ...others: this[]): this {
-        assertDefined(object);
-        assert(object !== this, `Object can't be added as a child of itself`);
+//         if (updateChildren === true) {
+//             const children = this.children;
+//             for (let i = 0, l = children.length; i < l; i++) {
+//                 children[i].updateMatrixWorld(false, true);
+//             }
+//         }
+//     }
 
-        if (object.parent !== null) {
-            object.parent.remove(object);
-        }
+//     /**
+// 	 * Adds object as child of this object.
+// 	 */
+//     add(object: this, ...others: this[]): this {
+//         assertDefined(object);
+//         assert(object !== this, `Object can't be added as a child of itself`);
 
-        object.parent = this;
-        this.children.push(object);
+//         if (object.parent !== null) {
+//             object.parent.remove(object);
+//         }
 
-        for (let i = 0; i < others.length; i++) {
-            this.add(others[i]);
-        }
+//         object.parent = this;
+//         this.children.push(object);
 
-        return this;
-    }
+//         for (let i = 0; i < others.length; i++) {
+//             this.add(others[i]);
+//         }
 
-	/**
-	 * Removes object as child of this object.
-	 */
-    remove(object: this, ...others: this[]): this {
-        const index = this.children.indexOf(object);
+//         return this;
+//     }
 
-        if (index !== - 1) {
-            object.parent = null;
-            this.children.splice(index, 1);
-        }
+// 	/**
+// 	 * Removes object as child of this object.
+// 	 */
+//     remove(object: this, ...others: this[]): this {
+//         const index = this.children.indexOf(object);
 
-        return this;
-    }
+//         if (index !== - 1) {
+//             object.parent = null;
+//             this.children.splice(index, 1);
+//         }
 
-    clone(recursive?: boolean): this {
-        return new (<any>this.constructor)().copy(this, recursive);
-    }
+//         return this;
+//     }
 
-    copy(source: this, recursive: boolean = true): this {
-        this.name = source.name;
+//     clone(recursive?: boolean): this {
+//         return new (<any>this.constructor)().copy(this, recursive);
+//     }
+
+//     copy(source: this, recursive: boolean = true): this {
+//         this.name = source.name;
         
 
-        vec3.copy(this.position, source.position);
-        quat.copy(this.rotation, source.rotation);
-        vec3.copy(this.scale, source.scale);
+//         vec3.copy(this.position, source.position);
+//         quat.copy(this.rotation, source.rotation);
+//         vec3.copy(this.scale, source.scale);
 
-        this.matrix = mat4.copy(this.matrix, source.matrix);
-        this.matrixWorld = mat4.copy(this.matrixWorld, source.matrixWorld);
+//         this.matrix = mat4.copy(this.matrix, source.matrix);
+//         this.matrixWorld = mat4.copy(this.matrixWorld, source.matrixWorld);
 
-        if (recursive === true) {
-            for (var i = 0; i < source.children.length; i++) {
-                const child = source.children[i];
-                this.add(child.clone());
-            }
-        }
+//         if (recursive === true) {
+//             for (var i = 0; i < source.children.length; i++) {
+//                 const child = source.children[i];
+//                 this.add(child.clone());
+//             }
+//         }
 
-        return this;
-    }
-}
+//         return this;
+//     }
+// }

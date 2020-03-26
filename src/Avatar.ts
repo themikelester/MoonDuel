@@ -11,13 +11,16 @@ import frag_source from './shaders/simple.frag';
 import { UniformBuffer, computePackedBufferLayout, BufferPackedLayout } from "./UniformBuffer";
 import { vec4, vec3, mat4, quat } from "gl-matrix";
 import { defaultValue, assert, assertDefined, defined } from "./util";
-import { Skin, Skeleton } from "./Skeleton";
-import { Object3D } from "./Object3D";
+import { Skeleton } from "./Skeleton";
+import { Object3D, Quaternion, Vector3 } from "./Object3D";
 import { Clock } from "./Clock";
 import { delerp, clamp } from "./MathHelpers";
 import { Camera } from "./Camera";
 
 const kMaxAvatarBoneCount = 32;
+
+const scratchQuatA = quat.create();
+const scratchVec3A = vec3.create();
 
 class AvatarShader implements Gfx.ShaderDescriptor {
     private static vert = skinnedVertSource;
@@ -116,7 +119,7 @@ export class AvatarManager {
 
             this.rootNodes.forEach(node => {
                 node.updateMatrix();
-                node.updateMatrixWorld(false, true);
+                node.updateMatrixWorld();
             });
         });
     }
@@ -125,9 +128,9 @@ export class AvatarManager {
         const nodes = gltf.nodes.map((node, nodeId) => {
             const obj = new Object3D();
             obj.name = defaultValue(node.name, `Node${nodeId}`);
-            vec3.copy(obj.position, node.translation);
-            quat.copy(obj.rotation, node.rotation);
-            vec3.copy(obj.scale, node.scale);
+            obj.position.set(node.translation[0], node.translation[1], node.translation[2]);
+            obj.quaternion.set(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
+            obj.scale.set(node.scale[0], node.scale[1], node.scale[2]);
             obj.updateMatrix();
 
             return obj;
@@ -235,14 +238,14 @@ export class AvatarManager {
     }
     
     update({ clock }: { clock: Clock }) {
-        const anim = this.animations[0];
+        const anim = this.animations[12];
         if (anim) {
             const t = (clock.time / 1000.0) % anim.maxTime;
 
             for (let i = 0; i < anim.rotations.length; i++) {
                 const data = anim.rotations[i];
                 const bone = this.nodes[data.nodeId];
-                evalRotation(t, data, bone.rotation);
+                evalRotation(t, data, bone.quaternion);
             }
 
             for (let i = 0; i < anim.translations.length; i++) {
@@ -261,7 +264,7 @@ export class AvatarManager {
 
     render({ gfxDevice, camera, clock }: { gfxDevice: Gfx.Renderer, camera: Camera, clock: Clock }) {
         for (const node of this.rootNodes) {
-            node.updateMatrixWorld(true, true);
+            node.updateMatrixWorld();
         }
 
         for (let i = 0; i < this.skinnedModels.length; i++) {
@@ -271,8 +274,10 @@ export class AvatarManager {
             // const bone = assertDefined(model.skeleton.bones.find(bone => bone.name === 'head'));
             // quat.rotateX(bone.rotation, bone.rotation, clock.dt / 1000.0 * Math.PI / 32.0);
 
-            model.updateMatrixWorld(true, true);
-            model.skeleton.evaluate(model.matrixWorld);
+            model.updateMatrixWorld();
+            const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
+
+            model.skeleton.evaluate(matrixWorld);
 
             const boneFloats = uniforms.getFloatArray('u_joints');
             model.skeleton.writeToBuffer(boneFloats);
@@ -280,11 +285,11 @@ export class AvatarManager {
             // @TODO: UniformBuffer.hasUniform()
             // @TODO: UniformBuffer.trySet()
             if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
-                uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, model.matrixWorld));
+                uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
             } 
 
             if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
-                uniforms.setMat4('u_model', model.matrixWorld);
+                uniforms.setMat4('u_model', matrixWorld);
             }      
 
             uniforms.write(gfxDevice);
@@ -295,10 +300,11 @@ export class AvatarManager {
         for (let i = 0; i < this.models.length; i++) {
             const model = this.models[i];
 
-            model.updateMatrixWorld(true, true);
+            model.updateMatrixWorld();
+            const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
 
             const uniforms = model.material.getUniformBuffer('uniforms');
-            uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, model.matrixWorld));
+            uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
             uniforms.write(gfxDevice);
 
             model.renderList.push(model.primitive);
@@ -306,7 +312,7 @@ export class AvatarManager {
     }
 }
 
-function evalRotation(time: number, sampler: Sampler, result: quat): quat {
+function evalRotation(time: number, sampler: Sampler, result: Quaternion): Quaternion {
     const keyCount = sampler.times.length;
     let t = 1.0;
     let a = keyCount - 1;
@@ -329,11 +335,11 @@ function evalRotation(time: number, sampler: Sampler, result: quat): quat {
 
     let va = sampler.values.subarray(a * 4, a * 4 + 4) as quat;
     let vb = sampler.values.subarray(b * 4, b * 4 + 4) as quat;
-    const r = quat.lerp(result, va, vb, t);
-    return r;
+    quat.lerp(scratchQuatA, va, vb, t);
+    return result.set(scratchQuatA[0], scratchQuatA[1], scratchQuatA[2], scratchQuatA[3]);
 }
 
-function evalTranslation(time: number, sampler: Sampler, result: vec3): vec3 {
+function evalTranslation(time: number, sampler: Sampler, result: Vector3): Vector3 {
     const keyCount = sampler.times.length;
     let t = 1.0;
     let a = keyCount - 1;
@@ -355,6 +361,6 @@ function evalTranslation(time: number, sampler: Sampler, result: vec3): vec3 {
 
     let va = sampler.values.subarray(a * 3, a * 3 + 3) as vec3;
     let vb = sampler.values.subarray(b * 3, b * 3 + 3) as vec3;
-    const r = vec3.lerp(result, va, vb, t);
-    return r;
+    vec3.lerp(scratchVec3A, va, vb, t);
+    return result.set(scratchVec3A[0], scratchVec3A[1], scratchVec3A[2]);
 }

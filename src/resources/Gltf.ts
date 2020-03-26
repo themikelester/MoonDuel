@@ -3,7 +3,6 @@ import { assert, defaultValue, defined, assertDefined } from '../util';
 import * as GlTf from './Gltf.d';
 import { vec3, quat, mat4 } from 'gl-matrix';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
-import { Skin } from '../Skeleton';
 import { IMesh } from '../Mesh';
 
 // --------------------------------------------------------------------------------

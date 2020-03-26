@@ -1,18 +1,9 @@
 import { vec3, quat, mat4 } from "gl-matrix";
 import { assert, defaultValue, defined, assertDefined } from "./util";
 import { IdentityMat4 } from "./MathHelpers";
-import { Object3D, IObject3D } from "./Object3D";
+import { Object3D } from "./Object3D";
 
 type Bone = Object3D;
-
-// --------------------------------------------------------------------------------
-// Skin:
-// A heirarchy of bones for a specific mesh, the inverse bind matrices which bring each vertex into bone space.
-// --------------------------------------------------------------------------------
-export interface Skin {
-    bones: IObject3D[];
-    inverseBindMatrices?: mat4[];
-}
 
 // --------------------------------------------------------------------------------
 // Skeleton:
@@ -35,17 +26,7 @@ export class Skeleton {
 
     evaluate(rootTransform?: mat4) {
         const root = this.bones[0];
-        this.evaluateBone(root, defaultValue(rootTransform, IdentityMat4));
-    }
-
-    evaluateBone(bone: Bone, parentToWorld: mat4) {
-        mat4.fromRotationTranslationScale(bone.matrix, bone.rotation, bone.position, bone.scale);
-        const localToWorld = mat4.multiply(bone.matrixWorld, parentToWorld, bone.matrix);
-        if (bone.children) {
-            for (const child of bone.children) {
-                this.evaluateBone(child, localToWorld);
-            }
-        }
+        root.updateMatrixWorld();
     }
 
     writeToBuffer(view: Float32Array) {
@@ -54,7 +35,7 @@ export class Skeleton {
         if (defined(this.inverseBindMatrices)) {
             for (let i = 0; i < this.bones.length; i++) {
                 const bone = this.bones[i];
-                mat4.multiply(view.subarray(i * 16, i * 16 + 16), bone.matrixWorld, this.inverseBindMatrices[i]);
+                mat4.multiply(view.subarray(i * 16, i * 16 + 16), new Float32Array(bone.matrixWorld.elements), this.inverseBindMatrices[i]);
             }
         } else {
             view.set(this.boneBuffer);
