@@ -26,7 +26,8 @@
   },
   "dependencies": {
     "dat.gui": "^0.7.6",
-    "gl-matrix": "^3.2.1"
+    "gl-matrix": "^3.2.1",
+    "three": "^0.115.0"
   },
   "scripts": {
     "start": "webpack-dev-server --config webpack.dev.js",
