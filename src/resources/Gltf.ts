@@ -654,54 +654,6 @@ function loadScenes(res: GltfResource, asset: GltfAsset) {
     }
 }
 
-function loadNodes(res: GltfResource, asset: GltfAsset) {
-    const nodes = defaultValue(asset.gltf.nodes, []);
-    res.nodes = [];
-
-    for (let id = 0; id < nodes.length; id++) {
-        const gltfNode = assertDefined(nodes[id]);
-
-        const scale = defaultValue(gltfNode.scale, [1, 1, 1]);
-        const rotation = defaultValue(gltfNode.rotation, [0, 0, 0, 1]);
-        const translation = defaultValue(gltfNode.translation, [0, 0, 0]);
-
-        const node: GltfNode = {
-            name: gltfNode.name,
-            scale: vec3.fromValues(scale[0], scale[1], scale[2]),
-            rotation: quat.fromValues(rotation[0], rotation[1], rotation[2], rotation[3]),
-            translation: vec3.fromValues(translation[0], translation[1], translation[2]),
-            morphWeight: defaultValue(gltfNode.weights, [0])[0],
-        }
-
-        if (defined(gltfNode.matrix)) { 
-            node.transform = new Float32Array(gltfNode.matrix);
-            mat4.getRotation(node.rotation, node.transform);
-            mat4.getTranslation(node.translation, node.transform);
-            mat4.getScaling(node.scale, node.transform);
-        }
-        else node.transform = mat4.fromRotationTranslationScale(mat4.create(), node.rotation, node.translation, node.scale);
-
-        if (defined(gltfNode.mesh)) {
-            node.meshId = gltfNode.mesh;
-        }
-
-        if (defined(gltfNode.skin)) {
-            node.skinId = gltfNode.skin;
-        }
-
-        if (defined(gltfNode.children)) {
-            node.children = [];
-            for (let childIdx = 0; childIdx < gltfNode.children.length; childIdx++) {
-                const childId = gltfNode.children[childIdx]
-                const child = assertDefined(asset.gltf.nodes)[childId];
-                node.children.push(childId);
-            }
-        }
-
-        res.nodes.push(node);
-    }
-}
-
 function loadTechniques(res: GltfResource, asset: GltfAsset) {
     if (!asset.gltf.extensionsUsed?.includes('KHR_techniques_webgl')) { return; }
     const ext = assertDefined(asset.gltf.extensions.KHR_techniques_webgl);
@@ -754,9 +706,61 @@ function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType
 }
 
 // --------------------------------------------------------------------------------
+// Nodes
+// --------------------------------------------------------------------------------
+function loadNodesAsync(res: GltfResource, asset: GltfAsset) {
+    const nodes = defaultValue(asset.gltf.nodes, []).map(src => {
+        const scale = defaultValue(src.scale, [1, 1, 1]);
+        const rotation = defaultValue(src.rotation, [0, 0, 0, 1]);
+        const translation = defaultValue(src.translation, [0, 0, 0]);
+
+        const node: GltfNode = {
+            name: src.name,
+            scale: vec3.fromValues(scale[0], scale[1], scale[2]),
+            rotation: quat.fromValues(rotation[0], rotation[1], rotation[2], rotation[3]),
+            translation: vec3.fromValues(translation[0], translation[1], translation[2]),
+            morphWeight: defaultValue(src.weights, [0])[0],
+        }
+
+        if (defined(src.matrix)) { 
+            node.transform = new Float32Array(src.matrix);
+            mat4.getRotation(node.rotation, node.transform);
+            mat4.getTranslation(node.translation, node.transform);
+            mat4.getScaling(node.scale, node.transform);
+        }
+        else node.transform = mat4.fromRotationTranslationScale(mat4.create(), node.rotation, node.translation, node.scale);
+
+        if (defined(src.mesh)) {
+            node.meshId = src.mesh;
+        }
+
+        if (defined(src.skin)) {
+            node.skinId = src.skin;
+        }
+
+        if (defined(src.children)) {
+            node.children = [];
+            for (let childIdx = 0; childIdx < src.children.length; childIdx++) {
+                const childId = src.children[childIdx]
+                const child = assertDefined(asset.gltf.nodes)[childId];
+                node.children.push(childId);
+            }
+        }
+
+        return node;
+    });
+
+    return nodes;
+}
+
+function loadNodesSync(data: TransientData['nodes']): GltfNode[] {
+    return data;
+}
+
+// --------------------------------------------------------------------------------
 // Textures 
 // --------------------------------------------------------------------------------
-async function loadTexturesAsync(res: GltfResource, asset: GltfAsset, transferList: Object[]) {
+async function loadTexturesAsync(res: GltfResource, asset: GltfAsset) {
     const images = defaultValue(asset.gltf.images, []);
     const srcTextures = defaultValue(asset.gltf.textures, []);
     const samplers = defaultValue(asset.gltf.samplers, []);
@@ -791,8 +795,8 @@ async function loadTexturesAsync(res: GltfResource, asset: GltfAsset, transferLi
         // Wait for the imageData to be ready before pushing to main thread
         // @NOTE: Make sure we make large data transferrable to avoid costly copies between threads
         return imageDataPromise.then(imageData => {
-            assert(!transferList.includes(imageData));
-            transferList.push(imageData);
+            assert(!res.transferList.includes(imageData as ArrayBuffer | ImageBitmap));
+            res.transferList.push(imageData as ArrayBuffer | ImageBitmap);
             return imageData;
         });
     })
@@ -909,7 +913,7 @@ function safariTextureLoadHack(resource: GltfResource, context: ResourceLoadingC
 // --------------------------------------------------------------------------------
 // Animation 
 // --------------------------------------------------------------------------------
-function loadAnimationsAsync(res: GltfResource, asset: GltfAsset, transferList: Object[]) {
+function loadAnimationsAsync(res: GltfResource, asset: GltfAsset) {
     let clips = [];
     for (const src of defaultValue(asset.gltf.animations, [])) {
 
@@ -920,7 +924,7 @@ function loadAnimationsAsync(res: GltfResource, asset: GltfAsset, transferList: 
             assert(asset.gltf.accessors![sampler.output].componentType === 5126, 'Non-float animation values type unsupported');
             const times = new Float32Array(asset.accessorData(sampler.input) as Float32Array);
             const values = new Float32Array(asset.accessorData(sampler.output) as Float32Array);
-            transferList.push(times.buffer, values.buffer);
+            res.transferList.push(times.buffer, values.buffer);
             return { times, values };
         });
 
@@ -929,13 +933,12 @@ function loadAnimationsAsync(res: GltfResource, asset: GltfAsset, transferList: 
             const targetNodeId = channel.target.node;
             if (!defined(targetNodeId)) continue;
 
-            const targetName = res.nodes[targetNodeId].name;
             const targetProperty = GLTF_ANIMATION_PATH[channel.target.path];
             const samplerData = samplerDatas[channel.sampler];
             const interpolation = defaultValue(src.samplers[channel.sampler].interpolation, 'LINEAR');
 
             tracks.push({
-                targetName,
+                targetNodeId,
                 targetProperty,
                 times: samplerData.times,
                 values: samplerData.values,
@@ -953,7 +956,7 @@ function loadAnimationsAsync(res: GltfResource, asset: GltfAsset, transferList: 
     return clips;
 }
 
-function loadAnimationsSync(data: TransientData['animation']): AnimationClip[] {  
+function loadAnimationsSync(data: TransientData['animation'], resource: GltfResource): AnimationClip[] {  
     const clips = []  
     for (const clipData of data) {
         const tracks = clipData.tracks.map(trackData => {
@@ -970,8 +973,10 @@ function loadAnimationsSync(data: TransientData['animation']): AnimationClip[] {
                 default: throw new Error('Unsupported animation target property');
             }
 
+            const targetName = resource.nodes[trackData.targetNodeId].name;
+
             const track = new TypedKeyframeTrack(
-                `${trackData.targetName}.${trackData.targetProperty}`, 
+                `${targetName}.${trackData.targetProperty}`, 
                 Array.from(trackData.times), // ThreeJS has mistyped these. They should be ArrayLike<number>
                 Array.from(trackData.values), 
                 GLTF_INTERPOLATION[trackData.interpolation]
@@ -1067,6 +1072,7 @@ class GLTFCubicSplineInterpolant extends Interpolant {
 interface TransientData {
     animation: ReturnType<typeof loadAnimationsAsync>,
     textures: ThenArg<ReturnType<typeof loadTexturesAsync>>,
+    nodes: ThenArg<ReturnType<typeof loadNodesAsync>>,
 }
 
 export interface GltfResource extends Resource {
@@ -1111,13 +1117,13 @@ export class GltfLoader implements ResourceLoader {
         loadTechniques(resource, asset);
         loadMaterials(resource, asset);
         loadMeshes(resource, asset);
-        loadNodes(resource, asset);
         loadSkins(resource, asset);
         loadScenes(resource, asset);
 
         resource.transient = {
-            animation: loadAnimationsAsync(resource, asset, resource.transferList),
-            textures: await loadTexturesAsync(resource, asset, resource.transferList),
+            nodes: loadNodesAsync(resource, asset),
+            animation: loadAnimationsAsync(resource, asset),
+            textures: await loadTexturesAsync(resource, asset),
         }
 
         // Someone leaked the entire GLB buffer!
@@ -1131,7 +1137,8 @@ export class GltfLoader implements ResourceLoader {
         if (!defined(self.createImageBitmap)) { if (safariTextureLoadHack(resource, context)) return; }
         else { resource.status = ResourceStatus.Loaded; }
 
-        resource.animations = loadAnimationsSync(resource.transient.animation);
+        resource.nodes = loadNodesSync(resource.transient.nodes);
+        resource.animations = loadAnimationsSync(resource.transient.animation, resource);
         resource.textures = loadTexturesSync(resource.transient.textures, context);
 
         // Upload Vertex and Index buffers to the GPU
