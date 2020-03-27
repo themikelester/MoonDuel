@@ -7,6 +7,10 @@ import { IMesh } from '../Mesh';
 import { QuaternionKeyframeTrack, InterpolationModes, InterpolateLinear, AnimationClip, VectorKeyframeTrack, InterpolateDiscrete, Interpolant, KeyframeTrack } from './Animation';
 import { Quaternion } from '../Object3D';
 
+// Get the type of the object that a Promise would pass to Promise.then()
+// See https://stackoverflow.com/questions/48011353/how-to-unwrap-type-of-a-promise
+type ThenArg<T> = T extends PromiseLike<infer U> ? U : T;
+
 // --------------------------------------------------------------------------------
 // GLB (Binary GLTF decoding)
 // --------------------------------------------------------------------------------
@@ -270,11 +274,9 @@ export interface GltfMaterial {
 }
 
 export interface GltfTexture {
-    promise?: Promise<void>,
     desc: Gfx.TextureDescriptor,
     name: string,
     id: Gfx.Id;
-    imageIndex: number;
 }
 
 function translateAccessorToType(type: string, componentType: number): Gfx.Type {
@@ -568,81 +570,6 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
     };
 }
 
-function loadTextures(res: GltfResource, asset: GltfAsset): Promise<void>[] {
-    const images = defaultValue(asset.gltf.images, []);
-    const textures = defaultValue(asset.gltf.textures, []);
-    const samplers = defaultValue(asset.gltf.samplers, []);
-
-    const texturePromises = [];
-    res.textures = [];
-    res.imageData = [];
-
-    // Shared texture properties
-    const defaultTexDesc: Gfx.TextureDescriptor = {
-        type: Gfx.TextureType.Texture2D,
-        format: Gfx.TexelFormat.U8x4,
-        usage: Gfx.Usage.Static,
-    };
-
-    // Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#sampler
-    const defaultSampler = {
-        wrapS: 10497,
-        wrapT: 10497
-    }
-
-    for (let id = 0; id < images.length; id++) {
-        const gltfImage = assertDefined(images[id]);
-        const bufferView = assertDefined(gltfImage.bufferView, 'Image loading from a URI is not yet supported');
-        const bufferData = asset.bufferViewData(bufferView);
-
-        // All browser except Safari support JPG/PNG image decoding on a worker via createImageBitmap
-        // Otherwise we'll just send the ArrayBuffer and decode before uploading to the GPU on the main thread
-        let imageDataPromise: Promise<ArrayBuffer | ImageBitmap>;
-        if (defined(self.createImageBitmap)) {
-            const blob = new Blob([bufferData], { type: assertDefined(gltfImage.mimeType) });
-            imageDataPromise = createImageBitmap(blob);
-        } else {
-            imageDataPromise = Promise.resolve(bufferData.buffer);
-        }
-
-        // Wait for the imageData to be ready before pushing to main thread
-        // @NOTE: Make sure we make large data transferrable to avoid costly copies between threads
-        texturePromises.push(imageDataPromise.then(imageData => {
-            assert(!res.transferList.includes(imageData));
-            res.transferList.push(imageData);
-            res.imageData[id] = imageData;
-        }));
-    }
-
-    res.textures = textures.map(src => {
-        const sampler = defaultValue(samplers[src.sampler!], defaultSampler);
-        const desc = { ...defaultTexDesc };
-
-        if (defined(sampler.magFilter)) {
-            desc.defaultMagFilter = GLTF_SAMPLER_MAG_FILTER[sampler.magFilter];
-            if (!defined(desc.defaultMagFilter)) console.warn(`Unsupported texture mag filter: ${sampler.magFilter}`);
-        }
-
-        if (defined(sampler.minFilter)) {
-            desc.defaultMagFilter = GLTF_SAMPLER_MIN_FILTER[sampler.minFilter];
-            if (!defined(desc.defaultMagFilter)) console.warn(`Unsupported texture min filter: ${sampler.magFilter}`);
-        }
-
-        if (defined(sampler.wrapS) || defined(sampler.wrapT)) {
-            if (!defined(desc.defaultMagFilter)) console.warn(`Texture wrapping not yet supported: ${sampler.magFilter}`);
-        }
-
-        return {
-            name: src.name,
-            desc,
-            imageIndex: assertDefined(src.source),
-            id: -1,
-        }
-    });
-
-    return texturePromises;
-}
-
 function loadMaterials(res: GltfResource, asset: GltfAsset) {
     const materials = defaultValue(asset.gltf.materials, []);
     res.materials = [];
@@ -827,6 +754,159 @@ function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType
 }
 
 // --------------------------------------------------------------------------------
+// Textures 
+// --------------------------------------------------------------------------------
+async function loadTexturesAsync(res: GltfResource, asset: GltfAsset, transferList: any[]) {
+    const images = defaultValue(asset.gltf.images, []);
+    const srcTextures = defaultValue(asset.gltf.textures, []);
+    const samplers = defaultValue(asset.gltf.samplers, []);
+
+    // Shared texture properties
+    const defaultTexDesc: Gfx.TextureDescriptor = {
+        type: Gfx.TextureType.Texture2D,
+        format: Gfx.TexelFormat.U8x4,
+        usage: Gfx.Usage.Static,
+    };
+
+    // Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#sampler
+    const defaultSampler = {
+        wrapS: 10497,
+        wrapT: 10497
+    }
+
+    const imageDataPromises = images.map(image => {
+        const bufferView = assertDefined(image.bufferView, 'Image loading from a URI is not yet supported');
+        const bufferData = asset.bufferViewData(bufferView);
+
+        // All browser except Safari support JPG/PNG image decoding on a worker via createImageBitmap
+        // Otherwise we'll just send the ArrayBuffer and decode before uploading to the GPU on the main thread
+        let imageDataPromise: Promise<ArrayBuffer | ImageBitmap | HTMLImageElement>;
+        if (defined(self.createImageBitmap)) {
+            const blob = new Blob([bufferData], { type: assertDefined(image.mimeType) });
+            imageDataPromise = createImageBitmap(blob);
+        } else {
+            imageDataPromise = Promise.resolve(new Uint8Array(bufferData).buffer);
+        }
+
+        // Wait for the imageData to be ready before pushing to main thread
+        // @NOTE: Make sure we make large data transferrable to avoid costly copies between threads
+        return imageDataPromise.then(imageData => {
+            assert(!transferList.includes(imageData));
+            transferList.push(imageData);
+            return imageData;
+        });
+    })
+
+    const textures = srcTextures.map(src => {
+        const sampler = defaultValue(samplers[src.sampler!], defaultSampler);
+        const desc = { ...defaultTexDesc };
+
+        if (defined(sampler.magFilter)) {
+            desc.defaultMagFilter = GLTF_SAMPLER_MAG_FILTER[sampler.magFilter];
+            if (!defined(desc.defaultMagFilter)) console.warn(`Unsupported texture mag filter: ${sampler.magFilter}`);
+        }
+
+        if (defined(sampler.minFilter)) {
+            desc.defaultMagFilter = GLTF_SAMPLER_MIN_FILTER[sampler.minFilter];
+            if (!defined(desc.defaultMagFilter)) console.warn(`Unsupported texture min filter: ${sampler.magFilter}`);
+        }
+
+        if (defined(sampler.wrapS) || defined(sampler.wrapT)) {
+            if (!defined(desc.defaultMagFilter)) console.warn(`Texture wrapping not yet supported: ${sampler.magFilter}`);
+        }
+
+        return {
+            name: src.name,
+            desc,
+            imageIndex: assertDefined(src.source),
+        }
+    });
+
+    // Wait for all image data to finish resolving
+    const imageData = await Promise.all(imageDataPromises);
+
+    return {
+        imageData,
+        textures
+    };
+}
+
+function loadTexturesSync(data: TransientData['textures'], context: ResourceLoadingContext): GltfTexture[] {
+    const textures: GltfTexture[] = [];
+
+    // Upload textures to the GPU
+    // @TODO: Currently creating multiple copies of textures to support different sampler parameter sets
+    if (defined(self.createImageBitmap)) {
+        for (const texture of data.textures) {
+            const imageData = data.imageData[texture.imageIndex] as ImageBitmap;
+            assert(imageData instanceof ImageBitmap);
+            textures.push({
+                desc: texture.desc,
+                name: texture.name,
+                id: context.renderer.createTexture(texture.name, texture.desc, imageData),
+            });
+        }
+
+        for (const imageData of data.imageData) { (imageData as ImageBitmap).close(); }
+    }
+
+    return textures;
+}
+
+function safariTextureLoadHack(resource: GltfResource, context: ResourceLoadingContext) {
+    let firstPass = false;
+
+    // This browser (Safari) doesn't support createImageBitmap(), which means we have to do JPEG/PNG decompression
+    // here on the main thread. Use an HtmlImageElement to do this before submitting to WebGL.
+    // This will keep the status at LoadingSync (so that loadSync() will be repeatedly called) until the images are ready
+    const transient = resource.transient.textures;
+    let texLoadedCount = 0;
+    for (let i = 0; i < transient.textures.length; i++) {
+        const texture = transient.textures[i];
+        const imageData = transient.imageData[texture.imageIndex];
+
+        if (defined(resource.textures[i])) {
+            texLoadedCount += 1;
+            continue;
+        }
+
+        if (imageData instanceof ArrayBuffer) {
+            firstPass = true;
+
+            // @TODO: Support other file type (PNG) by using the mimetype from the response
+            var blob = new Blob([imageData], { type: "image/jpeg" });
+            let imageUrl = window.URL.createObjectURL(blob);
+
+            // Create an image element to do async JPEG/PNG decoding
+            transient.imageData[texture.imageIndex] = new Image();
+            (transient.imageData[texture.imageIndex] as HTMLImageElement).src = imageUrl;
+
+            // Continue calling loadSync until the image is loaded and decoded
+            resource.status = ResourceStatus.LoadingSync;
+        }
+
+        if ((imageData as HTMLImageElement).complete) {
+            assert(defined(resource.textures), 'This should have been defined as an empty array by loadTexturesSync()');
+            resource.textures[i] = {
+                desc: texture.desc,
+                name: texture.name,
+                id: context.renderer.createTexture(texture.name, texture.desc, imageData as HTMLImageElement),
+            };
+        }
+    }
+
+    // Continue calling LoadSync each frame until the textures are ready
+    if (texLoadedCount === transient.textures.length) {
+        resource.status = ResourceStatus.Loaded;
+    } else {
+        resource.status = ResourceStatus.LoadingSync;
+    }
+
+    // If this is our first pass through loadSync(), allow the rest of the loading to run. Otherwise exit early.
+    return !firstPass 
+}
+
+// --------------------------------------------------------------------------------
 // Animation 
 // --------------------------------------------------------------------------------
 function loadAnimationsAsync(res: GltfResource, asset: GltfAsset) {
@@ -876,7 +956,7 @@ function loadAnimationsAsync(res: GltfResource, asset: GltfAsset) {
     return clips;
 }
 
-function loadAnimationsSync(data: ReturnType<typeof loadAnimationsAsync>): AnimationClip[] {  
+function loadAnimationsSync(data: TransientData['animation']): AnimationClip[] {  
     const clips = []  
     for (const clipData of data) {
         const tracks = clipData.tracks.map(trackData => {
@@ -988,7 +1068,8 @@ class GLTFCubicSplineInterpolant extends Interpolant {
 // Resource interface
 // --------------------------------------------------------------------------------
 interface TransientData {
-    animation: ReturnType<typeof loadAnimationsAsync>
+    animation: ReturnType<typeof loadAnimationsAsync>,
+    textures: ThenArg<ReturnType<typeof loadTexturesAsync>>,
 }
 
 export interface GltfResource extends Resource {
@@ -1004,8 +1085,6 @@ export interface GltfResource extends Resource {
     rootNodeIds: number[];
 
     // Transient Data
-    promises: Promise<any>[];
-    imageData: (ArrayBuffer | ImageBitmap | HTMLImageElement)[];
     bufferData: ArrayBuffer[];
     shaderData: ArrayBuffer[];
 
@@ -1030,10 +1109,8 @@ export class GltfLoader implements ResourceLoader {
         resource.animations = [];
         resource.rootNodeIds = [];
 
-        resource.imageData = [];
         resource.bufferData = [];
 
-        const texPromises = loadTextures(resource, asset);
         loadTechniques(resource, asset);
         loadMaterials(resource, asset);
         loadMeshes(resource, asset);
@@ -1041,13 +1118,10 @@ export class GltfLoader implements ResourceLoader {
         loadSkins(resource, asset);
         loadScenes(resource, asset);
 
-        const animationData = loadAnimationsAsync(resource, asset);
         resource.transient = {
-            animation: animationData,
+            animation: loadAnimationsAsync(resource, asset),
+            textures: await loadTexturesAsync(resource, asset, resource.transferList),
         }
-
-        // Wait for all textures to finish loading before continuing
-        await Promise.all(texPromises);
 
         // Someone leaked the entire GLB buffer!
         assert(!resource.transferList.includes(buffer));
@@ -1056,8 +1130,12 @@ export class GltfLoader implements ResourceLoader {
     }
 
     loadSync(context: ResourceLoadingContext, resource: GltfResource): void {
+        // @HACK: We're forced to support async texture decompression on the main thread because of Safari
+        if (!defined(self.createImageBitmap)) { if (safariTextureLoadHack(resource, context)) return; }
+        else { resource.status = ResourceStatus.Loaded; }
+
         resource.animations = loadAnimationsSync(resource.transient.animation);
-        delete resource.transient;
+        resource.textures = loadTexturesSync(resource.transient.textures, context);
 
         // Upload Vertex and Index buffers to the GPU
         for (let idx in resource.bufferData) {
@@ -1080,58 +1158,8 @@ export class GltfLoader implements ResourceLoader {
             shader.id = context.renderer.createShader(desc);
         }
 
-        // Upload textures to the GPU
-        // @TODO: Currently creating multiple copies of textures to support different sampler parameter sets
-        if (defined(self.createImageBitmap)) {
-            for (const texture of resource.textures) {
-                const imageData = resource.imageData[texture.imageIndex] as ImageBitmap;
-                assert(imageData instanceof ImageBitmap);
-                texture.id = context.renderer.createTexture(texture.name, texture.desc, imageData);
-            }
-
-            for (const imageData of resource.imageData) { (imageData as ImageBitmap).close(); }
-            delete resource.imageData;
-            resource.status = ResourceStatus.Loaded;
-        }
-
-        else {
-            // This browser (Safari) doesn't support createImageBitmap(), which means we have to do JPEG decompression
-            // here on the main thread. Use an HtmlImageElement to do this before submitting to WebGL.
-            let texLoadedCount = 0;
-            for (const texture of resource.textures) {
-                const imageData = resource.imageData[texture.imageIndex];
-                if (texture.id !== -1) {
-                    texLoadedCount += 1;
-                    continue;
-                }
-
-                if (imageData instanceof ArrayBuffer) {
-                    // @TODO: Support other file type (PNG) by using the mimetype from the response
-                    var blob = new Blob([imageData], { type: "image/jpeg" });
-                    let imageUrl = window.URL.createObjectURL(blob);
-
-                    // Create an image element to do async JPEG/PNG decoding
-                    resource.imageData[texture.imageIndex] = new Image();
-                    (resource.imageData[texture.imageIndex] as HTMLImageElement).src = imageUrl;
-
-                    // Continue calling loadSync until the image is loaded and decoded
-                    resource.status = ResourceStatus.LoadingSync;
-                }
-
-                if ((resource.imageData[texture.imageIndex] as HTMLImageElement).complete) {
-                    texture.id = context.renderer.createTexture(texture.name, {
-                        usage: Gfx.Usage.Static,
-                        type: Gfx.TextureType.Texture2D,
-                        format: Gfx.TexelFormat.U8x3,
-                        maxAnistropy: 16,
-                    }, resource.imageData[texture.imageIndex] as HTMLImageElement);
-                }
-            }
-
-            if (texLoadedCount === resource.textures.length) {
-                delete resource.imageData;
-                resource.status = ResourceStatus.Loaded;
-            }
+        if (resource.status === ResourceStatus.Loaded) {
+            delete resource.transient;
         }
     }
 
