@@ -756,7 +756,7 @@ function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType
 // --------------------------------------------------------------------------------
 // Textures 
 // --------------------------------------------------------------------------------
-async function loadTexturesAsync(res: GltfResource, asset: GltfAsset, transferList: any[]) {
+async function loadTexturesAsync(res: GltfResource, asset: GltfAsset, transferList: Object[]) {
     const images = defaultValue(asset.gltf.images, []);
     const srcTextures = defaultValue(asset.gltf.textures, []);
     const samplers = defaultValue(asset.gltf.samplers, []);
@@ -909,7 +909,7 @@ function safariTextureLoadHack(resource: GltfResource, context: ResourceLoadingC
 // --------------------------------------------------------------------------------
 // Animation 
 // --------------------------------------------------------------------------------
-function loadAnimationsAsync(res: GltfResource, asset: GltfAsset) {
+function loadAnimationsAsync(res: GltfResource, asset: GltfAsset, transferList: Object[]) {
     let clips = [];
     for (const src of defaultValue(asset.gltf.animations, [])) {
 
@@ -917,14 +917,11 @@ function loadAnimationsAsync(res: GltfResource, asset: GltfAsset) {
         const samplerDatas = src.samplers.map(sampler => {
             // @TODO: Support non-float times and data
             assert(asset.gltf.accessors![sampler.input].componentType === 5126, 'Non-float animation time type unsupported');
-            assert(asset.gltf.accessors![sampler.output].componentType === 5126, 'Non-float animation time type unsupported');
-
-            // @TODO: TransferList for animation data
-            // @TODO: Can this data be more compressed?
-            return {
-                times: asset.accessorData(sampler.input) as Float32Array,
-                floats: asset.accessorData(sampler.output) as Float32Array,
-            }
+            assert(asset.gltf.accessors![sampler.output].componentType === 5126, 'Non-float animation values type unsupported');
+            const times = new Float32Array(asset.accessorData(sampler.input) as Float32Array);
+            const values = new Float32Array(asset.accessorData(sampler.output) as Float32Array);
+            transferList.push(times.buffer, values.buffer);
+            return { times, values };
         });
 
         const tracks = [];
@@ -941,7 +938,7 @@ function loadAnimationsAsync(res: GltfResource, asset: GltfAsset) {
                 targetName,
                 targetProperty,
                 times: samplerData.times,
-                values: samplerData.floats,
+                values: samplerData.values,
                 interpolation,
             });
         }
@@ -1119,7 +1116,7 @@ export class GltfLoader implements ResourceLoader {
         loadScenes(resource, asset);
 
         resource.transient = {
-            animation: loadAnimationsAsync(resource, asset),
+            animation: loadAnimationsAsync(resource, asset, resource.transferList),
             textures: await loadTexturesAsync(resource, asset, resource.transferList),
         }
 
