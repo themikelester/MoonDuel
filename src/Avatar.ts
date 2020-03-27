@@ -16,6 +16,7 @@ import { Object3D, Quaternion, Vector3, Matrix4 } from "./Object3D";
 import { Clock } from "./Clock";
 import { delerp, clamp } from "./MathHelpers";
 import { Camera } from "./Camera";
+import { AnimationMixer } from "./resources/Animation";
 
 const kMaxAvatarBoneCount = 32;
 
@@ -78,6 +79,8 @@ export class AvatarManager {
     rootNodes: Object3D[] = [];
     animations: GltfAnimation[] = [];
 
+    mixer: AnimationMixer;
+
     initialize({ gfxDevice, resources, globalUniforms }: { gfxDevice: Gfx.Renderer, resources: ResourceManager, globalUniforms: GlobalUniforms }) {
         this.gfxDevice = gfxDevice;
         this.globalUniforms = globalUniforms;
@@ -122,6 +125,12 @@ export class AvatarManager {
                 node.updateMatrix();
                 node.updateMatrixWorld();
             });
+
+            // @HACK:
+            this.mixer = new AnimationMixer(this.rootNodes[0]);
+            const clip = assertDefined(this.animations[12].clip);
+            const action = this.mixer.clipAction(clip);
+            action.play()
         });
     }
 
@@ -202,7 +211,7 @@ export class AvatarManager {
                     const texId = gltf.textures[value.index].id;
                     material.setTexture(this.gfxDevice, name, texId);
                 } else { 
-                    ubo.setFloats(name, value); 
+                    ubo.setFloats(name, value);
                 }
             }
 
@@ -239,27 +248,8 @@ export class AvatarManager {
     }
     
     update({ clock }: { clock: Clock }) {
-        const anim = this.animations[12];
-        if (anim) {
-            const t = (clock.time / 1000.0) % anim.maxTime;
-
-            for (let i = 0; i < anim.rotations.length; i++) {
-                const data = anim.rotations[i];
-                const bone = this.nodes[data.nodeId];
-                evalRotation(t, data, bone.quaternion);
-            }
-
-            for (let i = 0; i < anim.translations.length; i++) {
-                const data = anim.translations[i];
-                const bone = this.nodes[data.nodeId];
-                evalTranslation(t, data, bone.position);
-            }
-
-            for (let i = 0; i < anim.scales.length; i++) {
-                const data = anim.scales[i];
-                const bone = this.nodes[data.nodeId];
-                evalTranslation(t, data, bone.scale);
-            }
+        if (this.mixer) {
+            this.mixer.update(clock.dt / 1000.0);
         }
     }
 
@@ -272,8 +262,8 @@ export class AvatarManager {
             const model = this.skinnedModels[i];
             const uniforms = model.material.getUniformBuffer('uniforms');
 
-            // const bone = assertDefined(model.skeleton.bones.find(bone => bone.name === 'head'));
-            // quat.rotateX(bone.rotation, bone.rotation, clock.dt / 1000.0 * Math.PI / 32.0);
+            // const bone = assertDefined(model.skeleton.bones.find(bone => bone.name === 'j_tn_atama1'));
+            // bone.rotateX(clock.dt / 1000.0 * Math.PI / 32.0);
 
             model.updateMatrixWorld();
             const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
@@ -311,57 +301,4 @@ export class AvatarManager {
             model.renderList.push(model.primitive);
         }
     }
-}
-
-function evalRotation(time: number, sampler: Sampler, result: Quaternion): Quaternion {
-    const keyCount = sampler.times.length;
-    let t = 1.0;
-    let a = keyCount - 1;
-    let b = keyCount - 1;
-
-    // Clamp time to our animation min and max, to avoid NaNs
-    time = clamp(time, sampler.times[0], sampler.times[keyCount - 1]);
-
-    // Naive linear search for frame on either side of time
-    for (let i = 0; i < keyCount; i++) {
-        const t1 = sampler.times[i];
-        if (t1 > time) {
-            const t0 = sampler.times[Math.max(i - 1, 0)];
-            t = delerp(t0, t1, time);
-            b = i;
-            a = Math.max(i - 1, 0);
-            break;
-        }
-    }
-
-    let va = sampler.values.subarray(a * 4, a * 4 + 4) as quat;
-    let vb = sampler.values.subarray(b * 4, b * 4 + 4) as quat;
-    quat.lerp(scratchQuatA, va, vb, t);
-    return result.set(scratchQuatA[0], scratchQuatA[1], scratchQuatA[2], scratchQuatA[3]);
-}
-
-function evalTranslation(time: number, sampler: Sampler, result: Vector3): Vector3 {
-    const keyCount = sampler.times.length;
-    let t = 1.0;
-    let a = keyCount - 1;
-    let b = keyCount - 1;
-
-    time = clamp(time, sampler.times[0], sampler.times[keyCount - 1]);
-
-    // Naive linear search for frame on either side of time
-    for (let i = 1; i < keyCount; i++) {
-        const t1 = sampler.times[i];
-        if (t1 > time) {
-            const t0 = sampler.times[Math.max(i - 1, 0)];
-            t = delerp(t0, t1, time);
-            b = i;
-            a = Math.max(i - 1, 0);
-            break;
-        }
-    }
-
-    let va = sampler.values.subarray(a * 3, a * 3 + 3) as vec3;
-    let vb = sampler.values.subarray(b * 3, b * 3 + 3) as vec3;
-    vec3.lerp(scratchVec3A, va, vb, t);
-    return result.set(scratchVec3A[0], scratchVec3A[1], scratchVec3A[2]);
 }

@@ -4,6 +4,7 @@ import * as GlTf from './Gltf.d';
 import { vec3, quat, mat4 } from 'gl-matrix';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
 import { IMesh } from '../Mesh';
+import { QuaternionKeyframeTrack, InterpolationModes, InterpolateLinear, AnimationClip, VectorKeyframeTrack, InterpolateDiscrete } from './Animation';
 
 // --------------------------------------------------------------------------------
 // GLB (Binary GLTF decoding)
@@ -201,6 +202,7 @@ export interface GltfTechnique {
 
 export interface Sampler {
     nodeId: number;
+    type: InterpolationModes | undefined;
     times: Float32Array;
     values: Float32Array;
 }
@@ -212,6 +214,8 @@ export interface GltfAnimation {
     rotations: Sampler[];
     translations: Sampler[];
     weights: Sampler[];
+
+    clip?: AnimationClip;
 }
 
 export interface GltfBufferView extends Gfx.BufferView {
@@ -235,7 +239,7 @@ export interface GltfMesh {
 }
 
 export interface GltfNode {
-    name?: string;
+    name: string;
 
     scale: vec3;
     rotation: quat;
@@ -425,6 +429,13 @@ const GLTF_ATTRIBUTE_DEFINES: { [index: string]: string } = {
     TEXCOORD_1: 'HAS_UV_SET1 1',
 };
 
+const GLTF_INTERPOLATION: { [index: string]: InterpolationModes | undefined } = {
+    CUBICSPLINE: undefined, // We use a custom interpolant (GLTFCubicSplineInterpolation) for CUBICSPLINE tracks. Each
+                            // keyframe track will be initialized with a default interpolation type, then modified.
+    LINEAR: InterpolateLinear,
+    STEP: InterpolateDiscrete
+};
+
 // --------------------------------------------------------------------------------
 // GLTF parsing helpers
 // --------------------------------------------------------------------------------
@@ -565,6 +576,7 @@ function loadAnimations(res: GltfResource, asset: GltfAsset) {
             // @TODO: TransferList for animation data
             // @TODO: Can this data be more compressed?
             return {
+                type: GLTF_INTERPOLATION[defaultValue(sampler.interpolation, 'LINEAR')],
                 times: asset.accessorData(sampler.input) as Float32Array,
                 floats: asset.accessorData(sampler.output) as Float32Array,
             }
@@ -579,6 +591,7 @@ function loadAnimations(res: GltfResource, asset: GltfAsset) {
                 nodeId: assertDefined(c.target.node),
                 times: samplers[c.sampler].times,
                 values: samplers[c.sampler].floats,
+                type: samplers[c.sampler].type,
             };
 
             switch(c.target.path) {
@@ -922,6 +935,47 @@ export class GltfLoader implements ResourceLoader {
     }
 
     loadSync(context: ResourceLoadingContext, resource: GltfResource): void {
+        // Load Animations ThreeJS style
+        for (const anim of resource.animations) {
+            const tracks = [];
+            for (let i = 0; i < anim.rotations.length; i++) {
+                const sampler = anim.rotations[i];
+                const track = new QuaternionKeyframeTrack(
+                    `${resource.nodes[i].name}.quaternion`,
+                    Array.from(sampler.times), // @TODO: It takes an ARRAY?, cmon!
+                    Array.from(sampler.values),
+                    InterpolateLinear, // Use Three Interpolation modes        
+                )
+                tracks.push(track);
+            }
+
+            for (let i = 0; i < anim.translations.length; i++) {
+                const sampler = anim.translations[i];
+                const track = new VectorKeyframeTrack(
+                    `${resource.nodes[i].name}.position`,
+                    Array.from(sampler.times), // @TODO: It takes an ARRAY?, cmon!
+                    Array.from(sampler.values),
+                    InterpolateLinear, // Use Three Interpolation modes        
+                )
+                tracks.push(track);
+            }
+
+            for (let i = 0; i < anim.scales.length; i++) {
+                const sampler = anim.scales[i];
+                const track = new VectorKeyframeTrack(
+                    `${resource.nodes[i].name}.scale`,
+                    Array.from(sampler.times), // @TODO: It takes an ARRAY?, cmon!
+                    Array.from(sampler.values),
+                    InterpolateLinear, // Use Three Interpolation modes        
+                )
+                tracks.push(track);
+            }
+            
+            const clip = new AnimationClip(anim.name, anim.maxTime, tracks);
+            anim.clip = clip;
+        }
+
+
         // Upload Vertex and Index buffers to the GPU
         for (let idx in resource.bufferData) {
             const bufferView = resource.bufferViews[idx];
