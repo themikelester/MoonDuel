@@ -2,11 +2,12 @@ Change Log
 ==========
 
 ### 2020-27-03
+![Daily Screenshot](/screenshots/Screen Shot 2020-03-27 at 7.30.13 PM.png)
 * Integrated ThreeJS' animation system. AnimationMixer can now be used to blend and play multiple animations.
 * GLTF cubic interpolation for animations is now supported
 * ThreeJS' Object3D is now used. This should make it easier to integrate any other three features we may want.
 
-##### To Do :todo:
+##### To Do
 * Make it easier to create objects during resource loading. Their should probably be a POD object for async load, and sync load creates a new full-fat object (for Animation as ThreeJS Clips, Nodes as Object3D, ...)
 
 ### 2020-26-03
