@@ -62,7 +62,7 @@ export class OrbitCameraController implements CameraController {
 
     public x: number = -Math.PI / 2;
     public y: number = 2;
-    public z: number = -4;
+    public z: number = -1000;
     public orbitSpeed: number = -0.05;
     public xVel: number = 0;
     public yVel: number = 0;
