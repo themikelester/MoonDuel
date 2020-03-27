@@ -4,7 +4,8 @@ import * as GlTf from './Gltf.d';
 import { vec3, quat, mat4 } from 'gl-matrix';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
 import { IMesh } from '../Mesh';
-import { QuaternionKeyframeTrack, InterpolationModes, InterpolateLinear, AnimationClip, VectorKeyframeTrack, InterpolateDiscrete, Interpolant } from './Animation';
+import { QuaternionKeyframeTrack, InterpolationModes, InterpolateLinear, AnimationClip, VectorKeyframeTrack, InterpolateDiscrete, Interpolant, KeyframeTrack } from './Animation';
+import { Quaternion } from '../Object3D';
 
 // --------------------------------------------------------------------------------
 // GLB (Binary GLTF decoding)
@@ -436,6 +437,13 @@ const GLTF_INTERPOLATION: { [index: string]: InterpolationModes | undefined } = 
     STEP: InterpolateDiscrete
 };
 
+const GLTF_ANIMATION_PATH: { [index: string]: string } = {
+    translation: 'position',
+    rotation: 'quaternion',
+    scale: 'scale',
+    weights: '_UNSUPPORTED',
+}
+
 // --------------------------------------------------------------------------------
 // GLTF parsing helpers
 // --------------------------------------------------------------------------------
@@ -558,61 +566,6 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
         },
         material,
     };
-}
-
-function loadAnimations(res: GltfResource, asset: GltfAsset) {
-    const animations = defaultValue(asset.gltf.animations, []);
-    res.animations = [];
-
-    for (let id = 0; id < animations.length; id++) {
-        const anim = animations[id];
-
-        // Parse sampler data 
-        const samplers = anim.samplers.map(sampler => {
-            // @TODO: Support non-float times and data
-            assert(asset.gltf.accessors![sampler.input].componentType === 5126, 'Non-float animation time type unsupported');
-            assert(asset.gltf.accessors![sampler.output].componentType === 5126, 'Non-float animation time type unsupported');
-
-            // @TODO: TransferList for animation data
-            // @TODO: Can this data be more compressed?
-            return {
-                type: GLTF_INTERPOLATION[defaultValue(sampler.interpolation, 'LINEAR')],
-                times: asset.accessorData(sampler.input) as Float32Array,
-                floats: asset.accessorData(sampler.output) as Float32Array,
-            }
-        });
-        
-        const translations: Sampler[] = [];
-        const rotations: Sampler[] = [];
-        const scales: Sampler[] = [];
-        const weights: Sampler[] = [];
-        anim.channels.forEach((c: GlTf.AnimationChannel) => {
-            const channel = {
-                nodeId: assertDefined(c.target.node),
-                times: samplers[c.sampler].times,
-                values: samplers[c.sampler].floats,
-                type: samplers[c.sampler].type,
-            };
-
-            switch(c.target.path) {
-                case 'translation': translations.push(channel); break;
-                case 'rotation': rotations.push(channel); break;
-                case 'scale': scales.push(channel); break;
-                case 'weight': weights.push(channel); break;
-            }
-        });
-
-        const maxTime = Math.max(...anim.samplers.map(s => assertDefined(asset.gltf.accessors![s.input].max)[0]));
-
-        res.animations.push({
-            name: anim.name,
-            maxTime,
-            scales,
-            rotations,
-            translations,
-            weights
-        });
-    }
 }
 
 function loadTextures(res: GltfResource, asset: GltfAsset): Promise<void>[] {
@@ -874,8 +827,99 @@ function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType
 }
 
 // --------------------------------------------------------------------------------
-// Animation interpolation
+// Animation 
 // --------------------------------------------------------------------------------
+function loadAnimationsAsync(res: GltfResource, asset: GltfAsset) {
+    let clips = [];
+    for (const src of defaultValue(asset.gltf.animations, [])) {
+
+        // Parse sampler data 
+        const samplerDatas = src.samplers.map(sampler => {
+            // @TODO: Support non-float times and data
+            assert(asset.gltf.accessors![sampler.input].componentType === 5126, 'Non-float animation time type unsupported');
+            assert(asset.gltf.accessors![sampler.output].componentType === 5126, 'Non-float animation time type unsupported');
+
+            // @TODO: TransferList for animation data
+            // @TODO: Can this data be more compressed?
+            return {
+                times: asset.accessorData(sampler.input) as Float32Array,
+                floats: asset.accessorData(sampler.output) as Float32Array,
+            }
+        });
+
+        const tracks = [];
+        for (const channel of src.channels) {
+            const targetNodeId = channel.target.node;
+            if (!defined(targetNodeId)) continue;
+
+            const targetName = res.nodes[targetNodeId].name;
+            const targetProperty = GLTF_ANIMATION_PATH[channel.target.path];
+            const samplerData = samplerDatas[channel.sampler];
+            const interpolation = defaultValue(src.samplers[channel.sampler].interpolation, 'LINEAR');
+
+            tracks.push({
+                targetName,
+                targetProperty,
+                times: samplerData.times,
+                values: samplerData.floats,
+                interpolation,
+            });
+        }
+
+        clips.push({
+            name: src.name, 
+            maxTime: src.maxTime, 
+            tracks
+        });
+    }
+
+    return clips;
+}
+
+function loadAnimationsSync(data: ReturnType<typeof loadAnimationsAsync>): AnimationClip[] {  
+    const clips = []  
+    for (const clipData of data) {
+        const tracks = clipData.tracks.map(trackData => {
+            let TypedKeyframeTrack;
+            switch(trackData.targetProperty) {
+                case 'quaternion':
+                    TypedKeyframeTrack = QuaternionKeyframeTrack;
+                    break;
+
+                case 'position':
+                case 'scale':
+                    TypedKeyframeTrack = VectorKeyframeTrack;
+                    break;
+                default: throw new Error('Unsupported animation target property');
+            }
+
+            const track = new TypedKeyframeTrack(
+                `${trackData.targetName}.${trackData.targetProperty}`, 
+                Array.from(trackData.times), // ThreeJS has mistyped these. They should be ArrayLike<number>
+                Array.from(trackData.values), 
+                GLTF_INTERPOLATION[trackData.interpolation]
+            );
+
+            if (trackData.interpolation === 'CUBICSPLINE') {
+                (track as any).createInterpolant = function InterpolantFactoryMethodGLTFCubicSpline( result: any ) {
+                    // A CUBICSPLINE keyframe in glTF has three output values for each input value,
+                    // representing inTangent, splineVertex, and outTangent. As a result, track.getValueSize()
+                    // must be divided by three to get the interpolant's sampleSize argument.
+                    return new GLTFCubicSplineInterpolant( this.times, this.values, this.getValueSize() / 3, result );
+                };
+        
+                // Mark as CUBICSPLINE. `track.getInterpolation()` doesn't support custom interpolants.
+                (track as any).createInterpolant.isInterpolantFactoryMethodGLTFCubicSpline = true;
+            }
+
+            return track;
+        });
+
+        clips.push(new AnimationClip(clipData.name, clipData.maxTime, tracks));
+    }
+
+    return clips;
+}
 
 // Spline Interpolation
 // Specification: https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#appendix-c-spline-interpolation
@@ -943,6 +987,10 @@ class GLTFCubicSplineInterpolant extends Interpolant {
 // --------------------------------------------------------------------------------
 // Resource interface
 // --------------------------------------------------------------------------------
+interface TransientData {
+    animation: ReturnType<typeof loadAnimationsAsync>
+}
+
 export interface GltfResource extends Resource {
     nodes: GltfNode[];
     skins: GltfSkin[];
@@ -950,7 +998,7 @@ export interface GltfResource extends Resource {
     materials: GltfMaterial[];
     textures: GltfTexture[];
     bufferViews: GltfBufferView[];
-    animations: GltfAnimation[];
+    animations: AnimationClip[];
     shaders: GltfShader[];
     techniques: GltfTechnique[];
     rootNodeIds: number[];
@@ -960,6 +1008,8 @@ export interface GltfResource extends Resource {
     imageData: (ArrayBuffer | ImageBitmap | HTMLImageElement)[];
     bufferData: ArrayBuffer[];
     shaderData: ArrayBuffer[];
+
+    transient: TransientData;
 }
 
 export class GltfLoader implements ResourceLoader {
@@ -990,7 +1040,11 @@ export class GltfLoader implements ResourceLoader {
         loadNodes(resource, asset);
         loadSkins(resource, asset);
         loadScenes(resource, asset);
-        loadAnimations(resource, asset);
+
+        const animationData = loadAnimationsAsync(resource, asset);
+        resource.transient = {
+            animation: animationData,
+        }
 
         // Wait for all textures to finish loading before continuing
         await Promise.all(texPromises);
@@ -1002,92 +1056,8 @@ export class GltfLoader implements ResourceLoader {
     }
 
     loadSync(context: ResourceLoadingContext, resource: GltfResource): void {
-        // Load Animations ThreeJS style
-        for (const anim of resource.animations) {
-            const tracks = [];
-            for (let i = 0; i < anim.rotations.length; i++) {
-                const sampler = anim.rotations[i];
-
-                const track = new QuaternionKeyframeTrack(
-                    `${resource.nodes[i].name}.quaternion`,
-                    Array.from(sampler.times), // @TODO: It takes an ARRAY?, cmon!
-                    Array.from(sampler.values),
-                    sampler.type     
-                )
-
-                // @TODO: Clean up sampler.type. Leave it as the GLTF string?
-                if (!defined(sampler.type)) {
-                    (track as any).createInterpolant = function InterpolantFactoryMethodGLTFCubicSpline( result: any ) {
-                        // A CUBICSPLINE keyframe in glTF has three output values for each input value,
-                        // representing inTangent, splineVertex, and outTangent. As a result, track.getValueSize()
-                        // must be divided by three to get the interpolant's sampleSize argument.
-                        return new GLTFCubicSplineInterpolant( this.times, this.values, this.getValueSize() / 3, result );
-
-                    };
-
-                    // Mark as CUBICSPLINE. `track.getInterpolation()` doesn't support custom interpolants.
-                    (track as any).createInterpolant.isInterpolantFactoryMethodGLTFCubicSpline = true;
-                }
-
-                tracks.push(track);
-            }
-
-            for (let i = 0; i < anim.translations.length; i++) {
-                const sampler = anim.translations[i];
-                const track = new VectorKeyframeTrack(
-                    `${resource.nodes[i].name}.position`,
-                    Array.from(sampler.times), // @TODO: It takes an ARRAY?, cmon!
-                    Array.from(sampler.values),
-                    sampler.type,
-                );
-
-                // @TODO: Clean up sampler.type. Leave it as the GLTF string?
-                if (!defined(sampler.type)) {
-                    (track as any).createInterpolant = function InterpolantFactoryMethodGLTFCubicSpline( result: any ) {
-                        // A CUBICSPLINE keyframe in glTF has three output values for each input value,
-                        // representing inTangent, splineVertex, and outTangent. As a result, track.getValueSize()
-                        // must be divided by three to get the interpolant's sampleSize argument.
-                        return new GLTFCubicSplineInterpolant( this.times, this.values, this.getValueSize() / 3, result );
-
-                    };
-
-                    // Mark as CUBICSPLINE. `track.getInterpolation()` doesn't support custom interpolants.
-                    (track as any).createInterpolant.isInterpolantFactoryMethodGLTFCubicSpline = true;
-                }
-
-                tracks.push(track);
-            }
-
-            for (let i = 0; i < anim.scales.length; i++) {
-                const sampler = anim.scales[i];
-                const track = new VectorKeyframeTrack(
-                    `${resource.nodes[i].name}.scale`,
-                    Array.from(sampler.times), // @TODO: It takes an ARRAY?, cmon!
-                    Array.from(sampler.values),
-                    sampler.type,
-                );
-
-                // @TODO: Clean up sampler.type. Leave it as the GLTF string?
-                if (!defined(sampler.type)) {
-                    (track as any).createInterpolant = function InterpolantFactoryMethodGLTFCubicSpline( result: any ) {
-                        // A CUBICSPLINE keyframe in glTF has three output values for each input value,
-                        // representing inTangent, splineVertex, and outTangent. As a result, track.getValueSize()
-                        // must be divided by three to get the interpolant's sampleSize argument.
-                        return new GLTFCubicSplineInterpolant( this.times, this.values, this.getValueSize() / 3, result );
-
-                    };
-
-                    // Mark as CUBICSPLINE. `track.getInterpolation()` doesn't support custom interpolants.
-                    (track as any).createInterpolant.isInterpolantFactoryMethodGLTFCubicSpline = true;
-                }
-
-                tracks.push(track);
-            }
-            
-            const clip = new AnimationClip(anim.name, anim.maxTime, tracks);
-            anim.clip = clip;
-        }
-
+        resource.animations = loadAnimationsSync(resource.transient.animation);
+        delete resource.transient;
 
         // Upload Vertex and Index buffers to the GPU
         for (let idx in resource.bufferData) {

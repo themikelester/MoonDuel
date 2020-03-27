@@ -16,7 +16,7 @@ import { Object3D, Quaternion, Vector3, Matrix4 } from "./Object3D";
 import { Clock } from "./Clock";
 import { delerp, clamp } from "./MathHelpers";
 import { Camera } from "./Camera";
-import { AnimationMixer } from "./resources/Animation";
+import { AnimationMixer, AnimationClip } from "./resources/Animation";
 
 const kMaxAvatarBoneCount = 32;
 
@@ -77,7 +77,7 @@ export class AvatarManager {
 
     nodes: Object3D[] | Bone[];
     rootNodes: Object3D[] = [];
-    animations: GltfAnimation[] = [];
+    animations: AnimationClip[] = [];
 
     mixer: AnimationMixer;
 
@@ -128,7 +128,7 @@ export class AvatarManager {
 
             // @HACK:
             this.mixer = new AnimationMixer(this.rootNodes[0]);
-            const clip = assertDefined(this.animations[12].clip);
+            const clip = assertDefined(this.animations[12]);
             const action = this.mixer.clipAction(clip);
             action.play()
         });
