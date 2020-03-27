@@ -77,22 +77,22 @@ export class UniformBuffer {
     this.bufferFloats[uniform.offset / 4] = value;
   }
 
-  setVec2(name: string, v: vec2) {
+  setVec2(name: string, v: ArrayLike<number>) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
     this.bufferFloats.set(v, uniform.offset / 4);
   }
 
-  setVec3(name: string, v: vec3) {
+  setVec3(name: string, v: ArrayLike<number>) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
     this.bufferFloats.set(v, uniform.offset / 4);
   }
 
-  setVec4(name: string, v: vec4) {
+  setVec4(name: string, v: ArrayLike<number>) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
     this.bufferFloats.set(v, uniform.offset / 4);
   }
 
-  setMat4(name: string, m: mat4) {
+  setMat4(name: string, m: ArrayLike<number>) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
     this.bufferFloats.set(m, uniform.offset / 4);
   }
