@@ -88,7 +88,7 @@ export class AvatarManager {
         this.shader = gfxDevice.createShader(new AvatarShader());
         this.modelShader = gfxDevice.createShader(new ModelShader());
 
-        resources.load('data/Avatar.glb', 'gltf', (error, resource) => {
+        resources.load('data/Tn.glb', 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
 
             const gltf = resource as GltfResource;

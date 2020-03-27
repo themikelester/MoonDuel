@@ -6,6 +6,7 @@
 export { QuaternionKeyframeTrack } from 'three/src/animation/tracks/QuaternionKeyframeTrack';
 export { VectorKeyframeTrack } from 'three/src/animation/tracks/VectorKeyframeTrack';
 export { InterpolationModes, InterpolateLinear, InterpolateDiscrete } from 'three/src/constants';
+export { Interpolant } from 'three/src/math/Interpolant';
 
 /**
  * KeyframeTrack is a timed sequence of keyframes, which are composed of lists of times and related values, 
