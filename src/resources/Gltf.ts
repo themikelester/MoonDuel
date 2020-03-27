@@ -185,16 +185,8 @@ export class GltfAsset {
 // --------------------------------------------------------------------------------
 // GLTF Loader
 // --------------------------------------------------------------------------------
-export interface GltfShader {
-    id: Gfx.Id;
-    name: string;
-
-    fsIndex: number;
-    vsIndex: number;
-}
-
 export interface GltfTechnique {
-    shader: GltfShader;
+    shaderId: Gfx.Id;
     attributes: { [name: string]: { semantic: string }};
     uniforms: { [name: string]: {
         type: Gfx.Type;
@@ -234,7 +226,7 @@ export interface GltfPrimitive {
 
     depthMode?: Gfx.Id;
     cullMode?: Gfx.CullMode;
-    material: GltfMaterial;
+    materialIndex: number;
 }
 
 export interface GltfMesh {
@@ -455,7 +447,7 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
 
     let material;
     if (defined(gltfPrimitive.material)) {
-        material = assertDefined(res.materials[gltfPrimitive.material]);
+        material = assertDefined(res.transient.materials[gltfPrimitive.material]);
     } else {
         // @TODO: Default material
         throw new Error('Default material not yet supported');
@@ -474,11 +466,12 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
 
     // If the material specifies vertex attribute names, use those. Otherwise use the defaults.
     let attribNameMap: { [semantic: string]: string };
-    if (defined(material.technique)) {
+    if (defined(material.techniqueIndex)) {
         attribNameMap = {};
-        const attribNames = Object.keys(material.technique.attributes);
+        const technique = assertDefined(res.transient.techniques).techniques[material.techniqueIndex];
+        const attribNames = Object.keys(technique.attributes);
         for (const name of attribNames) { 
-            const semantic = material.technique.attributes[name].semantic;
+            const semantic = technique.attributes[name].semantic;
             attribNameMap[semantic] = name;
         }
     } else attribNameMap = kDefaultVertexAttributeSemanticMap;
@@ -566,29 +559,8 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
             indexBuffer: indicesBufferView,
             vertexLayout,
         },
-        material,
+        materialIndex: gltfPrimitive.material,
     };
-}
-
-function loadMaterials(res: GltfResource, asset: GltfAsset) {
-    const materials = defaultValue(asset.gltf.materials, []);
-    res.materials = [];
-
-    res.materials = materials.map((src, i) => {
-        const material: GltfMaterial = {
-            name: defaultValue(src.name, `Material${i}`),
-            renderFormat: { blendingEnabled: false }, // @TODO: Parse this
-            cullMode: src.doubleSided ? Gfx.CullMode.None : Gfx.CullMode.Back,
-        }
-
-        const ext = src.extensions?.KHR_techniques_webgl;
-        if (defined(ext)) {
-            material.technique = res.techniques[ext.technique];
-            material.values = ext.values;
-        }
-
-        return material;
-    });
 }
 
 function loadMeshes(res: GltfResource, asset: GltfAsset) {
@@ -654,40 +626,6 @@ function loadScenes(res: GltfResource, asset: GltfAsset) {
     }
 }
 
-function loadTechniques(res: GltfResource, asset: GltfAsset) {
-    if (!asset.gltf.extensionsUsed?.includes('KHR_techniques_webgl')) { return; }
-    const ext = assertDefined(asset.gltf.extensions.KHR_techniques_webgl);
-
-    res.shaderData = ext.shaders.map((src: any, idx: number) => {
-        const bufferViewId = assertDefined(src.bufferView, 'Shader loading from URI not yet supported');
-        const data = new Uint8Array(asset.bufferViewData(bufferViewId)).buffer;
-        assert(!res.transferList.includes(data));
-        res.transferList.push(data);
-        return data;
-    });
-
-    res.shaders = ext.programs.map((src: any) => ({
-        id: -1, // Set during loadSync() once the shader source has been compiled
-        name: src.name,
-        fsIndex: src.fragmentShader,
-        vsIndex: src.vertexShader,
-    }));
-
-    res.techniques = ext.techniques.map((src: any, idx: number) => {
-        const uniforms: GltfTechnique['uniforms'] = {};
-        for (const uniformName in defaultValue(src.uniforms, {})) {
-            const srcUni = src.uniforms[uniformName];
-            uniforms[uniformName] = { ...srcUni, type: translateTypeToType(srcUni.type) };
-        }
-        
-        return {
-            shader: res.shaders[src.program],
-            attributes: defaultValue(src.attributes, {}),
-            uniforms,
-        };
-    });
-}
-
 function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType: Gfx.BufferType): GltfBufferView {
     if (defined(res.bufferViews[id])) return res.bufferViews[id];
 
@@ -703,6 +641,107 @@ function loadBufferView(res: GltfResource, asset: GltfAsset, id: number, bufType
     const buf = { name, type: bufType, buffer: bufId };
     res.bufferViews[id] = buf;
     return buf;
+}
+
+
+// --------------------------------------------------------------------------------
+// Materials
+// --------------------------------------------------------------------------------
+function loadMaterialsAsync(res: GltfResource, asset: GltfAsset) {
+    const materials = defaultValue(asset.gltf.materials, []).map((src, i) => {
+        const ext = src.extensions?.KHR_techniques_webgl;
+        const techniqueIndex = ext ? ext.technique : undefined;
+        const values = ext ? ext.values : undefined;
+
+        const material = {
+            name: defaultValue(src.name, `Material${i}`),
+            renderFormat: { blendingEnabled: false }, // @TODO: Parse this
+            cullMode: src.doubleSided ? Gfx.CullMode.None : Gfx.CullMode.Back,
+            techniqueIndex,
+            values
+        };
+
+        return material;
+    });
+
+    return materials;
+}
+
+function loadMaterialsSync(data: TransientData['materials'], resource: GltfResource): GltfMaterial[] {
+    return data.map(src => ({
+        name: src.name,
+        renderFormat: src.renderFormat,
+        cullMode: src.cullMode,
+        values: src.values,
+        technique: defined(src.techniqueIndex) ? resource.techniques[src.techniqueIndex] : undefined,
+    }));
+}
+
+// --------------------------------------------------------------------------------
+// Techniques
+// --------------------------------------------------------------------------------
+function loadTechniquesAsync(res: GltfResource, asset: GltfAsset) {
+    if (!asset.gltf.extensionsUsed?.includes('KHR_techniques_webgl')) { return; }
+    const ext = assertDefined(asset.gltf.extensions.KHR_techniques_webgl);
+
+    const shaderData = ext.shaders.map((src: any, idx: number) => {
+        const bufferViewId = assertDefined(src.bufferView, 'Shader loading from URI not yet supported');
+        const data = new Uint8Array(asset.bufferViewData(bufferViewId)).buffer;
+        assert(!res.transferList.includes(data));
+        res.transferList.push(data);
+        return data;
+    });
+
+    const shaders = ext.programs.map((src: any) => ({
+        name: src.name,
+        fsIndex: src.fragmentShader,
+        vsIndex: src.vertexShader,
+    }));
+
+    const techniques = ext.techniques.map((src: any, idx: number) => {
+        const uniforms: GltfTechnique['uniforms'] = {};
+        for (const uniformName in defaultValue(src.uniforms, {})) {
+            const srcUni = src.uniforms[uniformName];
+            uniforms[uniformName] = { ...srcUni, type: translateTypeToType(srcUni.type) };
+        }
+        
+        return {
+            shaderIndex: src.program,
+            attributes: defaultValue(src.attributes, {}),
+            uniforms,
+        };
+    });
+
+    return {
+        shaderData,
+        shaders,
+        techniques
+    }
+}
+
+function loadTechniquesSync(data: TransientData['techniques'], context: ResourceLoadingContext): GltfTechnique[] {
+    if (!defined(data)) return [];
+
+    const shaderIds = data.shaders.map((src: any) => {
+        const vertSourceBuf = data.shaderData[src.vsIndex];
+        const fragSourceBuf = data.shaderData[src.fsIndex];
+        
+        const desc: Gfx.ShaderDescriptor = {
+            name: src.name,
+            vertSource: decodeText(vertSourceBuf),
+            fragSource: decodeText(fragSourceBuf),
+        }
+        
+        return context.renderer.createShader(desc);
+    });
+
+    const techniques = data.techniques.map((src: any) => ({
+        shaderId: shaderIds[src.shaderIndex],
+        attributes: src.attributes,
+        uniforms: src.uniforms
+    }));
+
+    return techniques;
 }
 
 // --------------------------------------------------------------------------------
@@ -1071,8 +1110,10 @@ class GLTFCubicSplineInterpolant extends Interpolant {
 // --------------------------------------------------------------------------------
 interface TransientData {
     animation: ReturnType<typeof loadAnimationsAsync>,
-    textures: ThenArg<ReturnType<typeof loadTexturesAsync>>,
+    materials: ThenArg<ReturnType<typeof loadMaterialsAsync>>,
     nodes: ThenArg<ReturnType<typeof loadNodesAsync>>,
+    techniques: ThenArg<ReturnType<typeof loadTechniquesAsync>>,
+    textures: ThenArg<ReturnType<typeof loadTexturesAsync>>,
 }
 
 export interface GltfResource extends Resource {
@@ -1083,13 +1124,11 @@ export interface GltfResource extends Resource {
     textures: GltfTexture[];
     bufferViews: GltfBufferView[];
     animations: AnimationClip[];
-    shaders: GltfShader[];
     techniques: GltfTechnique[];
     rootNodeIds: number[];
 
     // Transient Data
     bufferData: ArrayBuffer[];
-    shaderData: ArrayBuffer[];
 
     transient: TransientData;
 }
@@ -1114,17 +1153,17 @@ export class GltfLoader implements ResourceLoader {
 
         resource.bufferData = [];
 
-        loadTechniques(resource, asset);
-        loadMaterials(resource, asset);
-        loadMeshes(resource, asset);
-        loadSkins(resource, asset);
-        loadScenes(resource, asset);
-
         resource.transient = {
+            techniques: loadTechniquesAsync(resource, asset),
+            materials: loadMaterialsAsync(resource, asset),
             nodes: loadNodesAsync(resource, asset),
             animation: loadAnimationsAsync(resource, asset),
             textures: await loadTexturesAsync(resource, asset),
         }
+
+        loadMeshes(resource, asset);
+        loadSkins(resource, asset);
+        loadScenes(resource, asset);
 
         // Someone leaked the entire GLB buffer!
         assert(!resource.transferList.includes(buffer));
@@ -1137,6 +1176,8 @@ export class GltfLoader implements ResourceLoader {
         if (!defined(self.createImageBitmap)) { if (safariTextureLoadHack(resource, context)) return; }
         else { resource.status = ResourceStatus.Loaded; }
 
+        resource.techniques = loadTechniquesSync(resource.transient.techniques, context);
+        resource.materials = loadMaterialsSync(resource.transient.materials, resource);
         resource.nodes = loadNodesSync(resource.transient.nodes);
         resource.animations = loadAnimationsSync(resource.transient.animation, resource);
         resource.textures = loadTexturesSync(resource.transient.textures, context);
@@ -1146,20 +1187,6 @@ export class GltfLoader implements ResourceLoader {
             const bufferView = resource.bufferViews[idx];
             const bufferData = resource.bufferData[idx];
             bufferView.buffer = context.renderer.createBuffer(bufferView.name, bufferView.type, Gfx.Usage.Static, bufferData);
-        }
-
-        // Create programs
-        for (const shader of defaultValue(resource.shaders, [])) {
-            const vertSourceBuf = resource.shaderData[shader.vsIndex];
-            const fragSourceBuf = resource.shaderData[shader.fsIndex];
-            
-            const desc: Gfx.ShaderDescriptor = {
-                name: shader.name,
-                vertSource: decodeText(vertSourceBuf),
-                fragSource: decodeText(fragSourceBuf),
-            }
-            
-            shader.id = context.renderer.createShader(desc);
         }
 
         if (resource.status === ResourceStatus.Loaded) {

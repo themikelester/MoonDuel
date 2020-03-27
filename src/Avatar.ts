@@ -184,22 +184,23 @@ export class AvatarManager {
             return  resourceLayout;
         }
 
-        const technique = prim.material.technique;
+        const primMaterial = gltf.materials[prim.materialIndex];
+        const technique =  primMaterial.technique;
 
-        const shader = technique ? technique.shader.id : this.shader;
+        const shader = technique ? technique.shaderId : this.shader;
         const resourceLayout = technique ? buildResourceLayout(technique) : AvatarShader.resourceLayout;
-        const material = new Material(this.gfxDevice, prim.material.name, shader, resourceLayout);
+        const material = new Material(this.gfxDevice, primMaterial.name, shader, resourceLayout);
 
         // Bind resources to the material
         const uniformLayout = (resourceLayout.uniforms as Gfx.UniformBufferResourceBinding).layout;
-        const ubo = new UniformBuffer(prim.material.name, this.gfxDevice, uniformLayout);
+        const ubo = new UniformBuffer(primMaterial.name, this.gfxDevice, uniformLayout);
         material.setUniformBuffer(this.gfxDevice, 'uniforms', ubo);
         if (defined(resourceLayout.globalUniforms)) {
             material.setUniformBuffer(this.gfxDevice, 'globalUniforms', this.globalUniforms.buffer);
         }
 
         if (technique) {
-            const values = assertDefined(prim.material.values);
+            const values = assertDefined(primMaterial.values);
 
             // Set static uniforms from the values provided in the GLTF material
             for (const name of Object.keys(technique.uniforms)) {
