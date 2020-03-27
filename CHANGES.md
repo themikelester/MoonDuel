@@ -2,7 +2,7 @@ Change Log
 ==========
 
 ### 2020-27-03
-![Daily Screenshot](/screenshots/Screen Shot 2020-03-27 at 7.30.13 PM.png)
+![Daily Screenshot](/screenshots//Screen%20Shot%202020-03-27%20at%207.30.13%20PM.png?raw=true)
 * Integrated ThreeJS' animation system. AnimationMixer can now be used to blend and play multiple animations.
 * GLTF cubic interpolation for animations is now supported
 * ThreeJS' Object3D is now used. This should make it easier to integrate any other three features we may want.
