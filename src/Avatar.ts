@@ -11,8 +11,8 @@ import frag_source from './shaders/simple.frag';
 import { UniformBuffer, computePackedBufferLayout, BufferPackedLayout } from "./UniformBuffer";
 import { vec4, vec3, mat4, quat } from "gl-matrix";
 import { defaultValue, assert, assertDefined, defined } from "./util";
-import { Skeleton } from "./Skeleton";
-import { Object3D, Quaternion, Vector3 } from "./Object3D";
+import { Skeleton, Bone } from "./Skeleton";
+import { Object3D, Quaternion, Vector3, Matrix4 } from "./Object3D";
 import { Clock } from "./Clock";
 import { delerp, clamp } from "./MathHelpers";
 import { Camera } from "./Camera";
@@ -74,7 +74,7 @@ export class AvatarManager {
     skinnedModels: SkinnedModel[] = [];
     skeletons: Skeleton[];
 
-    nodes: Object3D[];
+    nodes: Object3D[] | Bone[];
     rootNodes: Object3D[] = [];
     animations: GltfAnimation[] = [];
 
@@ -99,7 +99,8 @@ export class AvatarManager {
             // Create skeletons for each skin
             this.skeletons = gltf.skins.map(skin => {
                 const bones = skin.joints.map(jointId => this.nodes[jointId]);
-                return new Skeleton(bones, skin.inverseBindMatrices);
+                const ibms = skin.inverseBindMatrices?.map(ibm => { const m = new Matrix4(); m.elements = Array.from(ibm); return m; });
+                return new Skeleton(bones as Bone[], ibms);
             });
 
             // Load models
@@ -126,7 +127,7 @@ export class AvatarManager {
 
     loadNodes(gltf: GltfResource) {
         const nodes = gltf.nodes.map((node, nodeId) => {
-            const obj = new Object3D();
+            const obj = new Bone();
             obj.name = defaultValue(node.name, `Node${nodeId}`);
             obj.position.set(node.translation[0], node.translation[1], node.translation[2]);
             obj.quaternion.set(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
@@ -277,10 +278,10 @@ export class AvatarManager {
             model.updateMatrixWorld();
             const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
 
-            model.skeleton.evaluate(matrixWorld);
+            model.skeleton.update();
 
             const boneFloats = uniforms.getFloatArray('u_joints');
-            model.skeleton.writeToBuffer(boneFloats);
+            boneFloats.set(model.skeleton.boneMatrices);
             
             // @TODO: UniformBuffer.hasUniform()
             // @TODO: UniformBuffer.trySet()
