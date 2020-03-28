@@ -6,7 +6,6 @@ import { Camera } from './Camera';
 import { DebugMenu } from './DebugMenu';
 
 // Modules
-import { AvatarManager } from './Avatar';
 import { CameraSystem } from './CameraSystem';
 import { Clock } from './Clock';
 import { Compositor } from './Compositor';
@@ -36,7 +35,6 @@ class Main {
     public demo = new Demo();
     public input = new InputManager();
     public resources = new ResourceManager();
-    public avatars = new AvatarManager();
     public state = new StateManager();
     
     constructor() {
@@ -65,7 +63,6 @@ class Main {
         this.compositor.initialize();
         this.globalUniforms.initialize();
         this.demo.initialize(this);
-        this.avatars.initialize(this);
         this.state.initialize(this);
         
         // Handle resizing
@@ -89,13 +86,11 @@ class Main {
         this.resources.update();
         this.cameraSystem.update(this);
         this.demo.update(this);
-        this.avatars.update(this);
         this.state.update(this);
         this.globalUniforms.update();
 
         this.compositor.render();
         this.demo.render(this);
-        this.avatars.render(this);
 
         this.input.afterFrame();
 
