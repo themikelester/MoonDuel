@@ -5,7 +5,7 @@ import { vec3, quat, mat4 } from 'gl-matrix';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
 import { IMesh } from '../Mesh';
 import { QuaternionKeyframeTrack, InterpolationModes, InterpolateLinear, AnimationClip, VectorKeyframeTrack, InterpolateDiscrete, Interpolant, KeyframeTrack } from './Animation';
-import { Quaternion } from '../Object3D';
+import { Quaternion, Object3D } from '../Object3D';
 
 // Get the type of the object that a Promise would pass to Promise.then()
 // See https://stackoverflow.com/questions/48011353/how-to-unwrap-type-of-a-promise
@@ -235,18 +235,10 @@ export interface GltfMesh {
     primitives: GltfPrimitive[];
 }
 
-export interface GltfNode {
-    name: string;
-
-    scale: vec3;
-    rotation: quat;
-    translation: vec3;
-    transform?: mat4;
+export class GltfNode extends Object3D {
     morphWeight: number;
-
     meshId?: number;
     skinId?: number;
-    children?: number[];
 }
 
 export interface GltfSkin {
@@ -753,32 +745,27 @@ function loadNodesAsync(res: GltfResource, asset: GltfAsset) {
         const rotation = defaultValue(src.rotation, [0, 0, 0, 1]);
         const translation = defaultValue(src.translation, [0, 0, 0]);
 
-        const node: GltfNode = {
+        const node = {
             name: src.name,
             scale: vec3.fromValues(scale[0], scale[1], scale[2]),
             rotation: quat.fromValues(rotation[0], rotation[1], rotation[2], rotation[3]),
             translation: vec3.fromValues(translation[0], translation[1], translation[2]),
             morphWeight: defaultValue(src.weights, [0])[0],
+            transform: mat4.create(),
+            meshId: defined(src.mesh) ? src.mesh : undefined,
+            skinId: defined(src.skin) ? src.skin : undefined,
+            children: [] as number[],
         }
 
         if (defined(src.matrix)) { 
-            node.transform = new Float32Array(src.matrix);
+            (node.transform as Float32Array).set(src.matrix);
             mat4.getRotation(node.rotation, node.transform);
             mat4.getTranslation(node.translation, node.transform);
             mat4.getScaling(node.scale, node.transform);
         }
         else node.transform = mat4.fromRotationTranslationScale(mat4.create(), node.rotation, node.translation, node.scale);
 
-        if (defined(src.mesh)) {
-            node.meshId = src.mesh;
-        }
-
-        if (defined(src.skin)) {
-            node.skinId = src.skin;
-        }
-
         if (defined(src.children)) {
-            node.children = [];
             for (let childIdx = 0; childIdx < src.children.length; childIdx++) {
                 const childId = src.children[childIdx]
                 const child = assertDefined(asset.gltf.nodes)[childId];
@@ -793,7 +780,28 @@ function loadNodesAsync(res: GltfResource, asset: GltfAsset) {
 }
 
 function loadNodesSync(data: TransientData['nodes']): GltfNode[] {
-    return data;
+    const objects = data.map((node, nodeId) => {
+        const obj = new GltfNode();
+        obj.name = defaultValue(node.name, `Node${nodeId}`);
+        obj.position.set(node.translation[0], node.translation[1], node.translation[2]);
+        obj.quaternion.set(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
+        obj.scale.set(node.scale[0], node.scale[1], node.scale[2]);
+
+        obj.skinId = node.skinId;
+        obj.meshId = node.meshId;
+        obj.morphWeight = node.morphWeight;
+        return obj;
+    });
+
+    for (let i = 0; i < objects.length; i++) {
+        const src = data[i];
+        const node = objects[i];
+        for (const childId of src.children) {
+            node.add(objects[childId]);
+        }
+    }
+    
+    return objects;
 }
 
 // --------------------------------------------------------------------------------

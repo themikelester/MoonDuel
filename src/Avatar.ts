@@ -97,7 +97,7 @@ export class AvatarManager {
             this.animations = gltf.animations;
 
             // Create Object3Ds for each node
-            this.nodes = this.loadNodes(gltf);
+            this.nodes = gltf.nodes;
 
             // Create skeletons for each skin
             this.skeletons = gltf.skins.map(skin => {
@@ -132,32 +132,6 @@ export class AvatarManager {
             const action = this.mixer.clipAction(clip);
             action.play()
         });
-    }
-
-    loadNodes(gltf: GltfResource) {
-        const nodes = gltf.nodes.map((node, nodeId) => {
-            const obj = new Bone();
-            obj.name = defaultValue(node.name, `Node${nodeId}`);
-            obj.position.set(node.translation[0], node.translation[1], node.translation[2]);
-            obj.quaternion.set(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
-            obj.scale.set(node.scale[0], node.scale[1], node.scale[2]);
-            obj.updateMatrix();
-
-            return obj;
-        });
-
-        for (let i = 0; i < gltf.nodes.length; i++) {
-            const src = gltf.nodes[i];
-            const node = nodes[i];
-            if (src.children) {
-                for (const childId of src.children) {
-                    const childObj = nodes[childId];
-                    node.add(childObj);
-                }
-            }
-        }
-
-        return nodes;
     }
 
     createMaterial(prim: GltfPrimitive, gltf: GltfResource) {
