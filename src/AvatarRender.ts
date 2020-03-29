@@ -1,4 +1,3 @@
-import { ResourceManager } from "./resources/ResourceLoading";
 import { GltfResource, GltfTechnique, GltfPrimitive } from "./resources/Gltf";
 import { Model, Material, SkinnedModel } from "./Mesh";
 import * as Gfx from './gfx/GfxTypes';
@@ -7,13 +6,14 @@ import { renderLists } from "./RenderList";
 import { UniformBuffer, computePackedBufferLayout, BufferPackedLayout } from "./UniformBuffer";
 import { vec4, mat4 } from "gl-matrix";
 import { defaultValue, assertDefined, defined, assert } from "./util";
-import { Skeleton, Bone } from "./Skeleton";
-import { Object3D, Matrix4 } from "./Object3D";
-import { Clock } from "./Clock";
+import { Skeleton } from "./Skeleton";
+import { Object3D } from "./Object3D";
 import { Camera } from "./Camera";
-import { AnimationMixer, AnimationClip } from "./resources/Animation";
 import { Avatar } from "./Avatar";
 
+/**
+ * Handle uniform updates and rendering for all avatars
+ */
 export class AvatarRender {
     private avatars: Avatar[];
     private models: Model[] = [];

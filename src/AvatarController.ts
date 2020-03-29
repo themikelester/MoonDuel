@@ -4,6 +4,9 @@ import { AnimationClip } from "./resources/Animation";
 import { Avatar } from "./Avatar";
 import { Clock } from "./Clock";
 
+/**
+ * Drive each Avatar's skeleton, position, oriention, and animation
+ */
 export class AvatarController {
     ready: boolean = false;
     animations: AnimationClip[];
