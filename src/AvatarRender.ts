@@ -12,62 +12,29 @@ import { Object3D, Matrix4 } from "./Object3D";
 import { Clock } from "./Clock";
 import { Camera } from "./Camera";
 import { AnimationMixer, AnimationClip } from "./resources/Animation";
+import { Avatar } from "./Avatar";
 
 export class AvatarRender {
-    public animationMixer: AnimationMixer;
-    public animations: AnimationClip[] = [];
-    public skeleton: Skeleton;
-
+    private avatars: Avatar[];
     private models: Model[] = [];
     private skinnedModels: SkinnedModel[] = [];
 
-    private nodes: Object3D[] | Bone[];
-    private rootNodes: Object3D[] = [];
+    initialize(avatars: Avatar[]) {
+        this.avatars = avatars;
+    }
 
-    initialize({ gfxDevice, resources }: { gfxDevice: Gfx.Renderer, resources: ResourceManager }) {
-        resources.load('data/Tn.glb', 'gltf', (error, resource) => {
-            if (error) { return console.error(`Failed to load resource`, error); }
+    onResourcesLoaded(gltf: GltfResource, { gfxDevice }: { gfxDevice: Gfx.Renderer}) {
+        // Load models
+        for (let i = 0; i < gltf.nodes.length; i++) {
+            const node = gltf.nodes[i];
 
-            const gltf = resource as GltfResource;
-
-            // Create Object3Ds for each node
-            this.nodes = gltf.nodes;
-
-            // Create skeletons for the first GLTF skin
-            this.skeleton = (skin => {
-                const bones = skin.joints.map(jointId => this.nodes[jointId]);
-                const ibms = skin.inverseBindMatrices?.map(ibm => { const m = new Matrix4(); m.elements = Array.from(ibm); return m; });
-                return new Skeleton(bones as Bone[], ibms);
-            })(gltf.skins[0]);
-
-            // Load models
-            for (let i = 0; i < gltf.nodes.length; i++) {
-                const src = gltf.nodes[i];
-                const node = this.nodes[i];
-
-                if (defined(src.skinId)) {
-                    const meshId = assertDefined(src.meshId);
-                    this.loadSkinnedModel(gfxDevice, gltf, node, meshId, src.skinId);
-                } else if (defined(src.meshId)) {
-                    this.loadModel(gfxDevice, gltf, node, src.meshId);
-                }
+            if (defined(node.skinId)) {
+                const meshId = assertDefined(node.meshId);
+                this.loadSkinnedModel(gfxDevice, gltf, node, meshId, node.skinId);
+            } else if (defined(node.meshId)) {
+                this.loadModel(gfxDevice, gltf, node, node.meshId);
             }
-
-            this.rootNodes = gltf.rootNodeIds.map(nodeId => this.nodes[nodeId]);
-
-            this.rootNodes.forEach(node => {
-                node.updateMatrix();
-                node.updateMatrixWorld();
-            });
-
-            this.animationMixer = new AnimationMixer(this.rootNodes[0]);
-            this.animations = gltf.animations;
-
-            // @HACK:
-            const clip = assertDefined(this.animations[12]);
-            const action = this.animationMixer.clipAction(clip);
-            action.play()
-        });
+        }
     }
 
     createMaterial(gfxDevice: Gfx.Renderer, prim: GltfPrimitive, gltf: GltfResource) {
@@ -139,7 +106,7 @@ export class AvatarRender {
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(gfxDevice, prim, gltf);
             const model = new SkinnedModel(gfxDevice, renderLists.opaque, prim.mesh, material);
-            model.bindSkeleton(this.skeleton);
+            model.bindSkeleton(this.avatars[0].skeleton); // @TODO
             this.skinnedModels.push(model);
             parent.add(model);
         }
@@ -156,28 +123,15 @@ export class AvatarRender {
         }
     }
     
-    update({ clock }: { clock: Clock }) {
-        if (this.animationMixer) {
-            this.animationMixer.update(clock.dt / 1000.0);
-        }
-    }
-
     render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera }) {
-        for (const node of this.rootNodes) {
-            node.updateMatrixWorld();
-        }
-
         for (let i = 0; i < this.skinnedModels.length; i++) {
             const model = this.skinnedModels[i];
             const uniforms = model.material.getUniformBuffer('uniforms');
 
-            model.updateMatrixWorld();
-            const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
-
-            model.skeleton.update();
-
             const boneFloats = uniforms.getFloatArray('u_joints');
             boneFloats.set(model.skeleton.boneMatrices);
+
+            const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
             
             // @TODO: UniformBuffer.hasUniform()
             // @TODO: UniformBuffer.trySet()
@@ -197,7 +151,6 @@ export class AvatarRender {
         for (let i = 0; i < this.models.length; i++) {
             const model = this.models[i];
 
-            model.updateMatrixWorld();
             const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
 
             const uniforms = model.material.getUniformBuffer('uniforms');
