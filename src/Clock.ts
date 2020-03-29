@@ -34,9 +34,10 @@ export class Clock {
     /**
      * Pause the clock (if it isn't already), and step one frame the next time update() is called.
      * @param stepDurationMs The timestep for next frame (in milliseconds). Defaults to 16.6ms.
+     * @note The current `speed` settings affects the timestep duration
      */
     step(stepDurationMs: number = kDefaultStepDuration) {
         this.paused = true;
-        this.stepDt = stepDurationMs;
+        this.stepDt = stepDurationMs * this.speed;
     }
 }
