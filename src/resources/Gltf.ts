@@ -239,6 +239,14 @@ export class GltfNode extends Object3D {
     morphWeight: number;
     meshId?: number;
     skinId?: number;
+
+    clone(recursive = false): this {
+        const node = super.clone(recursive);
+        node.morphWeight = this.morphWeight;
+        node.meshId = this.meshId;
+        node.skinId = this.skinId;
+        return node;
+    }
 }
 
 export interface GltfSkin {

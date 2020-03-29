@@ -6,7 +6,7 @@ import { Clock } from "./Clock";
 import { Camera } from "./Camera";
 import { Object3D, Matrix4 } from "./Object3D";
 import { AnimationMixer } from "./resources/Animation";
-import { GltfResource } from "./resources/Gltf";
+import { GltfResource, GltfNode } from "./resources/Gltf";
 import { assertDefined } from "./util";
 import { Skeleton, Bone } from "./Skeleton";
 
@@ -18,6 +18,7 @@ interface Dependencies {
 }
 
 export class Avatar extends Object3D {
+    nodes: GltfNode[];
     animationMixer: AnimationMixer;
     skeleton: Skeleton;
 }
@@ -48,15 +49,25 @@ export class AvatarSystem {
 
     onResourcesLoaded(game: Dependencies) {
         for (const avatar of this.avatars) {
+            // Clone all nodes
+            avatar.nodes = this.gltf.nodes.map(src => src.clone(false));
+            for (let i = 0; i < avatar.nodes.length; i++) {
+                const src = this.gltf.nodes[i];
+                const node = avatar.nodes[i];
+                for (const child of src.children) {
+                    const childIdx = this.gltf.nodes.indexOf(child as GltfNode);
+                    node.add(avatar.nodes[childIdx]);
+                }
+            }
+
             // Assign the loaded scene graph to this Avatar object
-            const rootNodes = this.gltf.rootNodeIds.map(nodeId => this.gltf.nodes[nodeId]);
-            for (const node of rootNodes) {
-                avatar.add(node);
+            for (const rootNodeId of this.gltf.rootNodeIds.slice(0, 1)) {
+                avatar.add(avatar.nodes[rootNodeId]);
             }
             
             // Create skeletons from the first GLTF skin
             const skin = assertDefined(this.gltf.skins[0]);
-            const bones = skin.joints.map(jointId => this.gltf.nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
+            const bones = skin.joints.map(jointId => avatar.nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
             const ibms = skin.inverseBindMatrices?.map(ibm => new Matrix4().fromArray(ibm));
             avatar.skeleton = new Skeleton(bones as Object3D[] as Bone[], ibms);
         

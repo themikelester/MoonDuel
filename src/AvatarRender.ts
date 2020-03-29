@@ -24,15 +24,18 @@ export class AvatarRender {
     }
 
     onResourcesLoaded(gltf: GltfResource, { gfxDevice }: { gfxDevice: Gfx.Renderer}) {
-        // Load models
-        for (let i = 0; i < gltf.nodes.length; i++) {
-            const node = gltf.nodes[i];
-
-            if (defined(node.skinId)) {
-                const meshId = assertDefined(node.meshId);
-                this.loadSkinnedModel(gfxDevice, gltf, node, meshId, node.skinId);
-            } else if (defined(node.meshId)) {
-                this.loadModel(gfxDevice, gltf, node, node.meshId);
+        for (const avatar of this.avatars) {
+            // Load models
+            for (let i = 0; i < avatar.nodes.length; i++) {
+                const node = avatar.nodes[i];
+    
+                if (defined(node.skinId)) {
+                    const meshId = assertDefined(node.meshId);
+                    assert(node.skinId === 0);
+                    this.loadSkinnedModel(gfxDevice, gltf, node, meshId, avatar.skeleton);
+                } else if (defined(node.meshId)) {
+                    this.loadModel(gfxDevice, gltf, node, node.meshId);
+                }
             }
         }
     }
@@ -99,14 +102,13 @@ export class AvatarRender {
         return material;
     }
 
-    loadSkinnedModel(gfxDevice: Gfx.Renderer, gltf: GltfResource, parent: Object3D, meshId: number, skinId: number) {
+    loadSkinnedModel(gfxDevice: Gfx.Renderer, gltf: GltfResource, parent: Object3D, meshId: number, skeleton: Skeleton) {
         const gltfMesh = gltf.meshes[meshId];
-        assert(skinId === 0);
-
+    
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(gfxDevice, prim, gltf);
             const model = new SkinnedModel(gfxDevice, renderLists.opaque, prim.mesh, material);
-            model.bindSkeleton(this.avatars[0].skeleton); // @TODO
+            model.bindSkeleton(skeleton);
             this.skinnedModels.push(model);
             parent.add(model);
         }
