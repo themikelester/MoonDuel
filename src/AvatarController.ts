@@ -3,6 +3,20 @@ import { assertDefined } from "./util";
 import { AnimationClip } from "./resources/Animation";
 import { Avatar } from "./Avatar";
 import { Clock } from "./Clock";
+import { DebugMenu } from "./DebugMenu";
+
+// Populate a DebugMenu folder with functions to play all possible animations 
+function createDebugAnimationList(animations: AnimationClip[], targetAvatar: Avatar ) {
+    const debugMenu = DebugMenu.addFolder('Animation');
+    const playAnimMap: { [name: string]: () => void } = {};
+    for (const anim of animations) {
+        playAnimMap[anim.name] = () => {
+            targetAvatar.animationMixer.stopAllAction();
+            targetAvatar.animationMixer.clipAction(anim).play();
+        };
+        debugMenu.add(playAnimMap, anim.name);
+    }
+}
 
 /**
  * Drive each Avatar's skeleton, position, oriention, and animation
@@ -18,6 +32,7 @@ export class AvatarController {
 
     onResourcesLoaded(gltf: GltfResource) {
         this.animations = gltf.animations;
+        createDebugAnimationList(this.animations, this.avatars[0]);
 
         // @HACK:
         const clip = assertDefined(this.animations[12]);
