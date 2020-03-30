@@ -75,8 +75,6 @@ export class DebugGrid {
         debugMenu.add(this, 'enabled');
         debugMenu.add(this, 'gridUnit', 1, 100, 10);
         debugMenu.add(this, 'gridRadius');
-        debugMenu.add(this, 'baseColor');
-        debugMenu.add(this, 'lineColor');
     }
 
     render({ gfxDevice }: { gfxDevice: Gfx.Renderer }) {
