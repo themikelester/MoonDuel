@@ -9,12 +9,14 @@ import { AnimationMixer } from "./resources/Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
 import { assertDefined } from "./util";
 import { Skeleton, Bone } from "./Skeleton";
+import { InputManager } from "./Input";
 
 interface Dependencies {
     gfxDevice: Renderer;
     resources: ResourceManager;
     clock: Clock;
     camera: Camera;
+    input: InputManager;
 }
 
 export class Avatar extends Object3D {
