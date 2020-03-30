@@ -41,6 +41,14 @@ export class DebugGrid {
     private uniforms: UniformBuffer;
 
     initialize({ gfxDevice, globalUniforms }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms}) {
+        // Safari does not support WebGL2, so no version 300 GLSL which we use for derivatives
+        // This could be written as a 100 shader with an extension, but its just a debug feature
+        if (!gfxDevice.isGfxFeatureSupported(Gfx.Feature.ShaderGlsl300)) {
+            console.warn('GLSL version 300 not supported, disabling DebugGrid');
+            this.enabled = false;
+            return;
+        }
+
         const shader = gfxDevice.createShader(new GridShader());
         const renderFormat: Gfx.RenderFormat = { blendingEnabled: false };
         const resourceLayout = GridShader.resourceLayout;
