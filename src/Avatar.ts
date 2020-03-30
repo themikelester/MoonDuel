@@ -28,7 +28,9 @@ export class Avatar extends Object3D {
 const kGltfFilename = 'data/Tn.glb';
 
 export class AvatarSystem {
-    private avatars: Avatar[];
+    public localAvatar: Avatar = new Avatar();
+
+    private avatars: Avatar[] = [this.localAvatar];
     private gltf: GltfResource;
 
     private controller: AvatarController = new AvatarController();
@@ -41,9 +43,6 @@ export class AvatarSystem {
             this.gltf = resource as GltfResource;
             this.onResourcesLoaded(game);
         });
-
-        // Create a local avatar
-        this.avatars = [new Avatar()];
 
         this.controller.initialize(this.avatars);
         this.renderer.initialize(this.avatars);

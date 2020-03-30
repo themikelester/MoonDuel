@@ -8,10 +8,15 @@ import { InputManager } from './Input';
 import { DebugMenu } from './DebugMenu';
 import { Clock } from './Clock';
 import { clamp } from './MathHelpers';
+import { Object3D, Vector3 } from './Object3D';
+import { AvatarSystem, Avatar } from './Avatar';
 
-const scratchVec3a = vec3.create();
-const scratchVec3b = vec3.create();
-const scratchVec3c = vec3.create();
+const scratchVec3A = vec3.create();
+const scratchVector3A = new Vector3(vec3.create());
+
+interface Dependencies {
+    avatar: AvatarSystem;
+}
 
 export class CameraSystem {
     private camPos = vec3.create();
@@ -20,10 +25,11 @@ export class CameraSystem {
     constructor(private camera: Camera) {
     }
 
-    initialize() {
+    initialize(deps: Dependencies) {
         this.resize(window.innerWidth, window.innerHeight);
 
         this.controller = new OrbitCameraController();
+        this.controller.initialize(deps);
         this.controller.camera = this.camera;
     }
 
@@ -52,7 +58,10 @@ export class CameraSystem {
 
 export interface CameraController {
     camera: Camera;
+
+    initialize(deps: Dependencies): void;
     update(inputManager: InputManager, dt: number): boolean;
+    
     toJSON(): string;
     fromJSON(data: any): void;
 }
@@ -69,12 +78,16 @@ export class OrbitCameraController implements CameraController {
     public yVel: number = 0;
     public zVel: number = 0;
 
-    public translation = vec3.create();
-    public txVel: number = 0;
-    public tyVel: number = 0;
+    // The target may be the cursor, or another object in the scene graph
+    public cursor: Object3D = new Object3D();
+    public target: Object3D = this.cursor;
+
     public shouldOrbit: boolean = true;
 
-    constructor() {
+    initialize(deps: Dependencies) {
+        // Follow the local avatar by default
+        this.target = deps.avatar.localAvatar;
+
         const menu = DebugMenu.addFolder('OrbitCamera');
         menu.add(this, 'orbitSpeed', -1.0, 1.0);
         menu.add(this, 'shouldOrbit', -1.0, 1.0);
@@ -87,10 +100,7 @@ export class OrbitCameraController implements CameraController {
         const invertYMult = inputManager.invertY ? -1 : 1;
 
         // Get new velocities from inputs.
-        if (inputManager.button === 1) {
-            this.txVel += inputManager.dx * (-10 - Math.min(this.z, 0.01)) / -5000;
-            this.tyVel += inputManager.dy * (-10 - Math.min(this.z, 0.01)) /  5000;
-        } else if (inputManager.isDragging()) {
+        if (inputManager.isDragging()) {
             this.xVel += inputManager.dx / -200 * invertXMult;
             this.yVel += inputManager.dy / -200 * invertYMult;
         } else if (shouldOrbit) {
@@ -104,9 +114,6 @@ export class OrbitCameraController implements CameraController {
         if (isShiftPressed) {
             this.xVel += -keyVelX;
             this.yVel += -keyVelY;
-        } else {
-            this.txVel += keyVelX;
-            this.tyVel += -keyVelY;
         }
 
         this.xVel = clampRange(this.xVel, 2);
@@ -123,9 +130,6 @@ export class OrbitCameraController implements CameraController {
             this.y += -this.yVel / 10;
             this.yVel *= drag;
 
-            this.txVel *= drag;
-            this.tyVel *= drag;
-
             this.z += Math.max(Math.log(Math.abs(this.zVel)), 0) * 4 * Math.sign(this.zVel);
             if (inputManager.dz === 0)
                 this.zVel *= 0.85;
@@ -137,17 +141,14 @@ export class OrbitCameraController implements CameraController {
             // Clamp Y to the 0 to prevent going underground
             this.y = clamp(this.y, Math.PI * 0.5, Math.PI * 0.99);
 
-            vec3.set(scratchVec3a, this.camera.cameraMatrix[0], this.camera.cameraMatrix[1], this.camera.cameraMatrix[2]);
-            vec3.scaleAndAdd(this.translation, this.translation, scratchVec3a, this.txVel);
-
-            vec3.set(scratchVec3a, this.camera.cameraMatrix[4], this.camera.cameraMatrix[5], this.camera.cameraMatrix[6]);
-            vec3.scaleAndAdd(this.translation, this.translation, scratchVec3a, this.tyVel);
-
-            const eyePos = scratchVec3a;
+            this.target.getWorldPosition(scratchVector3A);
+            const targetPos = scratchVector3A.buffer;
+    
+            const eyePos = scratchVec3A;
             computeUnitSphericalCoordinates(eyePos, this.x, this.y);
             vec3.scale(eyePos, eyePos, this.z);
-            vec3.add(eyePos, eyePos, this.translation);
-            mat4.lookAt(this.camera.viewMatrix, eyePos, this.translation, vec3Up);
+            vec3.add(eyePos, eyePos, targetPos);
+            mat4.lookAt(this.camera.viewMatrix, eyePos, targetPos, vec3Up);
             mat4.invert(this.camera.cameraMatrix, this.camera.viewMatrix);
             this.camera.viewMatrixUpdated();
         }
@@ -156,7 +157,9 @@ export class OrbitCameraController implements CameraController {
     }
 
     toJSON() {
-        const xyzPos = new Float32Array([this.x, this.y, this.z, this.translation[0], this.translation[1], this.translation[2]]);
+        this.cursor.getWorldPosition(scratchVector3A);
+        const cursorPos = scratchVector3A.buffer;
+        const xyzPos = new Float32Array([this.x, this.y, this.z, cursorPos[0], cursorPos[1], cursorPos[2]]);
         return btoa(String.fromCharCode.apply(null, new Uint8Array(xyzPos.buffer)));
     }
 
@@ -168,7 +171,7 @@ export class OrbitCameraController implements CameraController {
         this.x = xyzPos[0];
         this.y = xyzPos[1];
         this.z = xyzPos[2];
-        vec3.copy(this.translation, xyzPos.subarray(3));
+        this.cursor.position.set(xyzPos[3], xyzPos[4], xyzPos[5]);
     }
 }
 

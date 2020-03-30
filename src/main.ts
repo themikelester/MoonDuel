@@ -63,7 +63,7 @@ class Main {
         this.resources.initialize(this.gfxDevice);
         this.clock.initialize();
         this.input.initialize(this);
-        this.cameraSystem.initialize();
+        this.cameraSystem.initialize(this);
         this.compositor.initialize();
         this.globalUniforms.initialize();
         // this.demo.initialize(this);
