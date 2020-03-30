@@ -4,6 +4,15 @@ import { AnimationClip } from "./resources/Animation";
 import { Avatar } from "./Avatar";
 import { Clock } from "./Clock";
 import { DebugMenu } from "./DebugMenu";
+import { vec3, mat2 } from "gl-matrix";
+import { InputManager } from "./Input";
+import { Camera } from "./Camera";
+import { Vector3 } from "./Object3D";
+
+const scratchVec3A = vec3.create();
+const scratchVec3B = vec3.create();
+const scratchVector3A = new Vector3();
+
 
 // Populate a DebugMenu folder with functions to play all possible animations 
 function createDebugAnimationList(animations: AnimationClip[], targetAvatar: Avatar ) {
@@ -24,10 +33,15 @@ function createDebugAnimationList(animations: AnimationClip[], targetAvatar: Ava
 export class AvatarController {
     ready: boolean = false;
     animations: AnimationClip[];
+    localController = new LocalController();
+
     avatars: Avatar[];
+    local: Avatar;
 
     initialize(avatars: Avatar[]) {
         this.avatars = avatars;
+        this.local = avatars[0];
+        this.localController.initialize(this.local);
     }
 
     onResourcesLoaded(gltf: GltfResource) {
@@ -44,13 +58,60 @@ export class AvatarController {
         this.ready = true;
     }
 
-    update({ clock }: { clock: Clock }) {
+    update({ clock, input, camera }: { clock: Clock, input: InputManager, camera: Camera }) {
         if (!this.ready) return;
+
+        this.localController.update(clock, input, camera);
 
         for (const avatar of this.avatars) {
             avatar.animationMixer.update(clock.dt / 1000.0);
             avatar.updateMatrixWorld();
             avatar.skeleton.update();
         }
+    }
+}
+
+class LocalController {
+    avatar: Avatar;
+
+    velocity: vec3 = vec3.create();
+    velocityTarget: vec3 = vec3.create();
+    
+    orientation: vec3 = vec3.create();
+    orientationTarget: vec3 = vec3.create();
+
+    initialize(avatar: Avatar) {
+        this.avatar = avatar;
+    }
+
+    update(clock: Clock, input: InputManager, camera: Camera) {
+        const speed = 100; // Units per second
+
+        this.getCameraRelativeMovementDirection(input, camera, this.velocityTarget);
+        this.velocityTarget = vec3.scale(this.velocityTarget, this.velocityTarget, speed);
+        vec3.copy(this.velocity, this.velocityTarget); // @TODO: Easing
+
+        const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
+        const offset = scratchVector3A.set(this.velocity[0] * dtSec, this.velocity[1] * dtSec, this.velocity[2] * dtSec);
+
+        this.avatar.position.add(offset);
+    }
+
+    private getWorldRelativeMovementDirection(input: InputManager, result: vec3): vec3 {
+        const x = input.getAxis('Horizontal');
+        const z = input.getAxis('Vertical');
+        return vec3.normalize(result, vec3.set(result, x, 0, z));
+    }
+
+    private getCameraRelativeMovementDirection(input: InputManager, camera: Camera, result: vec3): vec3 {
+        const local = this.getWorldRelativeMovementDirection(input, result);
+        const flatView = vec3.normalize(scratchVec3A, vec3.set(scratchVec3A, camera.forward[0], 0, camera.forward[2]));
+        
+        // 2D change of basis to the camera's sans-Y
+        return vec3.set(result, 
+            local[0] * -flatView[2] + local[2] * flatView[0],
+            0,
+            local[0] * flatView[0] + local[2] * flatView[2]
+        );
     }
 }

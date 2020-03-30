@@ -1,3 +1,5 @@
+import { defined, assertDefined } from "./util";
+
 declare global {
     interface HTMLElement {
         requestPointerLock(): void;
@@ -17,6 +19,26 @@ function isModifier(key: string) {
         return true;
     default:
         return false;
+    }
+}
+
+interface InputAxis {
+    keyPos?: string;
+    keyNeg?: string;
+    value: number;
+}
+
+const kAxes: { [name: string]: InputAxis} = {
+    'Vertical': {
+        keyPos: 'KeyW',
+        keyNeg: 'KeyS',
+        value: 0,
+    },
+
+    'Horizontal': {
+        keyPos: 'KeyD',
+        keyNeg: 'KeyA',
+        value: 0,
     }
 }
 
@@ -52,6 +74,8 @@ export class InputManager {
     private dTouchX: number = 0;
     private dTouchY: number = 0;
     private dPinchDist: number = 0;
+
+    private axes = kAxes;
 
     public initialize({ toplevel }: { toplevel: HTMLElement }) {  
         document.body.tabIndex = -1;
@@ -265,6 +289,16 @@ export class InputManager {
         this.button = -1;
         if (this.onisdraggingchanged !== null)
             this.onisdraggingchanged();
+    }
+
+    public getAxis(name: string) {
+        const axis = assertDefined(this.axes[name]);
+        let value = 0;
+
+        if (defined(axis.keyPos) && this.isKeyDown(axis.keyPos)) value += 1;
+        if (defined(axis.keyNeg) && this.isKeyDown(axis.keyNeg)) value -= 1;
+
+        return value;
     }
 }
 
