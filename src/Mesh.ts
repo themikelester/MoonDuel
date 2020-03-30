@@ -66,6 +66,10 @@ export class Material {
         this.bindings = {};
     }
 
+    destroy(device: Gfx.Renderer) {
+        device.removeResourceTable(this.resources);
+    }
+
     assertReady() {
         for (const name of Object.keys(this.layout)) {
             assertDefined(this.bindings[name], `Material expects a binding for ${name}`);
@@ -142,6 +146,11 @@ export class Model extends Object3D {
             indexBuffer: this.mesh.indexBuffer,
             indexType: this.mesh.indexType,
         }
+    }
+
+    destroy(device: Gfx.Renderer) {
+        device.removeVertexTable(this.vertexTable);
+        device.removeRenderPipeline(this.pipeline);
     }
 }
 
