@@ -5,7 +5,7 @@ import { vec3, quat, mat4 } from 'gl-matrix';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
 import { IMesh } from '../Mesh';
 import { QuaternionKeyframeTrack, InterpolationModes, InterpolateLinear, AnimationClip, VectorKeyframeTrack, InterpolateDiscrete, Interpolant, KeyframeTrack } from './Animation';
-import { Quaternion, Object3D } from '../Object3D';
+import { Object3D } from '../Object3D';
 
 // Get the type of the object that a Promise would pass to Promise.then()
 // See https://stackoverflow.com/questions/48011353/how-to-unwrap-type-of-a-promise

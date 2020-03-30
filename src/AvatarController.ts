@@ -10,9 +10,7 @@ import { Camera } from "./Camera";
 import { Vector3 } from "./Object3D";
 
 const scratchVec3A = vec3.create();
-const scratchVec3B = vec3.create();
-const scratchVector3A = new Vector3();
-
+const scratchVector3A = new Vector3(scratchVec3A);
 
 // Populate a DebugMenu folder with functions to play all possible animations 
 function createDebugAnimationList(animations: AnimationClip[], targetAvatar: Avatar ) {
@@ -92,9 +90,8 @@ class LocalController {
         vec3.copy(this.velocity, this.velocityTarget); // @TODO: Easing
 
         const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
-        const offset = scratchVector3A.set(this.velocity[0] * dtSec, this.velocity[1] * dtSec, this.velocity[2] * dtSec);
-
-        this.avatar.position.add(offset);
+        
+        this.avatar.position.addScaledVector(scratchVector3A.setBuffer(this.velocity), dtSec);
     }
 
     private getWorldRelativeMovementDirection(input: InputManager, result: vec3): vec3 {

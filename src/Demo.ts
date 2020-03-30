@@ -12,7 +12,7 @@ import { UniformBuffer, computePackedBufferLayout, BufferPackedLayout } from "./
 import { vec4, vec3, mat4, quat } from "gl-matrix";
 import { defaultValue, assert, assertDefined, defined } from "./util";
 import { Skeleton, Bone } from "./Skeleton";
-import { Object3D, Quaternion, Vector3, Matrix4 } from "./Object3D";
+import { Object3D, Matrix4 } from "./Object3D";
 import { Clock } from "./Clock";
 import { delerp, clamp } from "./MathHelpers";
 import { Camera } from "./Camera";
