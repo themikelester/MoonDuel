@@ -35,6 +35,7 @@ export class DebugGrid {
     lineColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
     gridUnit = 100.0;
     gridRadius = 1000.0;
+    enabled = true;
 
     private primitive: RenderPrimitive;
     private uniforms: UniformBuffer;
@@ -69,15 +70,24 @@ export class DebugGrid {
         this.primitive.indexBuffer = { buffer: indexBuffer };
         this.primitive.indexType = Gfx.Type.Ushort;
         this.primitive.elementCount = 6;
+
+        const debugMenu = DebugMenu.addFolder('DebugGrid');
+        debugMenu.add(this, 'enabled');
+        debugMenu.add(this, 'gridUnit', 1, 100, 10);
+        debugMenu.add(this, 'gridRadius');
+        debugMenu.add(this, 'baseColor');
+        debugMenu.add(this, 'lineColor');
     }
 
     render({ gfxDevice }: { gfxDevice: Gfx.Renderer }) {
-        this.uniforms.setVec4('u_baseColor', this.baseColor);
-        this.uniforms.setVec4('u_lineColor', this.lineColor);
-        this.uniforms.setFloat('u_gridUnit', this.gridUnit);
-        this.uniforms.setFloat('u_gridRadius', this.gridRadius);
-        this.uniforms.write(gfxDevice);
-
-        renderLists.opaque.push(this.primitive);
+        if (this.enabled) {
+            this.uniforms.setVec4('u_baseColor', this.baseColor);
+            this.uniforms.setVec4('u_lineColor', this.lineColor);
+            this.uniforms.setFloat('u_gridUnit', this.gridUnit);
+            this.uniforms.setFloat('u_gridRadius', this.gridRadius);
+            this.uniforms.write(gfxDevice);
+    
+            renderLists.opaque.push(this.primitive);
+        }
     }
 }
