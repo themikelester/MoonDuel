@@ -119,7 +119,7 @@ export class OrbitCameraController implements CameraController {
         this.xVel = clampRange(this.xVel, 2);
         this.yVel = clampRange(this.yVel, 2);
 
-        const updated = this.xVel !== 0 || this.yVel !== 0 || this.zVel !== 0 || this.txVel !== 0 || this.tyVel !== 0;
+        const updated = this.xVel !== 0 || this.yVel !== 0 || this.zVel !== 0;
         if (updated) {
             // Apply velocities.
             const drag = (inputManager.isDragging() || isShiftPressed) ? 0.92 : 0.96;
