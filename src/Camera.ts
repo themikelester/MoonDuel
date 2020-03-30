@@ -22,7 +22,7 @@ export class Camera {
   far: number;
   aspect: number;
 
-  constructor(fovY?: number, aspectRatio?: number, near?: number, far?: number) {
+  constructor(fovY?: number, aspectRatio?: number, near = 1.0, far = 20000) {
     this.cameraMatrix = mat4.create();
     this.viewMatrix = mat4.create();
     this.projectionMatrix = mat4.create();
