@@ -7,6 +7,7 @@ import { vec3, mat4 } from 'gl-matrix';
 import { InputManager } from './Input';
 import { DebugMenu } from './DebugMenu';
 import { Clock } from './Clock';
+import { clamp } from './MathHelpers';
 
 const scratchVec3a = vec3.create();
 const scratchVec3b = vec3.create();
@@ -132,6 +133,9 @@ export class OrbitCameraController implements CameraController {
                 this.z = -10;
                 this.zVel = 0;
             }
+
+            // Clamp Y to the 0 to prevent going underground
+            this.y = clamp(this.y, Math.PI * 0.5, Math.PI * 0.99);
 
             vec3.set(scratchVec3a, this.camera.cameraMatrix[0], this.camera.cameraMatrix[1], this.camera.cameraMatrix[2]);
             vec3.scaleAndAdd(this.translation, this.translation, scratchVec3a, this.txVel);
