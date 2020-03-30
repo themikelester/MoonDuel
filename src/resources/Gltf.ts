@@ -1032,8 +1032,8 @@ function loadAnimationsSync(data: TransientData['animation'], resource: GltfReso
 
             const track = new TypedKeyframeTrack(
                 `${targetName}.${trackData.targetProperty}`, 
-                Array.from(trackData.times), // ThreeJS has mistyped these. They should be ArrayLike<number>
-                Array.from(trackData.values), 
+                trackData.times as any, // ThreeJS has mistyped these. They should be ArrayLike<number>
+                trackData.values as any, 
                 GLTF_INTERPOLATION[trackData.interpolation]
             );
 
