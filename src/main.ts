@@ -10,6 +10,7 @@ import { AvatarSystem } from './Avatar';
 import { CameraSystem } from './CameraSystem';
 import { Clock } from './Clock';
 import { Compositor } from './Compositor';
+import { DebugGrid } from './DebugGrid';
 import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
 import { InputManager } from './Input';
@@ -33,6 +34,7 @@ class Main {
     public clock = new Clock();
     public cameraSystem = new CameraSystem(this.camera);
     public compositor = new Compositor(this.canvas, this.gfxDevice);
+    public debugGrid = new DebugGrid();
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
     public demo = new Demo();
     public input = new InputManager();
@@ -66,6 +68,7 @@ class Main {
         this.globalUniforms.initialize();
         // this.demo.initialize(this);
         this.avatar.initialize(this);
+        this.debugGrid.initialize(this);
         this.state.initialize(this);
         
         // Handle resizing
@@ -95,6 +98,7 @@ class Main {
 
         // this.demo.render(this);
         this.avatar.render(this);
+        this.debugGrid.render(this);
         this.compositor.render();
 
         this.input.afterFrame();
