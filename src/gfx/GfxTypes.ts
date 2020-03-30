@@ -350,6 +350,7 @@ export interface Renderer {
     removeShader(shaderId: Id): void;
     removeRenderPipeline(pipelineId: Id): void;
     removeResourceTable(tableId: Id): void;
+    removeVertexTable(tableId: Id): void;
     
     writeBufferData(bufferId: Id, dstOffset: number, srcBytes: (ArrayBuffer | ArrayBufferView)): void;
     writeTextureData(textureId: Id, image: HTMLImageElement | HTMLCanvasElement | ArrayBuffer | ImageBitmap): void;
