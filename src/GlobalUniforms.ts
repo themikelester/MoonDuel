@@ -16,6 +16,7 @@ export class GlobalUniforms {
     });
     
     public buffer: UniformBuffer;
+    public bufferView: Gfx.BufferView;
     private readonly renderer: Gfx.Renderer;
 
     constructor(renderer: Gfx.Renderer) {
@@ -24,6 +25,7 @@ export class GlobalUniforms {
 
     initialize() {
         this.buffer = new UniformBuffer('GlobalUniforms', this.renderer, GlobalUniforms.bufferLayout);
+        this.bufferView = this.buffer.getBufferView();
     }
 
     update() {
