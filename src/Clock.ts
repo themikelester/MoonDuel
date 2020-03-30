@@ -17,7 +17,7 @@ export class Clock {
 
     initialize() {
         DebugMenu.add(this, 'paused');
-        DebugMenu.add(this, 'speed', 0.001, 8.0);
+        DebugMenu.add(this, 'speed', 0.05, 2.0, 0.05);
         DebugMenu.add(this, 'step');
     }
 
