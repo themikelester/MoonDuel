@@ -98,14 +98,6 @@ export class OrbitCameraController implements CameraController {
         }
         this.zVel += inputManager.dz;
         let keyVelX = 0, keyVelY = 0;
-        if (inputManager.isKeyDown('KeyA'))
-            keyVelX += 0.02;
-        if (inputManager.isKeyDown('KeyD'))
-            keyVelX -= 0.02;
-        if (inputManager.isKeyDown('KeyW'))
-            keyVelY += 0.02;
-        if (inputManager.isKeyDown('KeyS'))
-            keyVelY -= 0.02;
         const isShiftPressed = inputManager.isKeyDown('ShiftLeft') || inputManager.isKeyDown('ShiftRight');
 
         if (isShiftPressed) {
