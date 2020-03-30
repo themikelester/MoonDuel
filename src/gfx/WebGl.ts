@@ -100,7 +100,7 @@ function TranslateTypeToComponentCount(type: Gfx.Type): GLInt {
 
 function TranslateTypeToBaseGlType(type: Gfx.Type): GLInt {
   const rootType = type & 0xFF;
-  switch (type) {
+  switch (rootType) {
     case Gfx.Type.Float:   return gl.FLOAT;
     case Gfx.Type.Float2:  return gl.FLOAT;
     case Gfx.Type.Float3:  return gl.FLOAT;
