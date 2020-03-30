@@ -111,6 +111,8 @@ export enum Feature {
   ShaderDerivatives = 1 << 6, // Standard derivative functions like fwidth or dx/dy
   Instancing = 1 << 7, // Instanced vertex arrays, for instanced draw calls
   AnistropicFiltering = 1 << 8, // Hardware support for anisotropic texture filtering
+  ShaderGlsl100 = 1 << 9, // GLSL version 100 shader source can be compiled
+  ShaderGlsl300 = 1 << 10, // GLSL version "300 es" shader source can be compiled
 }
 
 export enum Type {

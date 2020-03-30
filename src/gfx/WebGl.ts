@@ -681,11 +681,13 @@ function detectSupportedFeatures(webGlVersion: number) {
   }
 
   // Add features that are supported by default in our WebGL version
+  featureFlags |= Gfx.Feature.ShaderGlsl100;
   if( webGlVersion >= 2 ) {
     featureFlags |= Gfx.Feature.VertexArrayObject;
     featureFlags |= Gfx.Feature.TextureFloat;
     featureFlags |= Gfx.Feature.TextureHalf;
     featureFlags |= Gfx.Feature.Instancing;
+    featureFlags |= Gfx.Feature.ShaderGlsl300;
   }
 
   return featureFlags;
