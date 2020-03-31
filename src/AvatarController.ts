@@ -80,6 +80,8 @@ class LocalController {
     orientation: vec3 = vec3.create();
     orientationTarget: vec3 = vec3.create();
 
+    uTurning: boolean = false;
+
     initialize(avatar: Avatar) {
         this.avatar = avatar;
     }
@@ -89,6 +91,7 @@ class LocalController {
         const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
 
         this.avatar.updateMatrixWorld();
+        vec3.set(this.orientation, this.avatar.matrixWorld.elements[8], this.avatar.matrixWorld.elements[9], this.avatar.matrixWorld.elements[10]);
 
         const inputDir = this.getCameraRelativeMovementDirection(input, camera, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
@@ -101,14 +104,35 @@ class LocalController {
         this.avatar.position.addScaledVector(scratchVector3A.setBuffer(this.velocity), dtSec);
 
         // Orientation
-        if (inputActive) {
-            vec3.copy(this.orientationTarget, inputDir);
+        let shouldTurn = inputActive;
+        let turnSpeedRadsPerSec = Math.PI;
+        
+        // State transitions
+        if (this.uTurning) {
+            // Uturn complete when we achieve the initial orientation target
+            if (vec3.dot(this.orientation, this.orientationTarget) > 0.99) {
+                this.uTurning = false;
+            }
+        } else {
+            // Start a 180 if we have a sharp input pointing directly away from our current orientation 
+            if (vec3.dot(inputDir, this.orientationTarget) < -0.99) {
+                this.uTurning = true;
+                vec3.copy(this.orientationTarget, inputDir);
+            }
         }
-
+    
+        // State evaluations
+        if (this.uTurning) {
+            shouldTurn = true; // Don't require user input to complete the 180
+            turnSpeedRadsPerSec *= 2.0;
+            this.orientationTarget = this.orientationTarget; // Don't update orientation target
+        } else {
+            if (inputActive) vec3.copy(this.orientationTarget, inputDir);
+        }
+        
         // Each frame, turn towards the input direction by a fixed amount, but only if the input is pressed. 
         // It takes 8 16ms frames to turn 90 degrees. So a full rotation takes about half of a second.
-        const turnSpeedRadsPerSec = Math.PI;
-        if (inputActive) {
+        if (shouldTurn) {
             const heading = Math.atan2(this.avatar.matrixWorld.elements[8], this.avatar.matrixWorld.elements[10]);
             const targetHeading = Math.atan2(this.orientationTarget[0], this.orientationTarget[2]);
             
@@ -117,8 +141,6 @@ class LocalController {
 
             this.avatar.rotateY(clamp(angleDelta, -turnCap, turnCap));
         }
-        
-        // If a 180 turn is initiated, turn at double the speed, and don't require input
 
         this.avatar.updateMatrix();
     }
