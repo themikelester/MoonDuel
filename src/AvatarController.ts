@@ -8,8 +8,10 @@ import { vec3, mat2 } from "gl-matrix";
 import { InputManager } from "./Input";
 import { Camera } from "./Camera";
 import { Vector3 } from "./Object3D";
+import { clamp, angularDistance } from "./MathHelpers";
 
 const scratchVec3A = vec3.create();
+const scratchVec3B = vec3.create();
 const scratchVector3A = new Vector3(scratchVec3A);
 
 // Populate a DebugMenu folder with functions to play all possible animations 
@@ -84,14 +86,41 @@ class LocalController {
 
     update(clock: Clock, input: InputManager, camera: Camera) {
         const speed = 100; // Units per second
+        const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
 
-        this.getCameraRelativeMovementDirection(input, camera, this.velocityTarget);
-        this.velocityTarget = vec3.scale(this.velocityTarget, this.velocityTarget, speed);
+        this.avatar.updateMatrixWorld();
+
+        const inputDir = this.getCameraRelativeMovementDirection(input, camera, scratchVec3B);
+        const inputActive = vec3.length(inputDir) > 0.1;
+        
+        // Velocity        
+        this.velocityTarget = vec3.scale(this.velocityTarget, inputDir, speed);
         vec3.copy(this.velocity, this.velocityTarget); // @TODO: Easing
 
-        const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
-        
+        // Position
         this.avatar.position.addScaledVector(scratchVector3A.setBuffer(this.velocity), dtSec);
+
+        // Orientation
+        if (inputActive) {
+            vec3.copy(this.orientationTarget, inputDir);
+        }
+
+        // Each frame, turn towards the input direction by a fixed amount, but only if the input is pressed. 
+        // It takes 8 16ms frames to turn 90 degrees. So a full rotation takes about half of a second.
+        const turnSpeedRadsPerSec = Math.PI;
+        if (inputActive) {
+            const heading = Math.atan2(this.avatar.matrixWorld.elements[8], this.avatar.matrixWorld.elements[10]);
+            const targetHeading = Math.atan2(this.orientationTarget[0], this.orientationTarget[2]);
+            
+            let angleDelta = angularDistance(heading, targetHeading);
+            const turnCap = turnSpeedRadsPerSec * dtSec;
+
+            this.avatar.rotateY(clamp(angleDelta, -turnCap, turnCap));
+        }
+        
+        // If a 180 turn is initiated, turn at double the speed, and don't require input
+
+        this.avatar.updateMatrix();
     }
 
     private getWorldRelativeMovementDirection(input: InputManager, result: vec3): vec3 {
