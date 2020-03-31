@@ -1,6 +1,6 @@
 import { GltfResource } from "./resources/Gltf";
 import { assertDefined } from "./util";
-import { AnimationClip } from "./resources/Animation";
+import { AnimationClip, AnimationMixer, AnimationAction } from "./resources/Animation";
 import { Avatar } from "./Avatar";
 import { Clock } from "./Clock";
 import { DebugMenu } from "./DebugMenu";
@@ -47,13 +47,8 @@ export class AvatarController {
     onResourcesLoaded(gltf: GltfResource) {
         this.animations = gltf.animations;
         createDebugAnimationList(this.animations, this.avatars[0]);
-
-        // @HACK:
-        const clip = assertDefined(this.animations[12]);
-        for (const avatar of this.avatars) {
-            const action = avatar.animationMixer.clipAction(clip);
-            action.play();
-        }
+        
+        this.localController.onResourcesLoaded(gltf);
 
         this.ready = true;
     }
@@ -73,7 +68,9 @@ export class AvatarController {
 
 class LocalController {
     avatar: Avatar;
+    animations?: AnimationClip[];
 
+    speed: number = 0;
     velocity: vec3 = vec3.create();
     velocityTarget: vec3 = vec3.create();
     
@@ -81,13 +78,29 @@ class LocalController {
     orientationTarget: vec3 = vec3.create();
 
     uTurning: boolean = false;
+    walking: boolean = false;
+
+    // Animations
+    aIdle: AnimationAction;
+    aWalk: AnimationAction;
 
     initialize(avatar: Avatar) {
         this.avatar = avatar;
     }
 
+    onResourcesLoaded(gltf: GltfResource) {
+        this.animations = gltf.animations;
+
+        // Buffer the animation clips now
+        this.aIdle = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'await1')));
+        this.aWalk = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'awalk1')));
+
+        this.aIdle.play().setEffectiveWeight(1.0);
+        this.aWalk.play().setEffectiveWeight(0.0);
+    }
+
     update(clock: Clock, input: InputManager, camera: Camera) {
-        const speed = 150; // Units per second
+        const walkSpeed = 150; // Units per second
         const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
 
         this.avatar.updateMatrixWorld();
@@ -96,9 +109,20 @@ class LocalController {
         const inputDir = this.getCameraRelativeMovementDirection(input, camera, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
         
-        // Velocity        
-        this.velocityTarget = vec3.scale(this.velocityTarget, inputDir, speed);
-        vec3.copy(this.velocity, this.velocityTarget); // @TODO: Easing
+        // Velocity
+        if (inputActive) {
+            this.speed += 300 * dtSec;
+            this.speed = Math.min(this.speed, walkSpeed);
+        } else {
+            this.speed -= 300 * dtSec;
+            this.speed = Math.max(this.speed, 0);
+        }
+
+        this.velocityTarget = vec3.copy(this.velocityTarget, inputDir);
+        this.velocity = vec3.scale(this.velocity, this.velocityTarget, this.speed); // @TODO: Easing
+
+        this.aWalk.weight = this.speed / walkSpeed;
+        this.aIdle.weight = 1.0 - this.aWalk.weight;
 
         // Position
         this.avatar.position.addScaledVector(scratchVector3A.setBuffer(this.velocity), dtSec);

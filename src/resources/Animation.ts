@@ -27,3 +27,9 @@ export { AnimationClip } from 'three/src/animation/AnimationClip';
  * @see {@link https://threejs.org/docs/#api/en/animation/AnimationMixer}
  */
 export { AnimationMixer } from 'three/src/animation/AnimationMixer';
+
+/**
+ * AnimationActions schedule the performance of the animations which are stored in AnimationClips.
+ * @see {@link https://threejs.org/docs/#api/en/animation/AnimationAction}
+ */
+export { AnimationAction } from 'three/src/animation/AnimationAction';
