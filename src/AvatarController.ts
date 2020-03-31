@@ -87,7 +87,7 @@ class LocalController {
     }
 
     update(clock: Clock, input: InputManager, camera: Camera) {
-        const speed = 100; // Units per second
+        const speed = 150; // Units per second
         const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
 
         this.avatar.updateMatrixWorld();
