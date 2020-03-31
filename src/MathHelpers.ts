@@ -66,3 +66,14 @@ export function saturate(value: number): number {
 export function equalsEpsilon(a: number, b: number, epsilon = MathConstants.EPSILON): boolean {
   return Math.abs(a - b) < epsilon;
 }
+
+/** Returns the signed angular distance from angle a to angle b, in radians
+ *  @param maxAngle - Wrap the angle at this value. Defaults to 2*PI.
+ *  @example
+ *  angularDistance(Math.PI * 0.25, -Math.PI * 0.25); // - Math.PI * 0.5
+ *  angularDistance(Math.PI * 0.75, -Math.PI * 0.75); // Math.PI * 0.5
+ */
+export function angularDistance(a: number, b: number, maxAngle: number = MathConstants.TAU): number {
+  const da = (b - a) % maxAngle;
+  return (2*da) % maxAngle - da;
+}
