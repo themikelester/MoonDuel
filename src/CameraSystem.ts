@@ -190,7 +190,6 @@ export class FollowCameraController implements CameraController {
         this.follow = deps.avatar.localAvatar;
 
         // Set up a valid initial state
-        this.follow.getWorldPosition(scratchVector3A);
         const followPos = scratchVector3A.buffer;
         const eyePos = vec3.add(scratchVec3A, followPos, vec3.set(scratchVec3A, 1000, 700, 0));
         
@@ -198,22 +197,31 @@ export class FollowCameraController implements CameraController {
         this.camera.viewMatrixUpdated();
 
         this.heading = Math.atan2(this.camera.forward[0], this.camera.forward[2]);
-        this.pitch = Math.PI * 0.35;
+        this.pitch = Math.PI * 0.4;
         this.distance = 1000;
+
+        const debugMenu = DebugMenu.addFolder('FollowCam');
+        debugMenu.add(this, 'pitch', 0.0, Math.PI * 0.5, Math.PI * 0.025);
     }
 
     public update(inputManager: InputManager, dt: number): boolean {
+        const kFollowHeightBias = 250;
+        const kMinCamDist = 500; 
+        const kMaxCamDist = 800;
+
         this.follow.getWorldPosition(scratchVector3A);
-        const followPos = scratchVector3A.buffer;
+        const followPos = vec3.add(scratchVector3A.buffer, scratchVector3A.buffer, vec3.set(scratchVec3B, 0, kFollowHeightBias, 0));
         const camPos = this.camera.getPos(scratchVec3A);
         const camToTarget = vec3.subtract(scratchVec3A, followPos, camPos);
+        const camDist = vec3.length(camToTarget);
+        
+        // Rotate to keep the follow target centered
         const camToTargetHeading = Math.atan2(camToTarget[2], camToTarget[0]);
-        console.log(camToTargetHeading);
-
         let angleDelta = angularDistance(this.heading, camToTargetHeading);
-        // const turnCap = turnSpeedRadsPerSec * dtSec;
-
         this.heading = (this.heading + angleDelta) % MathConstants.TAU;
+
+        // Keep the camera distance between min and max
+        this.distance = clamp(camDist, kMinCamDist, kMaxCamDist);
 
         const eyeOffsetUnit = computeUnitSphericalCoordinates(scratchVec3A, this.heading + Math.PI, this.pitch);
         const eyeOffset = vec3.scale(scratchVec3A, eyeOffsetUnit, this.distance);
