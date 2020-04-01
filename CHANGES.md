@@ -1,6 +1,19 @@
 Change Log
 ==========
 
+### 2020-31-04
+##### Morning
+After sleeping on it (and getting a coffee this morning) I think I have a better way to handle camera orientation. I'm going to try to keep the avatar (or target object) within some angular radius of the horizontal center of the screen, and between some min and max distance from the player. First the rotation is evaluated, and the camera is rotated on the Y axis so that the target is within the angular restraint, then the camera moves towards or away from the player to meet the distance restraint. This may be what Wind Waker is doing.
+
+### 2020-31-03
+##### Morning
+Did some late night research into Wind Wakers character/camera controller (by running around in circles for an hour).
+Today I'd like to have the avatar turning so that he only moves forward, and the camera following this orientation in some fashion.
+Hopefully similar to WW's, because I think that scheme works well for laptops that don't have a separate mouse attached.
+
+##### Next morning
+Yesterday I was able to get the character changing orientation smoothly, and blending between idle and walk animations. I got stuck on how to handle camera orientation, and didn't make any progress.
+
 ### 2020-30-03
 
 ##### Morning
