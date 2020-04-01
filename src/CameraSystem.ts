@@ -7,11 +7,13 @@ import { vec3, mat4 } from 'gl-matrix';
 import { InputManager } from './Input';
 import { DebugMenu } from './DebugMenu';
 import { Clock } from './Clock';
-import { clamp } from './MathHelpers';
+import { clamp, computeSphericalCoordinates, angularDistance, MathConstants } from './MathHelpers';
 import { Object3D, Vector3 } from './Object3D';
 import { AvatarSystem, Avatar } from './Avatar';
+import { assert } from './util';
 
 const scratchVec3A = vec3.create();
+const scratchVec3B = vec3.create();
 const scratchVector3A = new Vector3(vec3.create());
 
 interface Dependencies {
@@ -28,9 +30,9 @@ export class CameraSystem {
     initialize(deps: Dependencies) {
         this.resize(window.innerWidth, window.innerHeight);
 
-        this.controller = new OrbitCameraController();
-        this.controller.initialize(deps);
+        this.controller = new FollowCameraController();
         this.controller.camera = this.camera;
+        this.controller.initialize(deps);
     }
 
     resize(width: number, height: number) {
@@ -175,11 +177,67 @@ export class OrbitCameraController implements CameraController {
     }
 }
 
+export class FollowCameraController implements CameraController {
+    public camera: Camera;
+    public follow: Object3D;
+
+    private heading: number;
+    private pitch: number;
+    private distance: number;
+
+    initialize(deps: Dependencies) {
+        // Follow the local avatar by default
+        this.follow = deps.avatar.localAvatar;
+
+        // Set up a valid initial state
+        this.follow.getWorldPosition(scratchVector3A);
+        const followPos = scratchVector3A.buffer;
+        const eyePos = vec3.add(scratchVec3A, followPos, vec3.set(scratchVec3A, 1000, 700, 0));
+        
+        mat4.lookAt(this.camera.viewMatrix, eyePos, followPos, vec3Up);
+        this.camera.viewMatrixUpdated();
+
+        this.heading = Math.atan2(this.camera.forward[0], this.camera.forward[2]);
+        this.pitch = Math.PI * 0.35;
+        this.distance = 1000;
+    }
+
+    public update(inputManager: InputManager, dt: number): boolean {
+        this.follow.getWorldPosition(scratchVector3A);
+        const followPos = scratchVector3A.buffer;
+        const camPos = this.camera.getPos(scratchVec3A);
+        const camToTarget = vec3.subtract(scratchVec3A, followPos, camPos);
+        const camToTargetHeading = Math.atan2(camToTarget[2], camToTarget[0]);
+        console.log(camToTargetHeading);
+
+        let angleDelta = angularDistance(this.heading, camToTargetHeading);
+        // const turnCap = turnSpeedRadsPerSec * dtSec;
+
+        this.heading = (this.heading + angleDelta) % MathConstants.TAU;
+
+        const eyeOffsetUnit = computeUnitSphericalCoordinates(scratchVec3A, this.heading + Math.PI, this.pitch);
+        const eyeOffset = vec3.scale(scratchVec3A, eyeOffsetUnit, this.distance);
+        const eyePos = vec3.add(scratchVec3A, followPos, eyeOffset);
+
+        mat4.lookAt(this.camera.viewMatrix, eyePos, followPos, vec3Up);
+        this.camera.viewMatrixUpdated();
+
+        return false;
+    }
+
+    toJSON() {
+        return '';
+    }
+
+    fromJSON(data: string) {
+    }
+}
+
 function clampRange(v: number, lim: number): number {
     return Math.max(-lim, Math.min(v, lim));
 }
 
-function computeUnitSphericalCoordinates(dst: vec3, azimuthal: number, polar: number): void {
+function computeUnitSphericalCoordinates(dst: vec3, azimuthal: number, polar: number): vec3 {
     // https://en.wikipedia.org/wiki/Spherical_coordinate_system
     // https://en.wikipedia.org/wiki/List_of_common_coordinate_transformations#From_spherical_coordinates
     // Wikipedia uses the (wrong) convention of Z-up tho...
@@ -188,4 +246,6 @@ function computeUnitSphericalCoordinates(dst: vec3, azimuthal: number, polar: nu
     dst[0] = sinP * Math.cos(azimuthal);
     dst[1] = Math.cos(polar);
     dst[2] = sinP * Math.sin(azimuthal);
+
+    return dst;
 }
