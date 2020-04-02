@@ -8,11 +8,13 @@ import { vec3, mat2 } from "gl-matrix";
 import { InputManager } from "./Input";
 import { Camera } from "./Camera";
 import { Vector3 } from "./Object3D";
-import { clamp, angularDistance } from "./MathHelpers";
+import { clamp, angularDistance, wrappedDistance } from "./MathHelpers";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
 const scratchVector3A = new Vector3(scratchVec3A);
+
+const kWalkStartStopTimes = [0.25, 0.75]; // Normalized times at which one foot is on the ground and the body is centered over its position
 
 // Populate a DebugMenu folder with functions to play all possible animations 
 function createDebugAnimationList(animations: AnimationClip[], targetAvatar: Avatar ) {
@@ -111,10 +113,10 @@ class LocalController {
         
         // Velocity
         if (inputActive) {
-            this.speed += 300 * dtSec * 2.0;
+            this.speed += 600 * dtSec;
             this.speed = Math.min(this.speed, walkSpeed);
         } else {
-            this.speed -= 300 * dtSec * 2.0;
+            this.speed -= 600 * dtSec;
             this.speed = Math.max(this.speed, 0);
         }
 
@@ -123,6 +125,7 @@ class LocalController {
 
         this.aWalk.weight = this.speed / walkSpeed;
         this.aIdle.weight = 1.0 - this.aWalk.weight;
+        this.aWalk.timeScale = this.aWalk.weight;
 
         // Position
         this.avatar.position.addScaledVector(scratchVector3A.setBuffer(this.velocity), dtSec);
@@ -150,7 +153,7 @@ class LocalController {
             }
         }
 
-        this.walking = this.speed > 50;
+        this.walking = this.speed > 0;
 
         // State evaluations
         let turnSpeedRadsPerSec = this.walking ? walkingTurnSpeed : standingTurnSpeed;
@@ -160,6 +163,11 @@ class LocalController {
             this.orientationTarget = this.orientationTarget; // Don't update orientation target
         } else {
             if (inputActive) vec3.copy(this.orientationTarget, inputDir);
+        }
+
+        if (!this.walking) {
+            // Reset the walk animation so we always start from the same position when we begin walking again
+            this.aWalk.time = kWalkStartStopTimes[0] * this.aWalk.getClip().duration;
         }
         
         // Each frame, turn towards the input direction by a fixed amount, but only if the input is pressed. 
