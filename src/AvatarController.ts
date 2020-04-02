@@ -134,6 +134,7 @@ class LocalController {
     // Animations
     aIdle: AnimationAction;
     aWalk: AnimationAction;
+    aRun: AnimationAction;
 
     startingFoot = 0;
 
@@ -147,13 +148,18 @@ class LocalController {
         // Buffer the animation clips now
         this.aIdle = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'await1')));
         this.aWalk = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'awalk1')));
+        this.aRun = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'brun1')));
 
         this.aIdle.play().setEffectiveWeight(1.0);
         this.aWalk.play().setEffectiveWeight(0.0);
+        this.aRun.play().setEffectiveWeight(0.0);
     }
 
     update(clock: Clock, input: InputManager, camera: Camera) {
         const walkSpeed = 150; // Units per second
+        const runSpeed = 600; // Units per second
+        const walkAcceleration = 600;
+        const runAcceleration = 3000;
         const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
 
         this.avatar.updateMatrixWorld();
@@ -161,22 +167,35 @@ class LocalController {
 
         const inputDir = this.getCameraRelativeMovementDirection(input, camera, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
+        const inputShouldWalk = input.isKeyDown('ShiftLeft') || input.isKeyDown('ShiftRight');
         
         // Velocity
+        const accel = inputShouldWalk ? walkAcceleration : runAcceleration;
+        const maxSpeed = inputShouldWalk ? walkSpeed : runSpeed;
+
         if (inputActive) {
-            this.speed += 600 * dtSec;
-            this.speed = Math.min(this.speed, walkSpeed);
+            this.speed += accel * dtSec;
+            this.speed = Math.min(this.speed, maxSpeed);
         } else {
-            this.speed -= 600 * dtSec;
+            this.speed -= accel * dtSec;
             this.speed = Math.max(this.speed, 0);
         }
 
         this.velocityTarget = vec3.copy(this.velocityTarget, this.orientation);
         this.velocity = vec3.scale(this.velocity, this.velocityTarget, this.speed);
 
-        this.aWalk.weight = this.speed / walkSpeed;
-        this.aIdle.weight = 1.0 - this.aWalk.weight;
-        this.aWalk.timeScale = this.aWalk.weight;
+
+
+        this.aIdle.weight = 1.0 - this.speed / maxSpeed;
+        if (inputShouldWalk) {
+            this.aWalk.weight = this.speed / maxSpeed;
+            this.aWalk.timeScale = this.aWalk.weight;
+            this.aRun.weight = 0;
+        } else {
+            this.aRun.weight = this.speed / maxSpeed;
+            this.aRun.timeScale = this.aRun.weight;
+            this.aWalk.weight = 0;
+        }
 
         // Position
         this.avatar.position.addScaledVector(scratchVector3A.setBuffer(this.velocity), dtSec);
