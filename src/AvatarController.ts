@@ -111,15 +111,15 @@ class LocalController {
         
         // Velocity
         if (inputActive) {
-            this.speed += 300 * dtSec;
+            this.speed += 300 * dtSec * 2.0;
             this.speed = Math.min(this.speed, walkSpeed);
         } else {
-            this.speed -= 300 * dtSec;
+            this.speed -= 300 * dtSec * 2.0;
             this.speed = Math.max(this.speed, 0);
         }
 
         this.velocityTarget = vec3.copy(this.velocityTarget, inputDir);
-        this.velocity = vec3.scale(this.velocity, this.velocityTarget, this.speed); // @TODO: Easing
+        this.velocity = vec3.scale(this.velocity, this.velocityTarget, this.speed);
 
         this.aWalk.weight = this.speed / walkSpeed;
         this.aIdle.weight = 1.0 - this.aWalk.weight;
