@@ -34,7 +34,7 @@ export class DebugGrid {
     baseColor = vec4.fromValues(0.3, 0.3, 0.3, 1.0);
     lineColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
     gridUnit = 100.0;
-    gridRadius = 1000.0;
+    gridRadius = 5000.0;
     enabled = true;
 
     private primitive: RenderPrimitive;
