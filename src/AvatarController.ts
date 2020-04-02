@@ -8,13 +8,14 @@ import { vec3, mat2 } from "gl-matrix";
 import { InputManager } from "./Input";
 import { Camera } from "./Camera";
 import { Vector3 } from "./Object3D";
-import { clamp, angularDistance, wrappedDistance } from "./MathHelpers";
+import { clamp, angularDistance, wrappedDistance, delerp, saturate } from "./MathHelpers";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
 const scratchVector3A = new Vector3(scratchVec3A);
 
 const kWalkStartStopTimes = [0.25, 0.75]; // Normalized times at which one foot is on the ground and the body is centered over its position
+const kRunStartStopTimes = [0.15, 0.65];
 
 /**
  * Drive each Avatar's skeleton, position, oriention, and animation
@@ -153,6 +154,9 @@ class LocalController {
         this.aIdle.play().setEffectiveWeight(1.0);
         this.aWalk.play().setEffectiveWeight(0.0);
         this.aRun.play().setEffectiveWeight(0.0);
+
+        this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
+        this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
     }
 
     update(clock: Clock, input: InputManager, camera: Camera) {
@@ -173,29 +177,23 @@ class LocalController {
         const accel = inputShouldWalk ? walkAcceleration : runAcceleration;
         const maxSpeed = inputShouldWalk ? walkSpeed : runSpeed;
 
-        if (inputActive) {
-            this.speed += accel * dtSec;
-            this.speed = Math.min(this.speed, maxSpeed);
-        } else {
-            this.speed -= accel * dtSec;
-            this.speed = Math.max(this.speed, 0);
-        }
+        const dSpeed = (inputActive ? accel : -accel) * dtSec;
+        const targetSpeed = clamp(this.speed + dSpeed, 0, maxSpeed); 
+
+        this.speed += clamp(
+            targetSpeed - this.speed, 
+            -accel * dtSec,
+            accel * dtSec,
+        );
 
         this.velocityTarget = vec3.copy(this.velocityTarget, this.orientation);
         this.velocity = vec3.scale(this.velocity, this.velocityTarget, this.speed);
 
-
-
-        this.aIdle.weight = 1.0 - this.speed / maxSpeed;
-        if (inputShouldWalk) {
-            this.aWalk.weight = this.speed / maxSpeed;
-            this.aWalk.timeScale = this.aWalk.weight;
-            this.aRun.weight = 0;
-        } else {
-            this.aRun.weight = this.speed / maxSpeed;
-            this.aRun.timeScale = this.aRun.weight;
-            this.aWalk.weight = 0;
-        }
+        this.aIdle.weight = saturate(1.0 - this.speed / walkSpeed);
+        this.aRun.weight = saturate(delerp(walkSpeed, runSpeed, this.speed));
+        this.aRun.timeScale = this.aRun.weight;
+        this.aWalk.weight = saturate(delerp(0, walkSpeed, this.speed)) - this.aRun.weight;
+        this.aWalk.timeScale = this.aWalk.weight;
 
         // Position
         this.avatar.position.addScaledVector(scratchVector3A.setBuffer(this.velocity), dtSec);
