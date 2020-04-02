@@ -129,23 +129,31 @@ class LocalController {
 
         // Orientation
         let shouldTurn = inputActive;
-        let turnSpeedRadsPerSec = Math.PI;
+
+        let standingTurnSpeed = Math.PI * 3.75; // 4 30ms frames to turn 90 degrees
+        let walkingTurnSpeed = Math.PI * 1.875; // 8 30ms frames to turn 90 degrees
+        let runningTurnSpeed = Math.PI * 1.875; // 8 30ms frames to turn 90 degrees
         
         // State transitions
         if (this.uTurning) {
             // Uturn complete when we achieve the initial orientation target
             if (vec3.dot(this.orientation, this.orientationTarget) > 0.99) {
                 this.uTurning = false;
+                this.aWalk.timeScale = 1.0
             }
         } else {
             // Start a 180 if we have a sharp input pointing directly away from our current orientation 
             if (vec3.dot(inputDir, this.orientationTarget) < -0.99) {
                 this.uTurning = true;
+                this.aWalk.timeScale = -1.0
                 vec3.copy(this.orientationTarget, inputDir);
             }
         }
-    
+
+        this.walking = this.speed > 50;
+
         // State evaluations
+        let turnSpeedRadsPerSec = this.walking ? walkingTurnSpeed : standingTurnSpeed;
         if (this.uTurning) {
             shouldTurn = true; // Don't require user input to complete the 180
             turnSpeedRadsPerSec *= 2.0;
