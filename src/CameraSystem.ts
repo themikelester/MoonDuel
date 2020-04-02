@@ -197,7 +197,7 @@ export class FollowCameraController implements CameraController {
         this.camera.viewMatrixUpdated();
 
         this.heading = Math.atan2(this.camera.forward[0], this.camera.forward[2]);
-        this.pitch = Math.PI * 0.4;
+        this.pitch = Math.PI * 0.5;
         this.distance = 1000;
 
         const debugMenu = DebugMenu.addFolder('FollowCam');
