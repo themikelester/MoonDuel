@@ -171,7 +171,7 @@ class LocalController {
             this.speed = Math.max(this.speed, 0);
         }
 
-        this.velocityTarget = vec3.copy(this.velocityTarget, inputDir);
+        this.velocityTarget = vec3.copy(this.velocityTarget, this.orientation);
         this.velocity = vec3.scale(this.velocity, this.velocityTarget, this.speed);
 
         this.aWalk.weight = this.speed / walkSpeed;
