@@ -190,7 +190,7 @@ class LocalController {
         this.velocity = vec3.scale(this.velocity, this.velocityTarget, this.speed);
 
         this.aIdle.weight = saturate(1.0 - this.speed / walkSpeed);
-        this.aRun.weight = saturate(delerp(walkSpeed, runSpeed, this.speed));
+        this.aRun.weight = saturate(delerp(inputShouldWalk ? walkSpeed : 0, runSpeed, this.speed));
         this.aRun.timeScale = this.aRun.weight;
         this.aWalk.weight = saturate(delerp(0, walkSpeed, this.speed)) - this.aRun.weight;
         this.aWalk.timeScale = this.aWalk.weight;
@@ -236,6 +236,7 @@ class LocalController {
         if (!this.walking) {
             // Reset the walk animation so we always start from the same position when we begin walking again
             this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
+            this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
             this.startingFoot = (this.startingFoot + 1) % 2;
         }
         
