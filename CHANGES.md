@@ -1,10 +1,13 @@
 Change Log
 ==========
 
-### 2020-31-06
 ##### TODO
 * Pivot around whichever foot is grounded, or lerp between them if in the air
 * Improve stopping from running. Maybe a small skid?
+
+### 2020-31-06
+##### Morning
+I'd like to get touch controls working so that I can drive the avatar on mobile. This may involve a new input system (could use PlayCanvas'?) or perhaps writing a layer on top of the current one.
 
 ### 2020-31-05
 ##### Morning
@@ -15,7 +18,7 @@ Woo! I fixed a big "bug" that was making movement feel very sharp. Velocity dire
 
 ### 2020-31-04
 ##### Morning
-After sleeping on it (and getting a coffee this morning) I think I have a better way to handle camera orientation. I'm going to try to keep the avatar (or target object) within some angular radius of the horizontal center of the screen, and between some min and max distance from the player. First the rotation is evaluated, and the camera is rotated on the Y axis so that the target is within the angular restraint, then the camera moves towards or away from the player to meet the distance restraint. This may be what Wind Waker is doing.
+After sleeping on it s(and getting a coffee this morning) I think I have a better way to handle camera orientation. I'm going to try to keep the avatar (or target object) within some angular radius of the horizontal center of the screen, and between some min and max distance from the player. First the rotation is evaluated, and the camera is rotated on the Y axis so that the target is within the angular restraint, then the camera moves towards or away from the player to meet the distance restraint. This may be what Wind Waker is doing.
 
 ##### Next morning
 I wrote the basic camera controller in about 2 hours, and it seems to be working fairly well. It wasn't really a productive day, I probably only got a good 3-4 hours in. With this controller, holding right makes the character turn in an arc relative to the camera distance, because the angular velocity is constant. Wind Waker does this differently. Holding right runs at about 70 degrees, instead of 90. I need to think more about what they're doing.
