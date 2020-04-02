@@ -1,9 +1,17 @@
 Change Log
 ==========
 
+### 2020-31-06
+##### TODO
+* Pivot around whichever foot is grounded, or lerp between them if in the air
+* Improve stopping from running. Maybe a small skid?
+
 ### 2020-31-05
 ##### Morning
 I'd like to get the avatar walking and turning feeling better. No concrete goals, but if I'm a happier with it I'd like to start on getting running working.
+
+##### Evening
+Woo! I fixed a big "bug" that was making movement feel very sharp. Velocity direction was changing instantly to inputDir, now it is set to the avatar orientation. This fixes the moonwalking when rotating quickly while standing, and makes the whole thing feel smoother. I added the running animation with a separate set of acceleration and max speed values, and blend between walking and running based on if shift was pressed. Ended up being a good productive day.
 
 ### 2020-31-04
 ##### Morning
