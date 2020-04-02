@@ -86,6 +86,8 @@ class LocalController {
     aIdle: AnimationAction;
     aWalk: AnimationAction;
 
+    startingFoot = 0;
+
     initialize(avatar: Avatar) {
         this.avatar = avatar;
     }
@@ -167,7 +169,8 @@ class LocalController {
 
         if (!this.walking) {
             // Reset the walk animation so we always start from the same position when we begin walking again
-            this.aWalk.time = kWalkStartStopTimes[0] * this.aWalk.getClip().duration;
+            this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
+            this.startingFoot = (this.startingFoot + 1) % 2;
         }
         
         // Each frame, turn towards the input direction by a fixed amount, but only if the input is pressed. 
