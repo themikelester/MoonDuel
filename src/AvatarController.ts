@@ -27,45 +27,50 @@ export class AvatarController {
     avatars: Avatar[];
     local: Avatar;
 
-    debugMenu: IDebugMenu;
-    debugAnimation?: AnimationAction;
-    debugAnimationMixer: AnimationMixer;
+    debugMenu: AnimationDebugMenu;
 
     initialize(avatars: Avatar[]) {
         this.avatars = avatars;
         this.local = avatars[0];
         this.localController.initialize(this.local);
+        this.debugMenu = new AnimationDebugMenu(this.local);
     }
 
     onResourcesLoaded(gltf: GltfResource) {
-        this.animations = gltf.animations;
-        this.debugMenu = DebugMenu.addFolder('Animation');
-        this.createDebugAnimationList(this.debugMenu, this.avatars[0]);
-        
+        this.animations = gltf.animations;        
         this.localController.onResourcesLoaded(gltf);
-
+        this.debugMenu.onResourcesLoaded(this.animations);
         this.ready = true;
     }
 
     update({ clock, input, camera }: { clock: Clock, input: InputManager, camera: Camera }) {
         if (!this.ready) return;
 
-        if (!defined(this.debugAnimation)) {
-            this.localController.update(clock, input, camera);
-        }
+        const debugActive = this.debugMenu.update(clock);
+        if (debugActive) { return; }
+
+        this.localController.update(clock, input, camera);
 
         for (const avatar of this.avatars) {
-            if (this.debugAnimation) this.debugAnimationMixer.update(clock.dt / 1000.0);
-            else avatar.animationMixer.update(clock.dt / 1000.0);            
+            avatar.animationMixer.update(clock.dt / 1000.0);            
 
             avatar.updateMatrixWorld();
             avatar.skeleton.update();
         }
     }
+}
+
+class AnimationDebugMenu {
+    debugMenu: IDebugMenu;
+    debugAnimation?: AnimationAction;
+    debugAnimationMixer: AnimationMixer;
+
+    constructor(private targetAvatar: Avatar) {}
 
     // Populate a DebugMenu folder with functions to play (and control) all possible animations 
-    createDebugAnimationList(debugMenu: IDebugMenu, targetAvatar: Avatar ) {
-        this.debugAnimationMixer = new AnimationMixer(targetAvatar);
+    onResourcesLoaded(animations: AnimationClip[]) {
+        this.debugMenu = DebugMenu.addFolder('Animation');
+        this.debugAnimationMixer = new AnimationMixer(this.targetAvatar);
 
         const funcs = {
             that: this,
@@ -88,18 +93,27 @@ export class AvatarController {
             },
         }
 
-        debugMenu.add(funcs, 'togglePaused');
-        debugMenu.add(funcs, 'stop');
-        debugMenu.add(funcs, 'time', 0.0, 1.0, 0.01);
+        this.debugMenu.add(funcs, 'togglePaused');
+        this.debugMenu.add(funcs, 'stop');
+        this.debugMenu.add(funcs, 'time', 0.0, 1.0, 0.01);
 
         const playAnimMap: { [name: string]: () => void } = {};
-        for (const anim of this.animations) {
+        for (const anim of animations) {
             playAnimMap[anim.name] = () => {
                 this.debugAnimationMixer.stopAllAction();
                 this.debugAnimation = this.debugAnimationMixer.clipAction(anim).reset().play();
             };
-            debugMenu.add(playAnimMap, anim.name);
+            this.debugMenu.add(playAnimMap, anim.name);
         }
+    }
+
+    update(clock: Clock) {
+        if (this.debugAnimation) this.debugAnimationMixer.update(clock.dt / 1000.0);
+
+        this.targetAvatar.updateMatrixWorld();
+        this.targetAvatar.skeleton.update();
+
+        return this.debugAnimation;
     }
 }
 
