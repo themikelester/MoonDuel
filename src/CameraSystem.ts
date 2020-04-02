@@ -7,7 +7,7 @@ import { vec3, mat4 } from 'gl-matrix';
 import { InputManager } from './Input';
 import { DebugMenu } from './DebugMenu';
 import { Clock } from './Clock';
-import { clamp, computeSphericalCoordinates, angularDistance, MathConstants } from './MathHelpers';
+import { clamp, angularDistance, MathConstants } from './MathHelpers';
 import { Object3D, Vector3 } from './Object3D';
 import { AvatarSystem, Avatar } from './Avatar';
 import { assert } from './util';
