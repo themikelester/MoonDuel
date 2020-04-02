@@ -185,6 +185,9 @@ export class FollowCameraController implements CameraController {
     private pitch: number;
     private distance: number;
 
+    private minDistance = 500; 
+    private maxDistance = 800;
+
     initialize(deps: Dependencies) {
         // Follow the local avatar by default
         this.follow = deps.avatar.localAvatar;
@@ -201,13 +204,13 @@ export class FollowCameraController implements CameraController {
         this.distance = 1000;
 
         const debugMenu = DebugMenu.addFolder('FollowCam');
-        debugMenu.add(this, 'pitch', 0.0, Math.PI * 0.5, Math.PI * 0.025);
+        debugMenu.add(this, 'pitch', 0.0, Math.PI * 0.5, Math.PI * 0.01);
+        debugMenu.add(this, 'minDistance', 500, 2000, 100);
+        debugMenu.add(this, 'maxDistance', 500, 3000, 100);
     }
 
     public update(inputManager: InputManager, dt: number): boolean {
         const kFollowHeightBias = 250;
-        const kMinCamDist = 500; 
-        const kMaxCamDist = 800;
 
         this.follow.getWorldPosition(scratchVector3A);
         const followPos = vec3.add(scratchVector3A.buffer, scratchVector3A.buffer, vec3.set(scratchVec3B, 0, kFollowHeightBias, 0));
@@ -221,7 +224,7 @@ export class FollowCameraController implements CameraController {
         this.heading = (this.heading + angleDelta) % MathConstants.TAU;
 
         // Keep the camera distance between min and max
-        this.distance = clamp(camDist, kMinCamDist, kMaxCamDist);
+        this.distance = clamp(camDist, this.minDistance, this.maxDistance);
 
         const eyeOffsetUnit = computeUnitSphericalCoordinates(scratchVec3A, this.heading + Math.PI, this.pitch);
         const eyeOffset = vec3.scale(scratchVec3A, eyeOffsetUnit, this.distance);
