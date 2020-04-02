@@ -1,9 +1,9 @@
 import { GltfResource } from "./resources/Gltf";
-import { assertDefined } from "./util";
+import { assertDefined, defined } from "./util";
 import { AnimationClip, AnimationMixer, AnimationAction } from "./resources/Animation";
 import { Avatar } from "./Avatar";
 import { Clock } from "./Clock";
-import { DebugMenu } from "./DebugMenu";
+import { DebugMenu, IDebugMenu } from "./DebugMenu";
 import { vec3, mat2 } from "gl-matrix";
 import { InputManager } from "./Input";
 import { Camera } from "./Camera";
@@ -16,19 +16,6 @@ const scratchVector3A = new Vector3(scratchVec3A);
 
 const kWalkStartStopTimes = [0.25, 0.75]; // Normalized times at which one foot is on the ground and the body is centered over its position
 
-// Populate a DebugMenu folder with functions to play all possible animations 
-function createDebugAnimationList(animations: AnimationClip[], targetAvatar: Avatar ) {
-    const debugMenu = DebugMenu.addFolder('Animation');
-    const playAnimMap: { [name: string]: () => void } = {};
-    for (const anim of animations) {
-        playAnimMap[anim.name] = () => {
-            targetAvatar.animationMixer.stopAllAction();
-            targetAvatar.animationMixer.clipAction(anim).play();
-        };
-        debugMenu.add(playAnimMap, anim.name);
-    }
-}
-
 /**
  * Drive each Avatar's skeleton, position, oriention, and animation
  */
@@ -40,6 +27,10 @@ export class AvatarController {
     avatars: Avatar[];
     local: Avatar;
 
+    debugMenu: IDebugMenu;
+    debugAnimation?: AnimationAction;
+    debugAnimationMixer: AnimationMixer;
+
     initialize(avatars: Avatar[]) {
         this.avatars = avatars;
         this.local = avatars[0];
@@ -48,7 +39,8 @@ export class AvatarController {
 
     onResourcesLoaded(gltf: GltfResource) {
         this.animations = gltf.animations;
-        createDebugAnimationList(this.animations, this.avatars[0]);
+        this.debugMenu = DebugMenu.addFolder('Animation');
+        this.createDebugAnimationList(this.debugMenu, this.avatars[0]);
         
         this.localController.onResourcesLoaded(gltf);
 
@@ -58,12 +50,55 @@ export class AvatarController {
     update({ clock, input, camera }: { clock: Clock, input: InputManager, camera: Camera }) {
         if (!this.ready) return;
 
-        this.localController.update(clock, input, camera);
+        if (!defined(this.debugAnimation)) {
+            this.localController.update(clock, input, camera);
+        }
 
         for (const avatar of this.avatars) {
-            avatar.animationMixer.update(clock.dt / 1000.0);
+            if (this.debugAnimation) this.debugAnimationMixer.update(clock.dt / 1000.0);
+            else avatar.animationMixer.update(clock.dt / 1000.0);            
+
             avatar.updateMatrixWorld();
             avatar.skeleton.update();
+        }
+    }
+
+    // Populate a DebugMenu folder with functions to play (and control) all possible animations 
+    createDebugAnimationList(debugMenu: IDebugMenu, targetAvatar: Avatar ) {
+        this.debugAnimationMixer = new AnimationMixer(targetAvatar);
+
+        const funcs = {
+            that: this,
+
+            togglePaused: () => { if(this.debugAnimation) this.debugAnimation.paused = !this.debugAnimation.paused },
+            stop: () => { if(this.debugAnimation) { this.debugAnimation.stop(); this.debugAnimation = undefined; } },
+
+            get time() { 
+                if (defined(this.that.debugAnimation)) {
+                    const time = this.that.debugAnimation.time;
+                    const normalizedTime = time / this.that.debugAnimation.getClip().duration;
+                    return normalizedTime;
+                } else return 0.0;
+            },
+            set time(normalizedTime: number) { 
+                if (defined(this.that.debugAnimation)) {
+                    this.that.debugAnimation.paused = true;
+                    this.that.debugAnimation.time = normalizedTime * this.that.debugAnimation.getClip().duration;
+                }
+            },
+        }
+
+        debugMenu.add(funcs, 'togglePaused');
+        debugMenu.add(funcs, 'stop');
+        debugMenu.add(funcs, 'time', 0.0, 1.0, 0.01);
+
+        const playAnimMap: { [name: string]: () => void } = {};
+        for (const anim of this.animations) {
+            playAnimMap[anim.name] = () => {
+                this.debugAnimationMixer.stopAllAction();
+                this.debugAnimation = this.debugAnimationMixer.clipAction(anim).reset().play();
+            };
+            debugMenu.add(playAnimMap, anim.name);
         }
     }
 }

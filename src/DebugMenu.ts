@@ -9,7 +9,7 @@
 
 import { defined, assert } from './util';
 
-interface IDebugMenu {
+export interface IDebugMenu {
     add(target: Object, propName:string, min?: number, max?: number, step?: number): any;
     add(target: Object, propName:string, status: boolean): any;
     add(target: Object, propName:string, items:string[]): any;
@@ -76,6 +76,13 @@ class DebugMenuShim implements IDebugMenu {
         if (this._gui && !this._gui.closed) {
             for (var i in this._gui.__controllers) {
                 this._gui.__controllers[i].updateDisplay();
+            }
+
+            for (const folderName in this._gui.__folders) {
+                const folder = this._gui.__folders[folderName];
+                for (const controller of folder.__controllers) {
+                    controller.updateDisplay();
+                }
             }
         }
     }
