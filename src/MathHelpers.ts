@@ -67,13 +67,27 @@ export function equalsEpsilon(a: number, b: number, epsilon = MathConstants.EPSI
   return Math.abs(a - b) < epsilon;
 }
 
-/** Returns the signed angular distance from angle a to angle b, in radians
+/** Returns the signed numerical distance from a to b, wrapping at domainMax.
+ *  @param domainMax - Wrap the domain at this value. Defaults to 2*PI to support angular distance.
+ *  @example
+ *  wrappedDistance(Math.PI * 0.25, -Math.PI * 0.25); // - Math.PI * 0.5
+ *  wrappedDistance(Math.PI * 0.75, -Math.PI * 0.75); // Math.PI * 0.5 (Wrapped at 2*Math.PI)
+ *  wrappedDistance(0.9, 0.25, 1.0); // 0.35 (Wrapped at 1.0)
+ */
+export function wrappedDistance(a: number, b: number, domainMax: number = 1.0): number {
+  const da = (b - a) % domainMax;
+  return (2*da) % domainMax - da;
+}
+
+/** Returns the signed angular distance from angle a to angle b, wrapping at maxAngle.
+ *  @note To use angles in degrees, set maxAngle to 360
  *  @param maxAngle - Wrap the angle at this value. Defaults to 2*PI.
  *  @example
  *  angularDistance(Math.PI * 0.25, -Math.PI * 0.25); // - Math.PI * 0.5
- *  angularDistance(Math.PI * 0.75, -Math.PI * 0.75); // Math.PI * 0.5
+ *  angularDistance(Math.PI * 0.75, -Math.PI * 0.75); // Math.PI * 0.5 (Wrapped at 2*Math.PI)
+ *  angularDistance(10, 40, 360); // 30
+ *  angularDistance(10, 350, 360); // -20 (Wrapped at 360);
  */
-export function angularDistance(a: number, b: number, maxAngle: number = MathConstants.TAU): number {
-  const da = (b - a) % maxAngle;
-  return (2*da) % maxAngle - da;
+export function angularDistance(a: number, b: number, maxAngle = MathConstants.TAU): number {
+  return wrappedDistance(a, b, maxAngle);
 }
