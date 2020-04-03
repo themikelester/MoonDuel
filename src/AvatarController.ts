@@ -171,7 +171,7 @@ class LocalController {
 
         const inputDir = this.getCameraRelativeMovementDirection(input, camera, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
-        const inputShouldWalk = input.isKeyDown('ShiftLeft') || input.isKeyDown('ShiftRight');
+        const inputShouldWalk = input.isActive('walk');
         
         // Velocity
         const accel = inputShouldWalk ? walkAcceleration : runAcceleration;

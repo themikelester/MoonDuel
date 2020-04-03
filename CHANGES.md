@@ -4,6 +4,7 @@ Change Log
 ##### TODO
 * Pivot around whichever foot is grounded, or lerp between them if in the air
 * Improve stopping from running. Maybe a small skid?
+* Skidding 180 when about facing along the vertical axis
 
 ### 2020-31-06
 ##### Morning
