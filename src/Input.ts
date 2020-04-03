@@ -1,4 +1,6 @@
 import { defined, assertDefined } from "./util";
+import { EventDispatcher, Callback } from "./EventDispatcher";
+
 
 declare global {
     interface HTMLElement {
@@ -42,15 +44,13 @@ const kAxes: { [name: string]: InputAxis} = {
     }
 }
 
-export type Listener = (inputManager: InputManager) => void;
-
 const enum TouchGesture {
     None,
     Scroll, // 1-finger scroll and pan
     Pinch, // 2-finger pinch in and out
 }
 
-export class InputManager {
+export class InputManager extends EventDispatcher {
     public invertY = false;
     public invertX = false;
 
@@ -62,8 +62,6 @@ export class InputManager {
     public dz: number;
     public button: number = -1;
     public onisdraggingchanged: (() => void) | null = null;
-    private listeners: Listener[] = [];
-    private scrollListeners: Listener[] = [];
     private usePointerLock: boolean = true;
     public isInteractive: boolean = true;
 
@@ -107,12 +105,12 @@ export class InputManager {
         this.afterFrame();
     }
 
-    public addListener(listener: Listener): void {
-        this.listeners.push(listener);
+    public addListener(listener: Callback): void {
+        this.on('changed', listener);
     }
 
-    public addScrollListener(listener: Listener): void {
-        this.scrollListeners.push(listener);
+    public addScrollListener(listener: Callback): void {
+        this.on('scroll', listener);
     }
 
     public getMouseDeltaX(): number {
@@ -171,16 +169,6 @@ export class InputManager {
         return document.activeElement === document.body || document.activeElement === this.toplevel;
     }
 
-    private callListeners(): void {
-        for (let i = 0; i < this.listeners.length; i++)
-            this.listeners[i](this);
-    }
-
-    private callScrollListeners(): void {
-        for (let i = 0; i < this.scrollListeners.length; i++)
-            this.scrollListeners[i](this);
-    }
-
     private _onKeyDown = (e: KeyboardEvent) => {
         if (isModifier(e.code)) {
             e.preventDefault();
@@ -189,23 +177,23 @@ export class InputManager {
         }
 
         this.keysDown.set(e.code, !e.repeat);
-        this.callListeners();
+        this.fire('changed', this);
     };
 
     private _onKeyUp = (e: KeyboardEvent) => {
         this.keysDown.delete(e.code);
-        this.callListeners();
+        this.fire('changed', this);
     };
 
     private _onBlur = () => {
         this.keysDown.clear();
-        this.callListeners();
+        this.fire('changed', this);
     };
 
     private _onWheel = (e: WheelEvent) => {
         e.preventDefault();
         this.dz += Math.sign(e.deltaY) * -4;
-        this.callScrollListeners();
+        this.fire('scroll', this);
     };
 
     private _getScaledTouches(touches: TouchList): {x: number, y: number}[] {

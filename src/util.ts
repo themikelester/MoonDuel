@@ -22,7 +22,7 @@ export function defaultValue<T>(v: T | undefined, fallback: T): T {
     return (v !== undefined && v !== null) ? v : fallback;
 }
 
-// Remove the element at index n from an array
+// Remove the element n from an array, or assert if it does not exist
 export function arrayRemove<T>(L: T[], n: T): number {
     const idx = L.indexOf(n);
     assert(idx >= 0);
