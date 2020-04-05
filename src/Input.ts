@@ -21,6 +21,16 @@ export class InputManager {
             negativeKey: 'KeyA',
         });
         this.controller.registerKeys('walk', ['ShiftLeft', 'ShiftRight']);
+
+
+        this.controller.registerAxis('Horizontal', {
+            source: AxisSource.TouchDragX,
+        });
+
+        this.controller.registerAxis('Vertical', {
+            source: AxisSource.TouchDragY,
+            invert: true,
+        });
     }
 
     isActive(actionName: string) {

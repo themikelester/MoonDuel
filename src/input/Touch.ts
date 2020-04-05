@@ -1,5 +1,6 @@
-import { assertDefined } from "../util";
+import { assertDefined, defaultValue, defined } from "../util";
 import { EventDispatcher } from "../EventDispatcher";
+import { AxisOptions, Axis, AxisSource } from "./Controller";
 
 export interface TouchCoords {
     x: number,
@@ -204,5 +205,57 @@ export class TouchDevice extends EventDispatcher {
             this.element.removeEventListener('touchcancel', this.onCancel, false);
         }
         this.element = undefined;
+    }
+
+    registerAxis(options: AxisOptions): Axis {
+        let trackedTouchId: number;
+        let trackedTouchTime: number;
+        let trackedTouchOrigin: number;
+
+        const axis = {
+            value: 0,
+            options,
+        };
+
+        const propName = options.source === AxisSource.TouchDragX ? 'x' : 'y';
+
+        this.on('touchstart', (e: TouchEventWrapper) => {
+           const touchIdx = e.touches.length - 1; // If this is the first touch, there will only be one entry. 
+           if (touchIdx === defaultValue(options.index, 0)) {
+               const newTouch = e.changedTouches[0];
+               trackedTouchId = newTouch.id;
+               trackedTouchTime = performance.now();
+               trackedTouchOrigin = newTouch[propName];
+
+               axis.value = 0;
+           }
+        });
+
+        this.on('touchend', (e: TouchEventWrapper) => {
+            const trackedTouch = e.changedTouches.find(touch => touch.id === trackedTouchId);
+            if (defined(trackedTouch)) {
+                const newTouch = e.changedTouches[0];
+                trackedTouchId = newTouch.id;
+                trackedTouchTime = performance.now();
+                trackedTouchOrigin = newTouch[propName];
+
+                axis.value = 0;
+            }
+         });
+
+        this.on('touchmove', (e: TouchEventWrapper) => {
+            const trackedTouch = e.changedTouches.find(touch => touch.id === trackedTouchId);
+            if (defined(trackedTouch)) {
+                const newPos = trackedTouch[propName];
+                const newTime = performance.now();
+
+                const dp = newPos - trackedTouchOrigin;
+                axis.value = dp;
+
+                trackedTouchTime = newTime;
+            }
+        })
+
+        return axis;
     }
 }

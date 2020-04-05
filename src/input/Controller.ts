@@ -40,15 +40,16 @@ export interface AxisOptions {
     positiveKey?: string; // For Key sources, the key code which corresponds to the positive axis
     negativeKey?: string; // For Key sources, the key code which corresponds to the negative axis
 
+    invert?: boolean; // Flips the output. E.g. for outputs with a range of 1 it will be [1-0] instead of [0-1]
     deadZone?: number; // From [0-1]. Values below this will be clamped to 0.0, and above will lerp to 1.0.
     range?: number; // Limits the normalized range of the axis. E.g. for MouseDragX, 0.5 would mean that 
                     // the axis returns 1.0 once the mouse has been dragged half way across the width of the element
 }
 
-interface Axis {
+export interface Axis {
     options: AxisOptions;
     value: number;
-    func: () => number;
+    func?: () => number;
 }
 
 export class Controller {
@@ -117,7 +118,7 @@ export class Controller {
         // Evaluate all axes 
         for (const axisName in this.axes) {
             for (const axis of this.axes[axisName]) {
-                axis.value = axis.func();
+                if (axis.func) axis.value = axis.func();
             }
         }
     }
@@ -183,36 +184,12 @@ export class Controller {
                 });
             } break;
 
-            // case AxisSource.TouchDragX: {
-            //     let trackedTouchId: number;
-            //     let trackedTouchTime: number;
-            //     let trackedTouchPos: number;
-
-            //     this.touch?.on('touchstart', (e: TouchEventWrapper) => {
-            //        const touchIdx = e.touches.length - 1; // If this is the first touch, there will only be one entry. 
-            //        if (touchIdx === defaultValue(options.index, 0)) {
-            //            const newTouch = e.changedTouches[0];
-            //            trackedTouchId = newTouch.id;
-            //            trackedTouchTime = performance.now();
-            //            trackedTouchPos = newTouch.x;
-            //        }
-            //     });
-
-            //     this.touch?.on('touchmove', (e: TouchEventWrapper) => {
-            //         const trackedTouch = e.changedTouches.find(touch => touch.id === trackedTouchId);
-            //         if (defined(trackedTouch)) {
-            //             const newPos = trackedTouch.x;
-            //             const newTime = performance.now();
-
-            //             const dp = newPos - trackedTouchPos;
-            //             const dt = newTime - trackedTouchTime;
-            //             this.axesValues[]
-
-            //             trackedTouchPos = newPos;
-            //             trackedTouchTime = newTime;
-            //         }
-            //     })
-            // }
+            case AxisSource.TouchDragX:
+            case AxisSource.TouchDragY: {
+                if (!defined(this.touch)) this.enableTouches();
+                const axis = this.touch!.registerAxis(options);
+                axes.push(axis);
+            } break;
         }
     }
 
@@ -271,8 +248,8 @@ export class Controller {
 
         let value = 0; 
         for (const axis of axes) {
-            if (Math.abs(axis.value) > Math.abs(value)) { 
-                value = axis.value;
+            if (Math.abs(axis.value) > Math.abs(value)) {
+                value = axis.options.invert ? -axis.value : axis.value;
             }
         }
 
