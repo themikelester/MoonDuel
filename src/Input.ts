@@ -1,13 +1,17 @@
 import { Controller, AxisSource } from "./input/Controller";
 import { Clock } from "./Clock";
+import { Keyboard } from "./input/Keyboard";
 
 export class InputManager {
     controller: Controller = new Controller();
 
     initialize({ toplevel }: { toplevel: HTMLElement}) {
-        this.controller.attach(document as any);
-        this.controller.enableKeyboard();
+        this.controller.attach(toplevel);
         this.controller.enableTouches();
+
+        // Keyboard listeners only work on <div> elements if they have a tabindex set.
+        // It makes more sense to capture keys for the whole window, at least for now.
+        this.controller.keyboard = new Keyboard(window as any);
 
         // Set up a rough keymap
         this.controller.registerAxis('Vertical', {
