@@ -1,0 +1,8 @@
+{
+  "name": "Foobar",
+  "short_name": "Foobar",
+  "description": "Just an example.",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "start_url": "/"
+}

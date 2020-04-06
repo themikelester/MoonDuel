@@ -1,0 +1,7 @@
+{
+    "short_name": "Moon Duel",
+    "name": "Moon Duel",
+    "description": "Challenge your friends to a Moon Duel!",
+    "display": "fullscreen",
+    "orientation": "landscape"
+  }
