@@ -2,6 +2,7 @@ import { TouchDevice } from "./Touch";
 import { defined, assert, assertDefined } from "../util";
 import { Keyboard } from "./Keyboard";
 import screenfull, { Screenfull } from 'screenfull';
+import { Mouse } from "./Mouse";
 
 class Action {
     constructor(public name: string) {}
@@ -53,6 +54,7 @@ export interface Axis {
 }
 
 export class Controller {
+    public mouse: Mouse;
     public keyboard: Keyboard;
     public touch?: TouchDevice;
     public element?: Element;
@@ -68,7 +70,7 @@ export class Controller {
 
         if (defined(this.touch)) this.touch.attach(element);
         if (defined(this.keyboard)) this.keyboard.attach(element);
-        // if (defined(this.mouse)) this.mouse.attach(element);
+        if (defined(this.mouse)) this.mouse.attach(element);
 
         // Clear all key presses when the root element loses focus
         // E.g. while holding 'w' to run forward in a game, pressing Cmd+D while open the bookmark dialog.
@@ -92,7 +94,7 @@ export class Controller {
     detach(element: Element) {
         if (defined(this.touch)) this.touch.detach();
         if (defined(this.keyboard)) this.keyboard.detach();
-        // if (defined(this.mouse)) this.mouse.detach();
+        if (defined(this.mouse)) this.mouse.detach();
         this.element = undefined;
     }
 
@@ -100,27 +102,21 @@ export class Controller {
      * Disable the context menu usually activated with the right mouse button.
      */
     disableContextMenu() {
-        // if (!this.mouse) {
-        //     this.enableMouse();
-        // }
-
-        // this.mouse.disableContextMenu();
+        if (!this.mouse) { this.enableMouse(); }
+        this.mouse.disableContextMenu();
     };
 
     /**
      * Enable the context menu usually activated with the right mouse button. This is enabled by default.
      */
     enableContextMenu() {
-        // if (!this.mouse) {
-        //     this.enableMouse();
-        // }
-
-        // this.mouse.enableContextMenu();
+        if (!this.mouse) { this.enableMouse(); }
+        this.mouse.enableContextMenu();
     };
 
-    update(dt: number) {
+    update() {
         if (this.keyboard) { this.keyboard.update(); }
-        // if (this.mouse) { this.mouse.update(dt); }
+        if (this.mouse) { this.mouse.update(); }
         // if (this.gamepads) { this.gamepads.update(dt); }
 
         // Evaluate all axes 
@@ -151,12 +147,12 @@ export class Controller {
      * @param {number[]} buttons - A list of mouse button indices.
      */
     registerMouse(actionName: string, buttons: number[]) {
-        // if (!this.mouse) { this.enableMouse(); }
-        // if (!defined(this.actions[actionName])) { this.actions[actionName] = new Action(name); }
+        if (!this.mouse) { this.enableMouse(); }
+        if (!defined(this.actions[actionName])) { this.actions[actionName] = new Action(name); }
 
-        // const action = this.actions[actionName];
-        // assert(!defined(action.keys), 'Action already has mouse bindings');
-        // action.mouseButtons = buttons;
+        const action = this.actions[actionName];
+        assert(!defined(action.keys), 'Action already has mouse bindings');
+        action.mouseButtons = buttons;
     };
 
     /**
@@ -214,7 +210,7 @@ export class Controller {
         }
 
         if (action.keys) for (const key of action.keys) { if (this.keyboard.isPressed(key)) return true; }
-        // if (action.mouseButtons) for (const key of action.mouseButtons) { if (this.mouse.isPressed(key)) return true; }
+        if (action.mouseButtons) for (const key of action.mouseButtons) { if (this.mouse.isPressed(key)) return true; }
         // if (action.padButtons) {
         //     for (let i = 0; i < action.padButtons.length; i++) {
         //         const button = action.padButtons[i];
@@ -239,12 +235,12 @@ export class Controller {
         }
 
         if (action.keys) for (const key of action.keys) { if (this.keyboard.wasPressed(key)) return true; }
-        // if (action.mouseButtons) for (const key of action.mouseButtons) { if (this.mouse.isPressed(key)) return true; }
+        if (action.mouseButtons) for (const key of action.mouseButtons) { if (this.mouse.wasPressed(key)) return true; }
         // if (action.padButtons) {
         //     for (let i = 0; i < action.padButtons.length; i++) {
         //         const button = action.padButtons[i];
         //         const index = action.padIndexes ? action.padIndexes[i] : 0;
-        //         if (this.gamepads.isPressed(index, button)) return true; 
+        //         if (this.gamepads.wasPressed(index, button)) return true; 
         //     }
         // }
 
@@ -264,13 +260,10 @@ export class Controller {
         return value;
     }
 
-    // Controller.prototype._enableMouse = function () {
-    //     this._mouse = new pc.Mouse();
-    //     if (!this._element) {
-    //         throw new Error("Controller must be attached to an Element");
-    //     }
-    //     this._mouse.attach(this._element);
-    // };
+    enableMouse() {
+        const element = assertDefined(this.element, 'Controller must be attached to an Element');
+        this.mouse = new Mouse(element);
+    };
 
     enableKeyboard() {
         const element = assertDefined(this.element, 'Controller must be attached to an Element');

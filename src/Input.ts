@@ -3,6 +3,7 @@ import { Clock } from "./Clock";
 import { Keyboard } from "./input/Keyboard";
 import screenfull, { Screenfull } from 'screenfull';
 import { defined } from "./util";
+import { MouseEvents, MouseEventWrapper } from "./input/Mouse";
 
 const fullscreen = (screenfull.isEnabled) ? screenfull as Screenfull : undefined;
 
@@ -11,6 +12,7 @@ export class InputManager {
 
     initialize({ toplevel }: { toplevel: HTMLElement}) {
         this.controller.attach(toplevel);
+        this.controller.enableMouse();
         this.controller.enableTouches();
 
         // Keyboard listeners only work on <div> elements if they have a tabindex set.
@@ -38,6 +40,8 @@ export class InputManager {
 
         this.controller.registerKeys('walk', ['ShiftLeft', 'ShiftRight']);
         this.controller.registerKeys('toggleFullscreen', ['Backslash']);
+
+        this.controller.disableContextMenu();
     }
 
     isActive(actionName: string) {
