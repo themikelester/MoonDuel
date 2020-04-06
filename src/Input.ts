@@ -1,9 +1,7 @@
 import { Controller, AxisSource } from "./input/Controller";
-import { Clock } from "./Clock";
 import { Keyboard } from "./input/Keyboard";
 import screenfull, { Screenfull } from 'screenfull';
 import { defined } from "./util";
-import { MouseEvents, MouseEventWrapper } from "./input/Mouse";
 
 const fullscreen = (screenfull.isEnabled) ? screenfull as Screenfull : undefined;
 
@@ -56,7 +54,7 @@ export class InputManager {
         return this.controller.getAxis(axisName);
     }
 
-    afterFrame({ clock }: { clock: Clock }) {
+    afterFrame() {
         // @HACK: This belongs somewhere else
         if (defined(fullscreen)) {
             if (this.wasActive('toggleFullscreen')) {
@@ -64,7 +62,6 @@ export class InputManager {
             }
         }
 
-        const realDtSec = clock.realDt / 1000;
-        this.controller.update(realDtSec);
+        this.controller.update();
     }
 }

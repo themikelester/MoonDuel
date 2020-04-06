@@ -101,7 +101,7 @@ class Main {
         this.debugGrid.render(this);
         this.compositor.render();
 
-        this.input.afterFrame(this);
+        this.input.afterFrame();
 
         DebugMenu.update();
 
