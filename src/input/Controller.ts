@@ -55,8 +55,8 @@ export interface Axis {
 export class Controller {
     public keyboard: Keyboard;
     public touch?: TouchDevice;
+    public element?: Element;
 
-    private element?: Element;
     private actions: Record<string, Action> = {};
     private axes: Record<string, Axis[]> = {};
     
@@ -230,7 +230,7 @@ export class Controller {
             return false;
         }
 
-        if (action.keys) for (const key of action.keys) { if (this.keyboard.isPressed(key)) return true; }
+        if (action.keys) for (const key of action.keys) { if (this.keyboard.wasPressed(key)) return true; }
         // if (action.mouseButtons) for (const key of action.mouseButtons) { if (this.mouse.isPressed(key)) return true; }
         // if (action.padButtons) {
         //     for (let i = 0; i < action.padButtons.length; i++) {
