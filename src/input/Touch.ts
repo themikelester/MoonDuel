@@ -4,7 +4,7 @@ import { AxisOptions, Axis, AxisSource } from "./Controller";
 
 // On Chrome all touch events are passive by default.
 // Passive events can't call preventDefault() to prevent scrolling.
-// Passive listeners don't count a user events for fullscreening. See https://stackoverflow.com/questions/42945378/full-screen-event-on-touch-not-working-on-chrome
+// Passive listeners don't count as user events for fullscreening. See https://stackoverflow.com/questions/42945378/full-screen-event-on-touch-not-working-on-chrome
 const kListenerOptions: AddEventListenerOptions = { 
     passive: false,
     capture: false,
@@ -171,15 +171,13 @@ export class TouchDevice extends EventDispatcher {
         super();
         this.element = undefined;
 
-        this.onStart = (e: Event) => this.fire('touchstart', new TouchEventWrapper(this, e as TouchEvent));
-        this.onEnd = (e: Event) => this.fire('touchend', new TouchEventWrapper(this, e as TouchEvent));
-        this.onCancel = (e: Event) => this.fire('touchcancel', new TouchEventWrapper(this, e as TouchEvent));
-        this.onMove = (e: Event) => {
-            // call preventDefault to avoid issues in Chrome Android:
-            // http://wilsonpage.co.uk/touch-events-in-chrome-android/
-            e.preventDefault();
-            this.fire('touchmove', new TouchEventWrapper(this, e as TouchEvent));
-        }
+        // Call preventDefault to avoid issues in Chrome Android:
+        // See http://wilsonpage.co.uk/touch-events-in-chrome-android/
+        // and https://stackoverflow.com/questions/42945378/full-screen-event-on-touch-not-working-on-chrome
+        this.onStart = (e: Event) => { e.preventDefault(); this.fire('touchstart', new TouchEventWrapper(this, e as TouchEvent)); };
+        this.onEnd = (e: Event) => { e.preventDefault(); this.fire('touchend', new TouchEventWrapper(this, e as TouchEvent)); };
+        this.onCancel = (e: Event) => { this.fire('touchcancel', new TouchEventWrapper(this, e as TouchEvent)); };
+        this.onMove = (e: Event) => { e.preventDefault(); this.fire('touchmove', new TouchEventWrapper(this, e as TouchEvent)); };
 
         this.attach(element);
     }
