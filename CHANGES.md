@@ -5,14 +5,19 @@ Change Log
 * Pivot around whichever foot is grounded, or lerp between them if in the air
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
-* Touch axes
 
 ### 2020-06-03
+##### Morning
 Implement and solidify touch axes so that I can control the avatar on mobile. Clean up mobile HTML/CSS issues so that there is no scrolling and the app goes fullscreen on touch. Maybe implement some "safe zones" on the sides? I.e. areas where no important objects are so that there's always a place to slap down your pudgy fingers without hiding anything from view. We could just treat the 4:3 center of the screen as the only visible area when computing cameras. Probably a bit early for this. Mobile Day!
 
 If all that gets done it's probably a good idea to write the Mouse input handler, I've been putting that off. That could be used to implement Debug Cam. 
 
 Oh! And I should add access to the debug menu on mobile. Probably touching the top right corner.
+
+##### Evening
+I implemented and polished up the Touch axis, so that controls work on mobile, and implemented the mouse input handler. Spent a bit of time futzing around with fullscreen support. Added a web manifest to make this a "progressive web app" :eyeroll:. When it is added to an android home screen, it will launch fullscreen and in landscape, which is nice. Hooked up the '\' key to toggle fullscreen on desktop. Lots of little fixes to touch and mouse handling, lots of stackoverflow reading. Around 3pm I decided that was enough work on the input system, and started thinking/reading about how to implement the backend and middleware. 
+
+I'm pretty firm that I'm going to go for a WebRTC-based client-server (not peer to peer) architecture. There's a really great blog post about an ex-google engineer implementing just such a system as a toy project. I aim to base off of that. http://blog.brkho.com/2017/03/15/dive-into-client-server-web-games-webrtc/. It's fun to day dream about extra features like having peer-to-peer voice chat once the client-server connection is established. I plan to spend at least the next week trying to get his demo running, then adapted to send game messages, then authoring a protocol to send proper game messages, then implementing server logic.
 
 ### 2020-04-03
 ##### Morning
