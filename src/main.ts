@@ -109,7 +109,7 @@ class Main {
     };
 
     private onResize() {
-        this.cameraSystem.resize(window.innerWidth, window.innerHeight);
+        this.cameraSystem.resize(window.innerWidth / window.innerHeight);
         this.compositor.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
     }
 }

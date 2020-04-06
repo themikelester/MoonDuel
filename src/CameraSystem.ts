@@ -29,15 +29,15 @@ export class CameraSystem {
     }
 
     initialize(deps: Dependencies) {
-        this.resize(window.innerWidth, window.innerHeight);
+        const aspect = window.innerWidth / window.innerHeight;
+        this.resize(aspect);
 
         this.controller = new FollowCameraController();
         this.controller.camera = this.camera;
         this.controller.initialize(deps);
     }
 
-    resize(width: number, height: number) {
-        const aspect = width / height;
+    resize(aspect: number) {
         this.camera.setPerspective(this.camera.fov, aspect, this.camera.near, this.camera.far);
     }
 
