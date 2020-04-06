@@ -4,5 +4,5 @@
   "description": "Just an example.",
   "display": "fullscreen",
   "orientation": "landscape",
-  "start_url": "/"
+  "start_url": "/gfx-boilerplate/"
 }
