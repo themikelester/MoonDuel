@@ -1,7 +1,7 @@
 {
-  "name": "Foobar",
-  "short_name": "Foobar",
-  "description": "Just an example.",
+  "name": "Moon Duel",
+  "short_name": "Moon Duel",
+  "description": "",
   "display": "fullscreen",
   "orientation": "landscape",
   "start_url": "/gfx-boilerplate/"
