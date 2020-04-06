@@ -4,5 +4,5 @@
     "description": "<%= description %>",
     "display": "fullscreen",
     "orientation": "landscape",
-    "start_url": "/gfx-boilerplate/"
+    "start_url": "/"
 }
