@@ -1,8 +1,14 @@
 import * as Gfx from './gfx/GfxTypes';
 import { renderLists, RenderList } from './RenderList';
 import { assertDefined, defined, defaultValue } from './util';
+import { DebugMenu } from './DebugMenu';
 
 export class Compositor {
+    private width: number;
+    private height: number;
+
+    public resolutionScale = 1.0;
+
     constructor(public canvas: HTMLCanvasElement, public gfxDevice: Gfx.Renderer) {}
 
     public initialize(): void {
@@ -10,9 +16,21 @@ export class Compositor {
         for (let list in renderLists) {
             renderLists[list].defaultDepthStateId = this.gfxDevice.createDepthStencilState(renderLists[list].defaultDepthState);
         }
+        
+        // Debug
+        const debugMenu = DebugMenu.addFolder('Compositor');
+        debugMenu.add(this, 'resolutionScale', 1, 16, 1);
     }
 
     public render(): void {
+        // Resize the back buffer if either the canvas size of resolution scale has changed
+        this.width = this.canvas.clientWidth * devicePixelRatio / this.resolutionScale;
+        this.height = this.canvas.clientHeight * devicePixelRatio / this.resolutionScale;
+        if (this.width !== this.canvas.width || this.height !== this.canvas.height) {
+            this.canvas.width = this.width;
+            this.canvas.height = this.height;
+            if (this.gfxDevice) this.gfxDevice.resize(this.canvas.width, this.canvas.height);
+        }
 
         this.gfxDevice.beginFrame();
             // All the drawing work goes here
@@ -28,11 +46,10 @@ export class Compositor {
         }
     }
 
-    public resize(width: number, height: number, devicePixelRatio: number) {
-        this.canvas.setAttribute('style', `width: ${width}px; height: ${height}px;`);
-        this.canvas.width = width * devicePixelRatio;
-        this.canvas.height = height * devicePixelRatio;
-        if (this.gfxDevice) this.gfxDevice.resize(this.canvas.width, this.canvas.height);
+    public resize(clientWidth: number, clientHeight: number, devicePixelRatio: number) {
+        // Resize the canvas client size to fit the specified dimensions
+        // @NOTE: The back buffer will be resized on next render
+        this.canvas.setAttribute('style', `width: ${clientWidth}px; height: ${clientHeight}px;`);
     }
 }
 
