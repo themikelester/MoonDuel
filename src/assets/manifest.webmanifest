@@ -1,0 +1,8 @@
+{
+    "name": "<%= name %>",
+    "short_name": "<%= shortName %>",
+    "description": "<%= description %>",
+    "display": "fullscreen",
+    "orientation": "landscape",
+    "start_url": "/gfx-boilerplate/"
+}

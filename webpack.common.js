@@ -12,6 +12,9 @@ const webpack = require('webpack');
 const COMMIT_HASH = gitRevision.commithash();
 const GITHUB_URL = 'https://github.com/themikelester/gfx-boilerplate';
 const GTAG_ID = 'Some Google Analytics ID';
+const APP_NAME = 'Moon Duel';
+const APP_NAME_SHORT = 'Moon Duel';
+const APP_DESCRIPTION = ''
 
 module.exports = {
   entry: {
@@ -54,6 +57,26 @@ module.exports = {
         options: { 
           name: '[name].[hash].js',
         }
+      },
+      {
+        test: /\.webmanifest$/,
+        include: /assets\//,
+        use: [
+          {
+            loader: 'file-loader',
+            options: {
+              name: '[name].[ext]'
+            }
+          },
+          {
+            loader: 'webmanifest-loader',
+            options: {
+              name: APP_NAME,
+              shortName: APP_NAME_SHORT,
+              description: APP_DESCRIPTION,
+            }
+          }
+        ]
       },
     ],
   },
