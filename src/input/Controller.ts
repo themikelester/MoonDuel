@@ -1,7 +1,7 @@
-import { TouchDevice, TouchEventWrapper, TouchCoords } from "./Touch";
-import { defined, assert, defaultValue, assertDefined } from "../util";
-import { Clock } from "../Clock";
+import { TouchDevice } from "./Touch";
+import { defined, assert, assertDefined } from "../util";
 import { Keyboard } from "./Keyboard";
+import screenfull, { Screenfull } from 'screenfull';
 
 class Action {
     constructor(public name: string) {}
@@ -66,6 +66,10 @@ export class Controller {
     attach(element: Element) {
         this.element = element;
 
+        if (defined(this.touch)) this.touch.attach(element);
+        if (defined(this.keyboard)) this.keyboard.attach(element);
+        // if (defined(this.mouse)) this.mouse.attach(element);
+
         // Clear all key presses when the root element loses focus
         // E.g. while holding 'w' to run forward in a game, pressing Cmd+D while open the bookmark dialog.
         // Without this, the character will continue to run forward until you refocus the window and re-release the keys
@@ -73,9 +77,13 @@ export class Controller {
             this.keyboard.clear();
         });
 
-        if (defined(this.touch)) this.touch.attach(element);
-        if (defined(this.keyboard)) this.keyboard.attach(element);
-        // if (defined(this.mouse)) this.mouse.attach(element);
+        // Clear all key presses when entering or exiting fullscreen
+        // The listeners stop firing during this time, so we can miss a keyup and the key will appear to be stuck
+        if (screenfull.isEnabled) {
+            (screenfull as Screenfull).onchange(() => {
+                this.keyboard.clear();
+            });
+        }
     }
 
     /**

@@ -1,6 +1,10 @@
 import { Controller, AxisSource } from "./input/Controller";
 import { Clock } from "./Clock";
 import { Keyboard } from "./input/Keyboard";
+import screenfull, { Screenfull } from 'screenfull';
+import { defined } from "./util";
+
+const fullscreen = (screenfull.isEnabled) ? screenfull as Screenfull : undefined;
 
 export class InputManager {
     controller: Controller = new Controller();
@@ -24,17 +28,16 @@ export class InputManager {
             positiveKey: 'KeyD',
             negativeKey: 'KeyA',
         });
-        this.controller.registerKeys('walk', ['ShiftLeft', 'ShiftRight']);
-
-
         this.controller.registerAxis('Horizontal', {
             source: AxisSource.TouchDragX,
         });
-
         this.controller.registerAxis('Vertical', {
             source: AxisSource.TouchDragY,
             invert: true,
         });
+
+        this.controller.registerKeys('walk', ['ShiftLeft', 'ShiftRight']);
+        this.controller.registerKeys('toggleFullscreen', ['Backslash']);
     }
 
     isActive(actionName: string) {
@@ -50,6 +53,13 @@ export class InputManager {
     }
 
     afterFrame({ clock }: { clock: Clock }) {
+        // @HACK: This belongs somewhere else
+        if (defined(fullscreen)) {
+            if (this.wasActive('toggleFullscreen')) {
+                fullscreen.toggle(this.controller.element);
+            }
+        }
+
         const realDtSec = clock.realDt / 1000;
         this.controller.update(realDtSec);
     }
