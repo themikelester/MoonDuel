@@ -2,6 +2,14 @@ import { assertDefined, defaultValue, defined } from "../util";
 import { EventDispatcher } from "../EventDispatcher";
 import { AxisOptions, Axis, AxisSource } from "./Controller";
 
+// On Chrome all touch events are passive by default.
+// Passive events can't call preventDefault() to prevent scrolling.
+// Passive listeners don't count a user events for fullscreening. See https://stackoverflow.com/questions/42945378/full-screen-event-on-touch-not-working-on-chrome
+const kListenerOptions: AddEventListenerOptions = { 
+    passive: false,
+    capture: false,
+};
+
 export interface TouchCoords {
     x: number,
     y: number,
@@ -188,10 +196,10 @@ export class TouchDevice extends EventDispatcher {
 
         this.element = element;
 
-        this.element.addEventListener('touchstart', this.onStart, false);
-        this.element.addEventListener('touchend', this.onEnd, false);
-        this.element.addEventListener('touchmove', this.onMove, false);
-        this.element.addEventListener('touchcancel', this.onCancel, false);
+        this.element.addEventListener('touchstart', this.onStart, kListenerOptions);
+        this.element.addEventListener('touchend', this.onEnd, kListenerOptions);
+        this.element.addEventListener('touchmove', this.onMove, kListenerOptions);
+        this.element.addEventListener('touchcancel', this.onCancel, kListenerOptions);
     }
 
     /**
@@ -199,10 +207,10 @@ export class TouchDevice extends EventDispatcher {
      */
     detach(): void {
         if (this.element) {
-            this.element.removeEventListener('touchstart', this.onStart, false);
-            this.element.removeEventListener('touchend', this.onEnd, false);
-            this.element.removeEventListener('touchmove', this.onMove, false);
-            this.element.removeEventListener('touchcancel', this.onCancel, false);
+            this.element.removeEventListener('touchstart', this.onStart, kListenerOptions);
+            this.element.removeEventListener('touchend', this.onEnd, kListenerOptions);
+            this.element.removeEventListener('touchmove', this.onMove, kListenerOptions);
+            this.element.removeEventListener('touchcancel', this.onCancel, kListenerOptions);
         }
         this.element = undefined;
     }
