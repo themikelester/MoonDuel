@@ -72,6 +72,9 @@ export class Keyboard extends EventDispatcher {
     private onKeyDown(event: KeyboardEvent) {
         var code = event.code;
 
+        // If the user is holding down the key, ignore subsequent events
+        if (event.repeat) { return }
+
         // Google Chrome auto-filling of login forms could raise a malformed event
         if (code === undefined) return;
 
