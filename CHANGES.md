@@ -10,6 +10,11 @@ Change Log
 ##### Morning
 Oh forgot to mention, I purchased the moonduel.io domain, and hooked it up to the github pages page. Today I plan on getting a Ubuntu docker instance set up, and try to get the client-server WebRTC example from http://blog.brkho.com/2017/03/15/dive-into-client-server-web-games-webrtc/ up and running. Then I'll try to adapt the client code so that I can connect to the server from instances of my client.
 
+##### Evening
+MY GOODNESS. Building libwebrtc is quite a chore. I spent the day trying to work through the blog post linked above. Most of that was learning about docker and trying to write a Dockerfile for his project so that I could get it building on Ubuntu. The compile step for libwebrtc takes at least 20 minutes on my machine, and I had to do it three times. I'm currently stuck on getting the project to 'make'. cmake seems to be failing to include the necessary include directories from the LibWebRTC dependency. I'll be looking into that tomorrow.
+
+Of note, I'm not using the install scripts that he linked in the original blog post, but a fork that has been updated to work with the latest libwebrtc "release" which as of now is 72, from early 2019. https://github.com/cloudwebrtc/libwebrtc-build
+
 ### 2020-06-03
 ##### Morning
 Implement and solidify touch axes so that I can control the avatar on mobile. Clean up mobile HTML/CSS issues so that there is no scrolling and the app goes fullscreen on touch. Maybe implement some "safe zones" on the sides? I.e. areas where no important objects are so that there's always a place to slap down your pudgy fingers without hiding anything from view. We could just treat the 4:3 center of the screen as the only visible area when computing cameras. Probably a bit early for this. Mobile Day!
