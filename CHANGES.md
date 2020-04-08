@@ -11,6 +11,18 @@ Change Log
 ##### Morning
 Same as yesterday. Time to pound out some libwebrtc builds!
 
+##### Evening
+Spent a lot of time futzing around with the docker container while trying to get libwebrtc to compile. Had to increase docker's max disk size from 60 to 112 GB. 
+
+Started my own fork of the libwebrtc build tools: https://github.com/themikelester/libwebrtc-build
+- Fix for /usr/local/include/webrtc/ not being added to cmake's include dirs: added it via LibWebRTCConfig.cmake
+- Fix for abseil headers not being available: https://github.com/mpromonet/webrtc-streamer/issues/126
+    - Copy the include files from the src/third-party directory into install dir via CMakeLists.txt
+
+Also started a fork of the client-server demo code that contains fixes for libwebrtc version 72. https://github.com/themikelester/client-server-webrtc-example
+
+It's compiling, but linking is currently failing with some missing libewebrtc symbols. That's a problem for tomorrow.
+
 ### 2020-07-03
 ##### Morning
 Oh forgot to mention, I purchased the moonduel.io domain, and hooked it up to the github pages page. Today I plan on getting a Ubuntu docker instance set up, and try to get the client-server WebRTC example from http://blog.brkho.com/2017/03/15/dive-into-client-server-web-games-webrtc/ up and running. Then I'll try to adapt the client code so that I can connect to the server from instances of my client.
