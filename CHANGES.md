@@ -6,8 +6,11 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-09-03
+##### Morning
+Same again as yesterday. Time to pound out some libwebrtc builds!
 
-### 2020-07-03
+### 2020-08-03
 ##### Morning
 Same as yesterday. Time to pound out some libwebrtc builds!
 
