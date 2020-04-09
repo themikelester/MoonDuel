@@ -12,10 +12,11 @@ export class WebUdpSocket extends EventDispatcher {
         this.address = address;
     }
 
-    connect() {
+    async connect() {
         var socket = this;
 
         // @TODO: Pick more ICE servers? Support TURN?
+        // @NOTE: Firefox requires a TURN server to work
         this.peer = new RTCPeerConnection({
             iceServers: [{
                 urls: ["stun:stun.l.google.com:19302"]
@@ -59,30 +60,22 @@ export class WebUdpSocket extends EventDispatcher {
             socket.fire('message', evt);
         };
 
-        this.peer.createOffer().then(offer => {
-            return this.peer.setLocalDescription(offer);
-        }).then(() => {
-            var request = new XMLHttpRequest();
-            request.open("POST", socket.address);
-            request.onload = () => {
-                if (request.status == 200) {
-                    var response = JSON.parse(request.responseText);
-                    this.peer.setRemoteDescription(new RTCSessionDescription(response.answer)).then(() => {
-                        var candidate = new RTCIceCandidate(response.candidate);
-                        this.peer.addIceCandidate(candidate).then(function () {
-                            console.log("WebUDP: Add remote ice candidate success");
-                        }).catch(function (err) {
-                            console.error("WebUDP: Failure during remote addIceCandidate()", err);
-                        });
-                    }).catch(function (e) {
-                        console.error("WebUDP: Set remote description fail", e);
-                    });
-                }
-            };
-            request.send(this.peer.localDescription!.sdp);
-        }).catch(function (reason) {
-            console.error("WebUDP: Create offer fail " + reason);
-        });
+        const offer = await this.peer.createOffer();
+        await this.peer.setLocalDescription(offer);
+
+        var request = new XMLHttpRequest();
+        request.open("POST", socket.address);
+        request.onload = async () => {
+            if (request.status == 200) {
+                const response = JSON.parse(request.responseText);
+                await this.peer.setRemoteDescription(new RTCSessionDescription(response.answer));
+
+                var candidate = new RTCIceCandidate(response.candidate);
+                await this.peer.addIceCandidate(candidate);
+                console.debug("WebUDP: Add remote ice candidate success");
+            }
+        };
+        request.send(this.peer.localDescription!.sdp);
     }
 
     send(data: string) {
