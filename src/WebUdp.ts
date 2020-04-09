@@ -14,78 +14,74 @@ export class WebUdpSocket extends EventDispatcher {
 
     connect() {
         var socket = this;
+
+        // @TODO: Pick more ICE servers? Support TURN?
         this.peer = new RTCPeerConnection({
             iceServers: [{
                 urls: ["stun:stun.l.google.com:19302"]
             }]
         });
-        var peer = this.peer;
 
         this.peer.onicecandidate = function (evt) {
             if (evt.candidate) {
-                console.log("received ice candidate", evt.candidate);
+                console.debug("WebUDP: Received ice candidate", evt.candidate);
             } else {
-                console.log("all local candidates received");
+                console.debug("WebUDP: All local candidates received");
             }
         };
 
         this.peer.ondatachannel = function (evt) {
-            console.log("peer connection on data channel");
-            console.log(evt);
-
+            console.debug("WebUDP: Peer connection on data channel", evt);
         };
 
-        this.channel = peer.createDataChannel("webudp", {
+        this.channel = this.peer.createDataChannel("webudp", {
             ordered: false,
             maxRetransmits: 0
         });
         this.channel.binaryType = "arraybuffer";
 
-        var channel = this.channel;
-
-        channel.onopen = function () {
-            console.log("data channel ready");
+        this.channel.onopen = function () {
+            console.debug("WebUDP: Data channel ready");
             socket.isOpen = true;
-            socket.fire('onopen');
+            socket.fire('open');
         };
 
-        channel.onclose = function () {
+        this.channel.onclose = function () {
             socket.isOpen = false;
-            console.log("data channel closed");
+            console.debug("WebUDP: Data channel closed");
         };
 
-        channel.onerror = function (evt) {
-            console.log("data channel error " + evt.error);
+        this.channel.onerror = function (evt) {
+            console.error("WebUDP: Data channel error", evt);
         };
 
-        channel.onmessage = function (evt) {
-            socket.fire('onmessage', evt);
+        this.channel.onmessage = function (evt) {
+            socket.fire('message', evt);
         };
 
-        peer.createOffer().then(function (offer) {
-            return peer.setLocalDescription(offer);
-        }).then(function () {
+        this.peer.createOffer().then(offer => {
+            return this.peer.setLocalDescription(offer);
+        }).then(() => {
             var request = new XMLHttpRequest();
             request.open("POST", socket.address);
-            request.onload = function () {
+            request.onload = () => {
                 if (request.status == 200) {
                     var response = JSON.parse(request.responseText);
-                    peer.setRemoteDescription(new RTCSessionDescription(response.answer)).then(function () {
+                    this.peer.setRemoteDescription(new RTCSessionDescription(response.answer)).then(() => {
                         var candidate = new RTCIceCandidate(response.candidate);
-                        peer.addIceCandidate(candidate).then(function () {
-                            console.log("add ice candidate success");
+                        this.peer.addIceCandidate(candidate).then(function () {
+                            console.log("WebUDP: Add remote ice candidate success");
                         }).catch(function (err) {
-                            console.log("Error: Failure during addIceCandidate()", err);
+                            console.error("WebUDP: Failure during remote addIceCandidate()", err);
                         });
-                    })
-                        .catch(function (e) {
-                            console.log("set remote description fail", e);
-                        });
+                    }).catch(function (e) {
+                        console.error("WebUDP: Set remote description fail", e);
+                    });
                 }
             };
-            request.send(peer.localDescription!.sdp);
+            request.send(this.peer.localDescription!.sdp);
         }).catch(function (reason) {
-            console.log("create offer fail " + reason);
+            console.error("WebUDP: Create offer fail " + reason);
         });
     }
 
