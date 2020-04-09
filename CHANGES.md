@@ -10,6 +10,9 @@ Change Log
 ##### Morning
 Same again as yesterday. Time to pound out some libwebrtc builds!
 
+##### Evening
+Yes! I spent a few hours and got a bit further trying to build Google's libwebrtc, then got disheartened and went hunting for some other C++ webrtc implementations. Jackpot! Found https://github.com/seemk/WebUDP. Was stuck for a long time trying to get the example running. The server was building and the client was sending at least one TCP message to the server, but it wasn't establishing the rtc connection. Finally figured out that I needed to docker publish not only the :9555 port (which defaults to TCP) but also the :9555/udp port. Apparently the webrtc implementation in JS sends a udp message to the other peer after the SDP is established. Woohoo! 
+
 ### 2020-08-03
 ##### Morning
 Same as yesterday. Time to pound out some libwebrtc builds!
