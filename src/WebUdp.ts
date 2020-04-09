@@ -1,5 +1,10 @@
 import { EventDispatcher } from "./EventDispatcher";
 
+export enum WebUdpEvent {
+    Open = "open",
+    Message = "message", 
+};
+
 export class WebUdpSocket extends EventDispatcher {
     address: string;
     isOpen: boolean = false;
@@ -44,7 +49,7 @@ export class WebUdpSocket extends EventDispatcher {
         this.channel.onopen = function () {
             console.debug("WebUDP: Data channel ready");
             socket.isOpen = true;
-            socket.fire('open');
+            socket.fire(WebUdpEvent.Open);
         };
 
         this.channel.onclose = function () {
@@ -57,7 +62,7 @@ export class WebUdpSocket extends EventDispatcher {
         };
 
         this.channel.onmessage = function (evt) {
-            socket.fire('message', evt);
+            socket.fire(WebUdpEvent.Message, evt);
         };
 
         const offer = await this.peer.createOffer();
