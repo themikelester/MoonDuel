@@ -10,6 +10,9 @@ Change Log
 ##### Morning
 First off, get the game to send pings to the example EchoServer from https://github.com/seemk/WebUDP, which I currently have running in a Docker instance. Then I'll start a new project to write the game server and start sending custom messages to the clients. Hopefully by the end of the day two clients can be notified of each others existence.
 
+##### Evening
+Good day! Got the game talking to the sample server. Set up a new project with a dockerfile that builds the WebUDP project, and links it to a new sample server. https://github.com/themikelester/MoonServer. Had the server relay connect messages to all connected clients, first client->client communication! Next up I'll try to hack in some positional data so that multiple avatars can be seen. 
+
 ### 2020-09-03
 ##### Morning
 Same again as yesterday. Time to pound out some libwebrtc builds!
