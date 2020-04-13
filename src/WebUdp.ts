@@ -82,10 +82,10 @@ export class WebUdpSocket extends EventDispatcher {
         };
         request.send(this.peer.localDescription!.sdp);
     }
-
-    send(data: string) {
+    
+    send(data: string | Blob | ArrayBuffer | ArrayBufferView): boolean {
         if (this.isOpen) {
-            this.channel.send(data);
+            this.channel.send(data as any);
             return true;
         }
 
