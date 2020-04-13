@@ -12,6 +12,9 @@ Over the weekend I read a lot of Glen Fiedler articles (https://gafferongames.co
 
 I need to restructure the way that AvatarController and AvatarRender work in order to support multiplayer. There should be an AvatarState array that AvatarRender consumes to pose and render each character. AvatarController, multiplayer packets, and any AI would all be able to modify the AvatarState. If I have time today I'd like to start on that as well. 
 
+##### Evening
+It was a productive day, but I underestimated how much work the reliability protocol would be. At 6PM I had it tested (lightly) and working. I basically followed the main idea of the Fiedler article linked above, with 16-bit sequence numbers. Tomorrow I'd like to do some more testing to make sure it's actually working how I think it's working. That probably means adding an API to request a reliable message and then resending it if it fails to be ack'd within the valid time. This requires simulating dropped packets. Can we do this in Chrome? Otherwise I'll have to write some code at the UDP layer to simulate drops.
+
 ### 2020-10-03
 ##### Morning
 First off, get the game to send pings to the example EchoServer from https://github.com/seemk/WebUDP, which I currently have running in a Docker instance. Then I'll start a new project to write the game server and start sending custom messages to the clients. Hopefully by the end of the day two clients can be notified of each others existence.
