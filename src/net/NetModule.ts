@@ -28,8 +28,6 @@ export class NetModule {
         this.builder.finish(message);
         this.netClient.send(this.builder.asUint8Array());
         this.builder.clear();
-
-        console.log('Ping:', this.netClient.getAverageRTT());
     }
 
     /**
