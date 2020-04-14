@@ -10,7 +10,7 @@ const webpack = require('webpack');
 
 // @NOTE: These need to be updated per-project
 const COMMIT_HASH = gitRevision.commithash();
-const GITHUB_URL = 'https://github.com/themikelester/gfx-boilerplate';
+const GITHUB_URL = 'https://github.com/themikelester/MoonDuel';
 const GTAG_ID = 'Some Google Analytics ID';
 const APP_NAME = 'Moon Duel';
 const APP_NAME_SHORT = 'Moon Duel';
