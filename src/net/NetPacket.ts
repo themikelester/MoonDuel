@@ -3,7 +3,7 @@ import { assert } from "../util";
 export type SequenceNumber = number;
 
 const kPacketHeaderSize = 8;
-const kMaxGamePacketSize = 1024;
+export const kPacketMaxPayloadSize = 1024;
 
 export class Packet {
     sequence: SequenceNumber;
@@ -43,7 +43,7 @@ export class Packet {
     }
 
     toBuffer(): Nullable<Uint8Array> {
-        if (this.gamePacket.byteLength > kMaxGamePacketSize) {
+        if (this.gamePacket.byteLength > kPacketMaxPayloadSize) {
             return null;
         }
 
@@ -76,7 +76,7 @@ export class PacketBuffer implements Iterable<Packet> {
     constructor(capacity: number) {
         this.capacity = capacity;
 
-        const packetBufferSize = (kPacketHeaderSize + kMaxGamePacketSize);
+        const packetBufferSize = (kPacketHeaderSize + kPacketMaxPayloadSize);
         this.buffer = new ArrayBuffer(packetBufferSize * capacity);
 
         this.packets = [];

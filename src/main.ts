@@ -14,6 +14,7 @@ import { DebugGrid } from './DebugGrid';
 import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
 import { InputManager } from './Input';
+import { NetModule } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { StateManager } from './SaveState';
 
@@ -38,6 +39,7 @@ class Main {
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
     public demo = new Demo();
     public input = new InputManager();
+    public net = new NetModule();
     public resources = new ResourceManager();
     public state = new StateManager();
     
@@ -63,6 +65,7 @@ class Main {
         this.resources.initialize(this.gfxDevice);
         this.clock.initialize();
         this.input.initialize(this);
+        this.net.initialize();
         this.cameraSystem.initialize(this);
         this.compositor.initialize();
         this.globalUniforms.initialize();
@@ -88,7 +91,8 @@ class Main {
     }
 
     private update(time: number) {
-        this.clock.update(time);    
+        this.clock.update(time);
+        this.net.update();    
         this.resources.update();
         this.cameraSystem.update(this);
         // this.demo.update(this);
