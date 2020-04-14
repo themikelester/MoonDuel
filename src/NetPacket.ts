@@ -27,7 +27,11 @@ export class Packet {
         this.ackBitfield = 0;
     }
 
-    fromBuffer(buffer: ArrayBuffer) {
+    fromBuffer(buffer: ArrayBuffer): Nullable<this> {
+        if (buffer.byteLength > this.bytes.byteLength) {
+            return null;
+        }
+        
         this.bytes.set(new Uint8Array(buffer));
 
         this.sequence = this.dataView.getUint16(0, true);
@@ -38,7 +42,11 @@ export class Packet {
         return this;
     }
 
-    toBuffer(): Uint8Array {
+    toBuffer(): Nullable<Uint8Array> {
+        if (this.gamePacket.byteLength > kMaxGamePacketSize) {
+            return null;
+        }
+
         this.dataView.setUint16(0, this.sequence, true);
         this.dataView.setUint16(2, this.ack, true);
         this.dataView.setUint32(4, this.ackBitfield, true);

@@ -2,6 +2,7 @@
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer } from './NetPacket';
 import { EventDispatcher } from './EventDispatcher';
+import { defined } from './util';
 
 export enum NetClientEvent {
     Connect = "connect",
@@ -68,8 +69,11 @@ export class NetClient extends EventDispatcher {
     }
 
     receive(data: ArrayBuffer) {
-        const packet = this.remoteHistory.allocate();
-        packet.fromBuffer(data);
+        const packet = this.remoteHistory.allocate().fromBuffer(data);
+        if (!defined(packet)) {
+            console.warn('NetClient: Received packet that was too large for buffer. Ignoring.');
+            return;
+        }
 
         // If this packet is newer than the latest packet we've received, update
         if (sequenceNumberGreaterThan(packet.sequence, this.remoteSequence)) {
@@ -89,7 +93,12 @@ export class NetClient extends EventDispatcher {
         packet.ack = this.remoteSequence;
         packet.ackBitfield = this.writeAckBitfield(this.remoteSequence, this.remoteHistory);
         packet.gamePacket = data;
+        
         const bytes = packet.toBuffer();
+        if (!defined(bytes)) {
+            console.warn('NetClient: Attempted to send packet that was too large for buffer. Ignoring.');
+            return;
+        }
 
         this.socket.send(bytes);
 
