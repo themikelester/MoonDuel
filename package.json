@@ -4,10 +4,12 @@
   "license": "MIT",
   "devDependencies": {
     "@types/dat.gui": "^0.7.5",
+    "@types/flatbuffers": "^1.10.0",
     "cache-loader": "^4.1.0",
     "clean-webpack-plugin": "^3.0.0",
     "copy-webpack-plugin": "^5.1.1",
     "file-loader": "^4.2.0",
+    "flatbuffers": "^1.12.0",
     "fork-ts-checker-webpack-plugin": "^3.1.0",
     "git-revision-webpack-plugin": "^3.0.4",
     "html-webpack-plugin": "^3.2.0",
