@@ -26,10 +26,10 @@ export class NetModule {
         const heartbeat = NetSchemas.Heartbeat.endHeartbeat(this.builder);
         const message = NetSchemas.Message.createMessage(this.builder, this.messageId++, NetSchemas.Data.Heartbeat, heartbeat);
         this.builder.finish(message);
-
         this.netClient.send(this.builder.asUint8Array());
-
         this.builder.clear();
+
+        console.log('Ping:', this.netClient.getAverageRTT());
     }
 
     /**

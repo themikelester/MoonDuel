@@ -47,11 +47,11 @@ export class NetClient extends EventDispatcher {
 
     private readAckBitfield(bitfield: number, sequence: number, history: PacketBuffer) {
         for (const packet of history) {
-            const bit = sequenceNumberWrap(sequence - packet.sequence);
+            const bit = sequenceNumberWrap(sequence - packet.header.sequence);
             const ackd = bitfield & (1 << bit);
             if (ackd && !packet.isAcknowledged()) {
                 packet.setAcknowledged();
-                this.fire(NetClientEvent.Acknowledge, packet.gamePacket);
+                this.fire(NetClientEvent.Acknowledge, packet.payload);
             }
         }
         return bitfield;
@@ -60,12 +60,20 @@ export class NetClient extends EventDispatcher {
     private writeAckBitfield(sequence: number, history: PacketBuffer) {
         let bitfield = 0;
         for (const packet of history) {
-            const bit = sequenceNumberWrap(sequence - packet.sequence);
+            const bit = sequenceNumberWrap(sequence - packet.header.sequence);
             if (bit < 32) {
                 bitfield |= 1 << bit;
             }
         }
         return bitfield;
+    }
+
+    getAverageRTT() {
+        let total = 0;
+        for (const packet of this.localHistory) {
+            total += packet.getRTT();
+        }
+        return total / this.localHistory.count();
     }
 
     receive(data: ArrayBuffer) {
@@ -76,23 +84,23 @@ export class NetClient extends EventDispatcher {
         }
 
         // If this packet is newer than the latest packet we've received, update
-        if (sequenceNumberGreaterThan(packet.sequence, this.remoteSequence)) {
-            this.remoteSequence = packet.sequence;
+        if (sequenceNumberGreaterThan(packet.header.sequence, this.remoteSequence)) {
+            this.remoteSequence = packet.header.sequence;
         }
 
         // Update the acknowledged state of all of the recently sent packets
-        this.readAckBitfield(packet.ackBitfield, packet.ack, this.localHistory);
+        this.readAckBitfield(packet.header.ackBitfield, packet.header.ack, this.localHistory);
 
-        this.fire(NetClientEvent.Receive, packet.gamePacket);
+        this.fire(NetClientEvent.Receive, packet.payload);
     }
 
     send(data: Uint8Array) {
         const packet = this.localHistory.allocate();
 
-        packet.sequence = this.localSequence;
-        packet.ack = this.remoteSequence;
-        packet.ackBitfield = this.writeAckBitfield(this.remoteSequence, this.remoteHistory);
-        packet.gamePacket = data;
+        packet.header.sequence = this.localSequence;
+        packet.header.ack = this.remoteSequence;
+        packet.header.ackBitfield = this.writeAckBitfield(this.remoteSequence, this.remoteHistory);
+        packet.payload = data;
         
         const bytes = packet.toBuffer();
         if (!defined(bytes)) {

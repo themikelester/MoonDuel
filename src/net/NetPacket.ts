@@ -1,19 +1,26 @@
-import { assert } from "../util";
+import { assert, defined } from "../util";
 
 export type SequenceNumber = number;
 
 const kPacketHeaderSize = 8;
 export const kPacketMaxPayloadSize = 1024;
 
-export class Packet {
+interface PacketHeader {
     sequence: SequenceNumber;
     ack: SequenceNumber;
     ackBitfield: number;
-    gamePacket: Uint8Array;
+}
+
+export class Packet {
+    header: PacketHeader;
+    payload: Uint8Array;
+
+    private ackTimestamp?: number;
+    private recieveTimestamp?: number;
+    private sendTimestamp?: number;
 
     private readonly dataView: DataView;
     private readonly bytes: Uint8Array;
-    private _acknowledged = false;
 
     constructor(bytes: Uint8Array) {
         this.bytes = bytes;
@@ -21,10 +28,14 @@ export class Packet {
     }
 
     onAllocate() {
-        this._acknowledged = false;
-        this.sequence = -1;
-        this.ack = -1;
-        this.ackBitfield = 0;
+        this.header = {
+            sequence: -1,
+            ack: -1,
+            ackBitfield: 0,
+        }
+        this.ackTimestamp = undefined;
+        this.recieveTimestamp = undefined;
+        this.sendTimestamp = undefined;
     }
 
     fromBuffer(buffer: ArrayBuffer): Nullable<this> {
@@ -34,33 +45,44 @@ export class Packet {
         
         this.bytes.set(new Uint8Array(buffer));
 
-        this.sequence = this.dataView.getUint16(0, true);
-        this.ack = this.dataView.getUint16(2, true);
-        this.ackBitfield = this.dataView.getUint32(4, true);
-        this.gamePacket = this.bytes.subarray(kPacketHeaderSize, buffer.byteLength);
+        this.header.sequence = this.dataView.getUint16(0, true);
+        this.header.ack = this.dataView.getUint16(2, true);
+        this.header.ackBitfield = this.dataView.getUint32(4, true);
+        this.payload = this.bytes.subarray(kPacketHeaderSize, buffer.byteLength);
+
+        this.recieveTimestamp = performance.now();
 
         return this;
     }
 
     toBuffer(): Nullable<Uint8Array> {
-        if (this.gamePacket.byteLength > kPacketMaxPayloadSize) {
+        if (this.payload.byteLength > kPacketMaxPayloadSize) {
             return null;
         }
 
-        this.dataView.setUint16(0, this.sequence, true);
-        this.dataView.setUint16(2, this.ack, true);
-        this.dataView.setUint32(4, this.ackBitfield, true);
-        this.bytes.set(this.gamePacket, kPacketHeaderSize);
+        this.dataView.setUint16(0, this.header.sequence, true);
+        this.dataView.setUint16(2, this.header.ack, true);
+        this.dataView.setUint32(4, this.header.ackBitfield, true);
+        this.bytes.set(this.payload, kPacketHeaderSize);
 
-        return this.bytes.subarray(0, kPacketHeaderSize + this.gamePacket.byteLength);
+        this.sendTimestamp = performance.now();
+
+        return this.bytes.subarray(0, kPacketHeaderSize + this.payload.byteLength);
     }
 
     isAcknowledged() { 
-        return this._acknowledged;
+        return defined(this.ackTimestamp);
     }
 
     setAcknowledged() {
-        this._acknowledged = true;
+        this.ackTimestamp = performance.now();
+    }
+
+    getRTT() {
+        if (defined(this.ackTimestamp) && defined(this.sendTimestamp)) {
+            return this.ackTimestamp - this.sendTimestamp;
+        }
+        return 0;
     }
 }
 
