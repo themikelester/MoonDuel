@@ -10,6 +10,15 @@ Change Log
 ##### Morning
 I think I'm going to put off implementing reliable messages until I have a basic game message protocol going. I'm going to spend the morning researching flatbuffers and alternatives. If I'm happy with flatbuffers, I'll implement them, but I think they lack bounds checking. 
 
+##### Evening
+I spent a few hours digging into Cap'n Proto, SBE, and FlatBuffers. I went with the flat. It's not a perfect fit, it adds some overhead to the message size, but because I'm dealing with C++ and JS rolling my own would be twice the effort. Today I added flatbuffers as a dependency to both the server and client, and wrote a basic schema that they share. They're both sending packet payloads that are flatbuffers, although there's not any meaningful data in there yet. 
+
+Tomorrow I'd like to implement a NetMessage.ts on the client which wraps the flatbuffer data. This is where we'd do validation on each flatbuffer property, detect duplicate messages via messageID, and serialize/compress outgoing messages.
+
+I also need to find a way to share the schemas between the client and server. Currently it's copy/paste.
+
+I finally renamed MoonDuel from gfx-boilerplate. All the DNS routing still seems to work.
+
 ### 2020-13-03
 ##### Morning
 Over the weekend I read a lot of Glen Fiedler articles (https://gafferongames.com/post/reliability_ordering_and_congestion_avoidance_over_udp/). I think the first thing I'm going to do is implement a reliability protocol, via ACKs, so that I can send some reliable messages such as client connected, and detect client ping. After that I'll look into different pre-rolled packet schemas so that I can avoid writing a lot of boilerplate serialization/schema code on the server side. I was hoping that flatbuffers would work, but it looks like they don't support min/max values for validation. Hopefully I'll be able to find an open source protocol, otherwise I'll write my own. 
