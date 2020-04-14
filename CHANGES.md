@@ -6,6 +6,12 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-15-03
+##### Morning
+I realized that there is a large storm cloud ahead. The server is currently written in C++, but it needs to simulate most everything, and in the same way as AvatarController.ts so that the client prediction is accurate. This would be much easier if they used the same language and could share the implementation. This may mean I need to look into running node on the server. I could have C++ handle the networking, running one thread per client, and copy messages in to JS-accessible buffers which it reads each tick. I still need to do more research.
+
+I think today I'll continue to do some more reading about netcode architecture. I'll also implement RTT measurement on the server and client by measuring the time between packet sent and packet ack.
+
 ### 2020-14-03
 ##### Morning
 I think I'm going to put off implementing reliable messages until I have a basic game message protocol going. I'm going to spend the morning researching flatbuffers and alternatives. If I'm happy with flatbuffers, I'll implement them, but I think they lack bounds checking. 
