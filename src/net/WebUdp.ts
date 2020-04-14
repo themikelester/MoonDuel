@@ -1,4 +1,4 @@
-import { EventDispatcher } from "./EventDispatcher";
+import { EventDispatcher } from "../EventDispatcher";
 
 export enum WebUdpEvent {
     Open = "open",

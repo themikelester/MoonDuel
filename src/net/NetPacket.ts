@@ -1,4 +1,4 @@
-import { assert } from "./util";
+import { assert } from "../util";
 
 export type SequenceNumber = number;
 

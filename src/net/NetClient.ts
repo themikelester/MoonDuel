@@ -1,8 +1,8 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer } from './NetPacket';
-import { EventDispatcher } from './EventDispatcher';
-import { defined } from './util';
+import { EventDispatcher } from '../EventDispatcher';
+import { defined } from '../util';
 
 export enum NetClientEvent {
     Connect = "connect",
