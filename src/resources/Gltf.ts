@@ -4,7 +4,7 @@ import * as GlTf from './Gltf.d';
 import { vec3, quat, mat4 } from 'gl-matrix';
 import { Resource, ResourceLoader, ResourceStatus, ResourceLoadingContext } from './Resource';
 import { IMesh } from '../Mesh';
-import { QuaternionKeyframeTrack, InterpolationModes, InterpolateLinear, AnimationClip, VectorKeyframeTrack, InterpolateDiscrete, Interpolant, KeyframeTrack } from './Animation';
+import { QuaternionKeyframeTrack, InterpolationModes, InterpolateLinear, AnimationClip, VectorKeyframeTrack, InterpolateDiscrete, Interpolant, KeyframeTrack } from '../Animation';
 import { Object3D } from '../Object3D';
 
 // Get the type of the object that a Promise would pass to Promise.then()

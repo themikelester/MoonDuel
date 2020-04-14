@@ -1,6 +1,6 @@
 import { GltfResource } from "./resources/Gltf";
 import { assertDefined, defined } from "./util";
-import { AnimationClip, AnimationMixer, AnimationAction } from "./resources/Animation";
+import { AnimationClip, AnimationMixer, AnimationAction } from "./Animation";
 import { Avatar } from "./Avatar";
 import { Clock } from "./Clock";
 import { DebugMenu, IDebugMenu } from "./DebugMenu";

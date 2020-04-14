@@ -16,7 +16,7 @@ import { Object3D, Matrix4 } from "./Object3D";
 import { Clock } from "./Clock";
 import { delerp, clamp } from "./MathHelpers";
 import { Camera } from "./Camera";
-import { AnimationMixer, AnimationClip } from "./resources/Animation";
+import { AnimationMixer, AnimationClip } from "./Animation";
 
 const kMaxAvatarBoneCount = 32;
 

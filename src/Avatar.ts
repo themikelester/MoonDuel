@@ -5,7 +5,7 @@ import { ResourceManager } from "./resources/ResourceLoading";
 import { Clock } from "./Clock";
 import { Camera } from "./Camera";
 import { Object3D, Matrix4 } from "./Object3D";
-import { AnimationMixer } from "./resources/Animation";
+import { AnimationMixer } from "./Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
 import { assertDefined } from "./util";
 import { Skeleton, Bone } from "./Skeleton";
