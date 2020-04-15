@@ -114,17 +114,18 @@ export class Controller {
         this.mouse.enableContextMenu();
     };
 
-    update() {
-        if (this.keyboard) { this.keyboard.update(); }
-        if (this.mouse) { this.mouse.update(); }
-        // if (this.gamepads) { this.gamepads.update(dt); }
-
-        // Evaluate all axes 
+    updateAxes() {
         for (const axisName in this.axes) {
             for (const axis of this.axes[axisName]) {
                 if (axis.func) axis.value = axis.func();
             }
         }
+    }
+
+    afterFrame() {
+        if (this.keyboard) { this.keyboard.update(); }
+        if (this.mouse) { this.mouse.update(); }
+        // if (this.gamepads) { this.gamepads.update(dt); }
     }
     
     /**

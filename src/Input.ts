@@ -2,11 +2,41 @@ import { Controller, AxisSource } from "./input/Controller";
 import { Keyboard } from "./input/Keyboard";
 import screenfull, { Screenfull } from 'screenfull';
 import { defined } from "./util";
+import { Camera } from "./Camera";
 
 const fullscreen = (screenfull.isEnabled) ? screenfull as Screenfull : undefined;
 
+const kCommandBufferLength = 64;
+
+enum InputAction {
+    Walk = 1 << 0,
+    Fullscreen = 1 << 1,
+}
+
+interface ActionInfo {
+    id: string;
+    name: string;
+    desc: string;
+};
+
+const Keymap: Record<InputAction, ActionInfo> = {
+    [InputAction.Walk]: { id: 'walk', name: 'Walk', desc: 'Hold to walk instead of run' },
+    [InputAction.Fullscreen]: { id: 'fullscreen', name: 'Toggle Fullscreen', desc: 'Toggle fullscreen mode' },
+};
+
+export interface UserCommand {
+    headingX: number;
+    headingZ: number;
+    verticalAxis: number;
+    horizontalAxis: number;
+    actions: InputAction;
+};
+
 export class InputManager {
     controller: Controller = new Controller();
+    
+    commandBuffer: UserCommand[] = [];
+    commandSequence = 0;
 
     initialize({ toplevel }: { toplevel: HTMLElement}) {
         this.controller.attach(toplevel);
@@ -36,8 +66,8 @@ export class InputManager {
             invert: true,
         });
 
-        this.controller.registerKeys('walk', ['ShiftLeft', 'ShiftRight']);
-        this.controller.registerKeys('toggleFullscreen', ['Backslash']);
+        this.controller.registerKeys(Keymap[InputAction.Walk].id, ['ShiftLeft', 'ShiftRight']);
+        this.controller.registerKeys(Keymap[InputAction.Fullscreen].id, ['Backslash']);
 
         this.controller.disableContextMenu();
     }
@@ -54,6 +84,33 @@ export class InputManager {
         return this.controller.getAxis(axisName);
     }
 
+    update() {
+        this.controller.updateAxes();
+    }
+
+    updateFixed({ camera }: { camera: Camera }) {
+        // Sample the current input state to find the currently active actions
+        const actionCount = Object.keys(Keymap).length;
+        let actions = 0;
+        for (let i = 0; i < actionCount; i++) {
+            const action = 1 << i;
+            if (this.isActive(Keymap[action].id)) {
+                actions |= action;
+            }
+        }
+
+        // Write a UserCommand into the input buffer
+        const cmd: UserCommand = {
+            headingX: camera.forward[0],
+            headingZ: camera.forward[2],
+            horizontalAxis: this.getAxis('Horizontal'),
+            verticalAxis: this.getAxis('Vertical'),
+            actions,
+        }
+
+        this.commandBuffer[this.commandSequence++ % kCommandBufferLength] = cmd;
+    }
+
     afterFrame() {
         // @HACK: This belongs somewhere else
         if (defined(fullscreen)) {
@@ -62,6 +119,6 @@ export class InputManager {
             }
         }
 
-        this.controller.update();
+        this.controller.afterFrame();
     }
 }

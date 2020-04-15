@@ -104,6 +104,7 @@ class Main {
 
     private update(time: number) {
         this.clock.update(time);
+        this.input.update();
         this.net.update();    
         this.resources.update();
         this.cameraSystem.update(this);
@@ -116,6 +117,7 @@ class Main {
     private updateFixed() {
         while (this.clock.simAccum > 1.0) {
             this.clock.updateFixed();
+            this.input.updateFixed(this);
         }
     }
 
