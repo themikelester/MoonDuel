@@ -14,6 +14,11 @@ I think today I'll continue to do some more reading about netcode architecture. 
 
 After watching https://www.youtube.com/watch?v=W3aieHjyNvw&list=PLSWK4JALZGZNVcTcoXcTjWn8DrUP7TOeR&index=2 (great talk about Overwatch architecture and netcode), and reading https://gafferongames.com/post/fix_your_timestep/, I decided to start working on an updateFixed() based architecture for deterministic simulation on the client.
 
+##### Evening
+Big day. I struggled for a while which what to work on. After studying the links listed above, I implemented a fixed timestep updateFixed(). Then implemented Input.updateFixed(), which generates a UserCommand that can be sent over the wire. After that I worked for several solid hours modifying the Avatar system to work with updateFixed(). AvatarController now takes an AvatarState, UserCommand, and dt (which is fixed) and outputs a new AvatarState. AvatarState is another serializable object that contains everything necessary to position and render the avatar. I.e. if the client has a stream of AvatarStates, it can completely replay everything that Avatar did. The biggest part of this was removing animation updates from AvatarController. It now only updates a few fields like position, velocity, orientation, and some states (walking vs running). 
+
+In order to test that my the new system was actually running completely on the newly generated states, I implemented a Snaphot system. This aggregates all of the states each fixed frame, with the ability to record the snapshots into a buffer, and then play them back. And it works! This is basically how spectating will work. The server will just send the client a stream of Snapshots and the client interpolates and plays them back smoothly. Neat!
+
 ### 2020-14-03
 ##### Morning
 I think I'm going to put off implementing reliable messages until I have a basic game message protocol going. I'm going to spend the morning researching flatbuffers and alternatives. If I'm happy with flatbuffers, I'll implement them, but I think they lack bounds checking. 
