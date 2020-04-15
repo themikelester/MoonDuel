@@ -80,7 +80,10 @@ export class AvatarSystem {
     }
 
     update(game: Dependencies) {
-        this.controller.update(game);
+    }
+
+    updateFixed(game: Dependencies) {
+        this.controller.updateFixed(game);
     }
 
     render(game: Dependencies) {

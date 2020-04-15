@@ -5,7 +5,7 @@ import { Avatar } from "./Avatar";
 import { Clock } from "./Clock";
 import { DebugMenu, IDebugMenu } from "./DebugMenu";
 import { vec3, mat2 } from "gl-matrix";
-import { InputManager } from "./Input";
+import { InputManager, UserCommand, InputAction } from "./Input";
 import { Camera } from "./Camera";
 import { Vector3 } from "./Object3D";
 import { clamp, angularDistance, wrappedDistance, delerp, saturate } from "./MathHelpers";
@@ -44,16 +44,18 @@ export class AvatarController {
         this.ready = true;
     }
 
-    update({ clock, input, camera }: { clock: Clock, input: InputManager, camera: Camera }) {
+    updateFixed({ clock, input, camera }: { clock: Clock, input: InputManager, camera: Camera }) {
         if (!this.ready) return;
 
-        const debugActive = this.debugMenu.update(clock);
-        if (debugActive) { return; }
+        // const debugActive = this.debugMenu.update(clock);
+        // if (debugActive) { return; }
 
-        this.localController.update(clock, input, camera);
+        const inputCmd = input.getUserCommand();
+        const dtSec = clock.simStep / 1000.0;
+        this.localController.update(dtSec, inputCmd);
 
         for (const avatar of this.avatars) {
-            avatar.animationMixer.update(clock.dt / 1000.0);            
+            avatar.animationMixer.update(clock.simStep / 1000.0);            
 
             avatar.updateMatrixWorld();
             avatar.skeleton.update();
@@ -159,19 +161,18 @@ class LocalController {
         this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
     }
 
-    update(clock: Clock, input: InputManager, camera: Camera) {
+    update(dtSec: number, input: UserCommand) {
         const walkSpeed = 150; // Units per second
         const runSpeed = 600; // Units per second
         const walkAcceleration = 600;
         const runAcceleration = 3000;
-        const dtSec = clock.dt / 1000.0; // TODO: Clock.dt should be in seconds
 
         this.avatar.updateMatrixWorld();
         vec3.set(this.orientation, this.avatar.matrixWorld.elements[8], this.avatar.matrixWorld.elements[9], this.avatar.matrixWorld.elements[10]);
 
-        const inputDir = this.getCameraRelativeMovementDirection(input, camera, scratchVec3B);
+        const inputDir = this.getCameraRelativeMovementDirection(input, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
-        const inputShouldWalk = input.isActive('walk');
+        const inputShouldWalk = input.actions & InputAction.Walk;
         
         // Velocity
         const accel = inputShouldWalk ? walkAcceleration : runAcceleration;
@@ -255,15 +256,15 @@ class LocalController {
         this.avatar.updateMatrix();
     }
 
-    private getWorldRelativeMovementDirection(input: InputManager, result: vec3): vec3 {
-        const x = input.getAxis('Horizontal');
-        const z = input.getAxis('Vertical');
+    private getWorldRelativeMovementDirection(input: UserCommand, result: vec3): vec3 {
+        const x = input.horizontalAxis;
+        const z = input.verticalAxis;
         return vec3.normalize(result, vec3.set(result, x, 0, z));
     }
 
-    private getCameraRelativeMovementDirection(input: InputManager, camera: Camera, result: vec3): vec3 {
+    private getCameraRelativeMovementDirection(input: UserCommand, result: vec3): vec3 {
         const local = this.getWorldRelativeMovementDirection(input, result);
-        const flatView = vec3.normalize(scratchVec3A, vec3.set(scratchVec3A, camera.forward[0], 0, camera.forward[2]));
+        const flatView = vec3.normalize(scratchVec3A, vec3.set(scratchVec3A, input.headingX, 0, input.headingZ));
         
         // 2D change of basis to the camera's sans-Y
         return vec3.set(result, 

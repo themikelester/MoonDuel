@@ -118,6 +118,7 @@ class Main {
         while (this.clock.simAccum > 1.0) {
             this.clock.updateFixed();
             this.input.updateFixed(this);
+            this.avatar.updateFixed(this);
         }
     }
 
