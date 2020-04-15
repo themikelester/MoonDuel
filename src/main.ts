@@ -85,9 +85,21 @@ class Main {
             DebugMenu.show();
         }
 
-        this.update(window.performance.now());
+        window.requestAnimationFrame(this.tick.bind(this));
 
         return InitErrorCode.SUCCESS;
+    }
+
+    private tick(time: number) {
+        this.update(time);
+        this.updateFixed();
+        this.render();
+
+        this.input.afterFrame();
+
+        DebugMenu.update();
+
+        window.requestAnimationFrame(this.tick.bind(this));
     }
 
     private update(time: number) {
@@ -99,17 +111,19 @@ class Main {
         this.avatar.update(this);
         this.state.update(this);
         this.globalUniforms.update();
+    }
 
+    private updateFixed() {
+        while (this.clock.simAccum > 1.0) {
+            this.clock.updateFixed();
+        }
+    }
+
+    private render() {
         // this.demo.render(this);
         this.avatar.render(this);
         this.debugGrid.render(this);
         this.compositor.render();
-
-        this.input.afterFrame();
-
-        DebugMenu.update();
-
-        window.requestAnimationFrame(this.update.bind(this));
     };
 
     private onResize() {

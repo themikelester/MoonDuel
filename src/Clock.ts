@@ -10,6 +10,10 @@ export class Clock {
     public realTime: number = 0;
     public startTime: number = performance.now();
 
+    public simFrame: number = 0; // The frame index of the simulation
+    public simAccum: number = 0; // The accumulated dt in frames, gets decremented each time the simulation is run
+    public simStep: number = 20.0;
+
     public paused = false;
     public speed = 1.0;
 
@@ -28,7 +32,14 @@ export class Clock {
         this.dt = this.paused ? this.stepDt : this.realDt * this.speed;
         this.time = this.time + this.dt;
 
+        this.simAccum += this.dt / this.simStep;
+        this.simFrame = time / this.simStep;
+
         this.stepDt = 0.0
+    }
+
+    updateFixed() {
+        this.simAccum -= 1.0;
     }
 
     /**

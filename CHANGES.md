@@ -12,6 +12,8 @@ I realized that there is a large storm cloud ahead. The server is currently writ
 
 I think today I'll continue to do some more reading about netcode architecture. I'll also implement RTT measurement on the server and client by measuring the time between packet sent and packet ack.
 
+After watching https://www.youtube.com/watch?v=W3aieHjyNvw&list=PLSWK4JALZGZNVcTcoXcTjWn8DrUP7TOeR&index=2 (great talk about Overwatch architecture and netcode), and reading https://gafferongames.com/post/fix_your_timestep/, I decided to start working on an updateFixed() based architecture for deterministic simulation on the client.
+
 ### 2020-14-03
 ##### Morning
 I think I'm going to put off implementing reliable messages until I have a basic game message protocol going. I'm going to spend the morning researching flatbuffers and alternatives. If I'm happy with flatbuffers, I'll implement them, but I think they lack bounds checking. 
