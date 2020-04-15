@@ -16,6 +16,21 @@ const scratchVector3A = new Vector3(scratchVec3A);
 
 const kWalkStartStopTimes = [0.25, 0.75]; // Normalized times at which one foot is on the ground and the body is centered over its position
 const kRunStartStopTimes = [0.15, 0.65];
+const kWalkSpeed = 150; // Units per second
+const kRunSpeed = 600; // Units per second
+const kWalkAcceleration = 600;
+const kRunAcceleration = 3000;
+
+enum AvatarFlags {
+    IsWalking = 1 << 0,
+    IsUTurning = 1 << 1,
+}
+
+class AvatarState {
+    pos: vec3 = vec3.create();
+    velocity: vec3 = vec3.create();
+    flags: AvatarFlags = 0;
+}
 
 /**
  * Drive each Avatar's skeleton, position, oriention, and animation
@@ -23,7 +38,10 @@ const kRunStartStopTimes = [0.15, 0.65];
 export class AvatarController {
     ready: boolean = false;
     animations: AnimationClip[];
+    avatarAnim = new AvatarAnim();
     localController = new LocalController();
+
+    prevState: AvatarState = new AvatarState();
 
     avatars: Avatar[];
     local: Avatar;
@@ -34,17 +52,18 @@ export class AvatarController {
         this.avatars = avatars;
         this.local = avatars[0];
         this.localController.initialize(this.local);
+        this.avatarAnim.initialize(this.local);
         this.debugMenu = new AnimationDebugMenu(this.local);
     }
 
     onResourcesLoaded(gltf: GltfResource) {
         this.animations = gltf.animations;        
-        this.localController.onResourcesLoaded(gltf);
+        this.avatarAnim.onResourcesLoaded(gltf);
         this.debugMenu.onResourcesLoaded(this.animations);
         this.ready = true;
     }
 
-    updateFixed({ clock, input, camera }: { clock: Clock, input: InputManager, camera: Camera }) {
+    updateFixed({ clock, input }: { clock: Clock, input: InputManager }) {
         if (!this.ready) return;
 
         // const debugActive = this.debugMenu.update(clock);
@@ -52,7 +71,8 @@ export class AvatarController {
 
         const inputCmd = input.getUserCommand();
         const dtSec = clock.simStep / 1000.0;
-        this.localController.update(dtSec, inputCmd);
+        const state = this.localController.update(this.prevState, dtSec, inputCmd);
+        this.avatarAnim.update(state);
 
         for (const avatar of this.avatars) {
             avatar.animationMixer.update(clock.simStep / 1000.0);            
@@ -122,7 +142,6 @@ class AnimationDebugMenu {
 
 class LocalController {
     avatar: Avatar;
-    animations?: AnimationClip[];
 
     speed: number = 0;
     velocity: vec3 = vec3.create();
@@ -134,39 +153,11 @@ class LocalController {
     uTurning: boolean = false;
     walking: boolean = false;
 
-    // Animations
-    aIdle: AnimationAction;
-    aWalk: AnimationAction;
-    aRun: AnimationAction;
-
-    startingFoot = 0;
-
     initialize(avatar: Avatar) {
         this.avatar = avatar;
     }
-
-    onResourcesLoaded(gltf: GltfResource) {
-        this.animations = gltf.animations;
-
-        // Buffer the animation clips now
-        this.aIdle = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'await1')));
-        this.aWalk = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'awalk1')));
-        this.aRun = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'brun1')));
-
-        this.aIdle.play().setEffectiveWeight(1.0);
-        this.aWalk.play().setEffectiveWeight(0.0);
-        this.aRun.play().setEffectiveWeight(0.0);
-
-        this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
-        this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
-    }
-
-    update(dtSec: number, input: UserCommand) {
-        const walkSpeed = 150; // Units per second
-        const runSpeed = 600; // Units per second
-        const walkAcceleration = 600;
-        const runAcceleration = 3000;
-
+    
+    update(prevState: AvatarState, dtSec: number, input: UserCommand): AvatarState {
         this.avatar.updateMatrixWorld();
         vec3.set(this.orientation, this.avatar.matrixWorld.elements[8], this.avatar.matrixWorld.elements[9], this.avatar.matrixWorld.elements[10]);
 
@@ -175,8 +166,8 @@ class LocalController {
         const inputShouldWalk = input.actions & InputAction.Walk;
         
         // Velocity
-        const accel = inputShouldWalk ? walkAcceleration : runAcceleration;
-        const maxSpeed = inputShouldWalk ? walkSpeed : runSpeed;
+        const accel = inputShouldWalk ? kWalkAcceleration : kRunAcceleration;
+        const maxSpeed = inputShouldWalk ? kWalkSpeed : kRunSpeed;
 
         const dSpeed = (inputActive ? accel : -accel) * dtSec;
         const targetSpeed = clamp(this.speed + dSpeed, 0, maxSpeed); 
@@ -190,13 +181,8 @@ class LocalController {
         this.velocityTarget = vec3.copy(this.velocityTarget, this.orientation);
         this.velocity = vec3.scale(this.velocity, this.velocityTarget, this.speed);
 
-        this.aIdle.weight = saturate(1.0 - this.speed / walkSpeed);
-        this.aRun.weight = saturate(delerp(inputShouldWalk ? walkSpeed : 0, runSpeed, this.speed));
-        this.aRun.timeScale = this.aRun.weight;
-        this.aWalk.weight = saturate(delerp(0, walkSpeed, this.speed)) - this.aRun.weight;
-        this.aWalk.timeScale = this.aWalk.weight;
-
         // Position
+        const pos = vec3.scaleAndAdd(vec3.create(), prevState.pos, this.velocity, dtSec);
         this.avatar.position.addScaledVector(scratchVector3A.setBuffer(this.velocity), dtSec);
 
         // Orientation
@@ -211,13 +197,11 @@ class LocalController {
             // Uturn complete when we achieve the initial orientation target
             if (vec3.dot(this.orientation, this.orientationTarget) > 0.99) {
                 this.uTurning = false;
-                this.aWalk.timeScale = 1.0
             }
         } else {
             // Start a 180 if we have a sharp input pointing directly away from our current orientation 
             if (vec3.dot(inputDir, this.orientationTarget) < -0.99) {
                 this.uTurning = true;
-                this.aWalk.timeScale = -1.0
                 vec3.copy(this.orientationTarget, inputDir);
             }
         }
@@ -233,13 +217,6 @@ class LocalController {
         } else {
             if (inputActive) vec3.copy(this.orientationTarget, inputDir);
         }
-
-        if (!this.walking) {
-            // Reset the walk animation so we always start from the same position when we begin walking again
-            this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
-            this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
-            this.startingFoot = (this.startingFoot + 1) % 2;
-        }
         
         // Each frame, turn towards the input direction by a fixed amount, but only if the input is pressed. 
         // It takes 8 16ms frames to turn 90 degrees. So a full rotation takes about half of a second.
@@ -254,6 +231,16 @@ class LocalController {
         }
 
         this.avatar.updateMatrix();
+
+        let flags = 0;
+        if (inputShouldWalk) flags |= AvatarFlags.IsWalking;
+        if (this.uTurning) flags |= AvatarFlags.IsUTurning;
+        const state: AvatarState = {
+            pos,
+            velocity: this.velocity,
+            flags
+        }
+        return state;
     }
 
     private getWorldRelativeMovementDirection(input: UserCommand, result: vec3): vec3 {
@@ -272,5 +259,56 @@ class LocalController {
             0,
             local[0] * flatView[0] + local[2] * flatView[2]
         );
+    }
+}
+
+class AvatarAnim {
+    avatar: Avatar;
+    
+    aIdle: AnimationAction;
+    aWalk: AnimationAction;
+    aRun: AnimationAction;
+
+    startingFoot = 0;
+
+    initialize(avatar: Avatar) {
+        this.avatar = avatar;
+    }
+
+    onResourcesLoaded(gltf: GltfResource) {
+        // Buffer the animation clips now
+        this.aIdle = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'await1')));
+        this.aWalk = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'awalk1')));
+        this.aRun = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'brun1')));
+
+        this.aIdle.play().setEffectiveWeight(1.0);
+        this.aWalk.play().setEffectiveWeight(0.0);
+        this.aRun.play().setEffectiveWeight(0.0);
+
+        this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
+        this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
+    }
+
+    update(avatar: AvatarState) {
+        const speed = vec3.length(avatar.velocity);
+        const isWalking = avatar.flags & AvatarFlags.IsWalking;
+        const isUTurning = avatar.flags & AvatarFlags.IsUTurning;
+
+        this.aIdle.weight = saturate(1.0 - speed / kWalkSpeed);
+        this.aRun.weight = saturate(delerp(isWalking ? kWalkSpeed : 0, kRunSpeed, speed));
+        this.aRun.timeScale = this.aRun.weight;
+        this.aWalk.weight = saturate(delerp(0, kWalkSpeed, speed)) - this.aRun.weight;
+        this.aWalk.timeScale = this.aWalk.weight;
+
+        // if (isUTurning) {
+        //     this.aWalk.timeScale = -1.0;
+        // }
+
+        if (speed <= 0.0) {
+            // Reset the walk animation so we always start from the same position when we begin walking again
+            this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
+            this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
+            this.startingFoot = (this.startingFoot + 1) % 2;
+        }
     }
 }
