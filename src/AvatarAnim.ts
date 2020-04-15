@@ -59,8 +59,8 @@ class AnimationDebugMenu {
         }
     }
 
-    update(clock: Clock) {
-        if (this.debugAnimation) this.debugAnimationMixer.update(clock.dt / 1000.0);
+    update(dtSec: number) {
+        if (this.debugAnimation) this.debugAnimationMixer.update(dtSec);
 
         this.targetAvatar.updateMatrixWorld();
         this.targetAvatar.skeleton.update();
@@ -106,6 +106,9 @@ export class AvatarAnim {
 
     update(state: AvatarState, dtSec: number) {
         if (!this.ready) return;
+
+        const debugActive = this.debugMenu.update(dtSec);
+        if (debugActive) { return; }
 
         const speed = vec3.length(state.velocity);
         const isWalking = state.flags & AvatarFlags.IsWalking;
