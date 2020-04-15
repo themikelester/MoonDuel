@@ -17,6 +17,7 @@ import { InputManager } from './Input';
 import { NetModule } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { StateManager } from './SaveState';
+import { SnapshotManager } from './Snapshot';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -41,6 +42,7 @@ class Main {
     public input = new InputManager();
     public net = new NetModule();
     public resources = new ResourceManager();
+    public snapshot = new SnapshotManager();
     public state = new StateManager();
     
     constructor() {
@@ -72,6 +74,7 @@ class Main {
         // this.demo.initialize(this);
         this.avatar.initialize(this);
         this.debugGrid.initialize(this);
+        this.snapshot.initialize();
         this.state.initialize(this);
         
         // Handle resizing
@@ -91,8 +94,8 @@ class Main {
     }
 
     private tick(time: number) {
-        this.update(time);
         this.updateFixed();
+        this.update(time);
         this.render();
 
         this.input.afterFrame();
@@ -119,6 +122,7 @@ class Main {
             this.clock.updateFixed();
             this.input.updateFixed(this);
             this.avatar.updateFixed(this);
+            this.snapshot.updateFixed(this);
         }
     }
 

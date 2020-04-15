@@ -14,6 +14,7 @@ import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
 import { Quaternion } from "three/src/math/Quaternion";
 import { Euler } from "three/src/math/Euler";
+import { SnapshotManager } from "./Snapshot";
 
 interface Dependencies {
     gfxDevice: Renderer;
@@ -21,6 +22,7 @@ interface Dependencies {
     clock: Clock;
     camera: Camera;
     input: InputManager;
+    snapshot: SnapshotManager;
 }
 
 export class Avatar extends Object3D {
@@ -98,18 +100,20 @@ export class AvatarSystem {
     }
 
     update(game: Dependencies) {
-        const pos = new Vector3(this.avatarState.pos);
+        const state = game.snapshot.snapshot.avatar;
+
+        const pos = new Vector3(state.pos);
         this.localAvatar.position.copy(pos);
         this.localAvatar.lookAt(
-            this.avatarState.pos[0] + this.avatarState.orientation[0],
-            this.avatarState.pos[1] + this.avatarState.orientation[1],
-            this.avatarState.pos[2] + this.avatarState.orientation[2],
+            state.pos[0] + state.orientation[0],
+            state.pos[1] + state.orientation[1],
+            state.pos[2] + state.orientation[2],
         )
 
         this.localAvatar.updateMatrix();
         this.localAvatar.updateMatrixWorld();
         
-        this.animation.update(this.avatarState, game.clock.dt / 1000.0);
+        this.animation.update(state, game.clock.dt / 1000.0);
     }
 
     updateFixed(game: Dependencies) {
