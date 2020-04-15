@@ -9,7 +9,7 @@ const fullscreen = (screenfull.isEnabled) ? screenfull as Screenfull : undefined
 
 const kCommandBufferLength = 64;
 
-enum InputAction {
+export enum InputAction {
     Walk = 1 << 0,
     Fullscreen = 1 << 1,
 }
@@ -86,7 +86,7 @@ export class InputManager {
     }
 
     getUserCommand(simFrame: number = this.commandSequence) {
-        return this.commandBuffer[simFrame];
+        return this.commandBuffer[simFrame % kCommandBufferLength];
     }
 
     update() {
