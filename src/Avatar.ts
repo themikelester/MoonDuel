@@ -10,6 +10,8 @@ import { GltfResource, GltfNode } from "./resources/Gltf";
 import { assertDefined } from "./util";
 import { Skeleton, Bone } from "./Skeleton";
 import { InputManager } from "./Input";
+import { AvatarAnim } from "./AvatarAnim";
+import { vec3 } from "gl-matrix";
 
 interface Dependencies {
     gfxDevice: Renderer;
@@ -25,15 +27,28 @@ export class Avatar extends Object3D {
     skeleton: Skeleton;
 }
 
+export enum AvatarFlags {
+    IsWalking = 1 << 0,
+    IsUTurning = 1 << 1,
+}
+
+export class AvatarState {
+    pos: vec3 = vec3.create();
+    velocity: vec3 = vec3.create();
+    flags: AvatarFlags = 0;
+}
+
 const kGltfFilename = 'data/Tn.glb';
 
 export class AvatarSystem {
     public localAvatar: Avatar = new Avatar();
+    private avatarState: AvatarState = new AvatarState();
 
     private avatars: Avatar[] = [this.localAvatar];
     private gltf: GltfResource;
 
     private controller: AvatarController = new AvatarController();
+    private animation = new AvatarAnim();
     private renderer: AvatarRender = new AvatarRender();
 
     initialize(game: Dependencies) {
@@ -45,6 +60,7 @@ export class AvatarSystem {
         });
 
         this.controller.initialize(this.avatars);
+        this.animation.initialize(this.localAvatar);
         this.renderer.initialize(this.avatars);
     }
 
@@ -75,7 +91,7 @@ export class AvatarSystem {
             avatar.animationMixer = new AnimationMixer(avatar);
         }
 
-        this.controller.onResourcesLoaded(this.gltf);
+        this.animation.onResourcesLoaded(this.gltf);
         this.renderer.onResourcesLoaded(this.gltf, game);
     }
 
@@ -83,10 +99,11 @@ export class AvatarSystem {
     }
 
     updateFixed(game: Dependencies) {
-        this.controller.updateFixed(game);
+        this.avatarState = this.controller.updateFixed(game);
     }
 
     render(game: Dependencies) {
+        this.animation.update(this.avatarState, game.clock.simStep / 1000.0);
         this.renderer.render(game);
     }
 }
