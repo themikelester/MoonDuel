@@ -4,7 +4,7 @@ import { Renderer } from "./gfx/GfxTypes";
 import { ResourceManager } from "./resources/ResourceLoading";
 import { Clock } from "./Clock";
 import { Camera } from "./Camera";
-import { Object3D, Matrix4 } from "./Object3D";
+import { Object3D, Matrix4, Vector3 } from "./Object3D";
 import { AnimationMixer } from "./Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
 import { assertDefined } from "./util";
@@ -12,6 +12,8 @@ import { Skeleton, Bone } from "./Skeleton";
 import { InputManager } from "./Input";
 import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
+import { Quaternion } from "three/src/math/Quaternion";
+import { Euler } from "three/src/math/Euler";
 
 interface Dependencies {
     gfxDevice: Renderer;
@@ -35,6 +37,7 @@ export enum AvatarFlags {
 export class AvatarState {
     pos: vec3 = vec3.create();
     velocity: vec3 = vec3.create();
+    orientation: vec3 = vec3.fromValues(0, 0, 1);
     flags: AvatarFlags = 0;
 }
 
@@ -59,7 +62,6 @@ export class AvatarSystem {
             this.onResourcesLoaded(game);
         });
 
-        this.controller.initialize(this.avatars);
         this.animation.initialize(this.localAvatar);
         this.renderer.initialize(this.avatars);
     }
@@ -96,14 +98,31 @@ export class AvatarSystem {
     }
 
     update(game: Dependencies) {
+        const pos = new Vector3(this.avatarState.pos);
+        this.localAvatar.position.copy(pos);
+        this.localAvatar.lookAt(
+            this.avatarState.pos[0] + this.avatarState.orientation[0],
+            this.avatarState.pos[1] + this.avatarState.orientation[1],
+            this.avatarState.pos[2] + this.avatarState.orientation[2],
+        )
+
+        this.localAvatar.updateMatrix();
+        this.localAvatar.updateMatrixWorld();
+        
+        this.animation.update(this.avatarState, game.clock.dt / 1000.0);
     }
 
     updateFixed(game: Dependencies) {
-        this.avatarState = this.controller.updateFixed(game);
+        const inputCmd = game.input.getUserCommand();
+        const dtSec = game.clock.simStep / 1000.0;
+        this.avatarState = this.controller.update(this.avatarState, dtSec, inputCmd);
     }
 
     render(game: Dependencies) {
-        this.animation.update(this.avatarState, game.clock.simStep / 1000.0);
         this.renderer.render(game);
+    }
+
+    getSnapshot() {
+        return this.avatarState;
     }
 }

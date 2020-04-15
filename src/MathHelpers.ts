@@ -1,4 +1,4 @@
-import { mat4 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 
 export const enum MathConstants {
   DEG_TO_RAD = 0.01745, // Math.PI / 180,
@@ -8,6 +8,7 @@ export const enum MathConstants {
 }
 
 export const IdentityMat4 = mat4.create();
+export const ZeroVec3 = vec3.create();
 
 /** Linearly interpolate between p and q with respect to t.
  *  t is expected to be between 0.0 and 1.0.
