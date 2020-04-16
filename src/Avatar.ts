@@ -14,7 +14,7 @@ import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
 import { Quaternion } from "three/src/math/Quaternion";
 import { Euler } from "three/src/math/Euler";
-import { SnapshotManager } from "./Snapshot";
+import { SnapshotManager, Snapshot } from "./Snapshot";
 
 interface Dependencies {
     gfxDevice: Renderer;
@@ -41,6 +41,13 @@ export class AvatarState {
     velocity: vec3 = vec3.create();
     orientation: vec3 = vec3.fromValues(0, 0, 1);
     flags: AvatarFlags = 0;
+
+    static lerp(a: AvatarState, b: AvatarState, t: number, result: AvatarState) {
+        vec3.lerp(result.pos, a.pos, b.pos, t);
+        vec3.lerp(result.velocity, a.velocity, b.velocity, t);
+        vec3.lerp(result.orientation, a.orientation, b.orientation, t);
+        result.flags = a.flags & b.flags;
+    }
 }
 
 const kGltfFilename = 'data/Tn.glb';
@@ -100,7 +107,7 @@ export class AvatarSystem {
     }
 
     update(game: Dependencies) {
-        const state = game.snapshot.snapshot.avatar;
+        const state = game.snapshot.displaySnapshot.avatar;
 
         const pos = new Vector3(state.pos);
         this.localAvatar.position.copy(pos);
