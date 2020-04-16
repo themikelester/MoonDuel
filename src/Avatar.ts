@@ -125,7 +125,7 @@ export class AvatarSystem {
 
     updateFixed(game: Dependencies) {
         const inputCmd = game.input.getUserCommand();
-        const dtSec = game.clock.simStep / 1000.0;
+        const dtSec = game.clock.simDt / 1000.0;
         this.avatarState = this.controller.update(this.avatarState, dtSec, inputCmd);
     }
 

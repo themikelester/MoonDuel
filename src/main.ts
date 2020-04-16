@@ -94,8 +94,9 @@ class Main {
     }
 
     private tick(time: number) {
+        this.clock.tick(time);
         this.updateFixed();
-        this.update(time);
+        this.update();
         this.render();
 
         this.input.afterFrame();
@@ -105,25 +106,26 @@ class Main {
         window.requestAnimationFrame(this.tick.bind(this));
     }
 
-    private update(time: number) {
-        this.clock.update(time);
-        this.input.update();
-        this.net.update();    
-        this.resources.update();
-        this.cameraSystem.update(this);
-        // this.demo.update(this);
-        this.avatar.update(this);
-        this.state.update(this);
-        this.globalUniforms.update();
-    }
-
     private updateFixed() {
-        while (this.clock.simAccum > 1.0) {
-            this.clock.updateFixed();
+        while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
             this.input.updateFixed(this);
             this.avatar.updateFixed(this);
             this.snapshot.updateFixed(this);
+            
+            this.clock.updateFixedLate();
         }
+    }
+
+    private update() {
+        this.input.update();
+        this.net.update();  
+        this.snapshot.update(this);  
+        this.resources.update();
+        this.avatar.update(this);
+        this.cameraSystem.update(this);
+        // this.demo.update(this);
+        this.state.update(this);
+        this.globalUniforms.update();
     }
 
     private render() {

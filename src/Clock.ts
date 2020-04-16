@@ -4,43 +4,60 @@ const kDefaultStepDuration = 1000.0 / 60.0;
 
 export class Clock {
     // All times are in milliseconds (ms)
-    public dt: number = 0;
-    public time: number = 0;
-    public realDt: number = 0;
-    public realTime: number = 0;
-    public startTime: number = performance.now();
+    public realTime: number = 0; // The time for the current display frame
+    public simTime: number = 0; // The time for the current simulation frame, which is always behind real time
+    public time: number = 0; // The scene time, which can be behind or ahead of the sim time due to dilation/contraction
 
-    public simFrame: number = 0; // The current frame index of the simulation
-    public simAccum: number = 0; // The accumulated dt in frames, gets decremented each time the simulation is run
-    public simStep: number = 20.0;
+    public realDt: number = 0;
+    public _simDt: number = 20;
+    public dt: number = 0;
+
+    public simFrame: number = 0;
 
     public paused = false;
     public speed = 1.0;
 
+    private platformTime = 0.0;
     private stepDt = 0.0;
 
     initialize() {
         DebugMenu.add(this, 'paused');
         DebugMenu.add(this, 'speed', 0.05, 2.0, 0.05);
-        DebugMenu.add(this, 'simStep', 8, 512, 8);
+        DebugMenu.add(this, 'simDt', 8, 512, 8);
         DebugMenu.add(this, 'step');
     }
 
-    update(time: number) {
-        this.realDt = time - this.realTime;
-        this.realTime = time;
+    tick(platformTime: number) {
+        const platformDt = platformTime - this.platformTime;
+        this.platformTime = platformTime;
 
+        this.realDt = platformDt;
+        this.realTime += this.realDt;
+        
         this.dt = this.paused ? this.stepDt : this.realDt * this.speed;
         this.time = this.time + this.dt;
-
-        this.simAccum += this.dt / this.simStep;
 
         this.stepDt = 0.0
     }
 
-    updateFixed() {
-        this.simAccum -= 1.0;
+    updateFixedLate() {
+        this.simTime += this.simDt;
         this.simFrame += 1;
+    }
+    
+    /**
+     * If the fixed simulation timestep is modified, the times must be reset so that the simulation 
+     * frame can always be accurately computed from the simulation time.
+     */
+    set simDt(value: number) {
+        this.realTime = 0;
+        this.simTime = 0;
+        this.simFrame = 0;
+        this._simDt = value;
+    }
+
+    get simDt() {
+        return this._simDt;
     }
 
     /**
