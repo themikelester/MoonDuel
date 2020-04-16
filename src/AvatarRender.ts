@@ -11,30 +11,42 @@ import { Object3D } from "./Object3D";
 import { Camera } from "./Camera";
 import { Avatar } from "./Avatar";
 
+interface AvatarRenderData {
+    models: Model[];
+    skinnedModels: SkinnedModel[];
+}
+
 /**
  * Handle uniform updates and rendering for all avatars
  */
 export class AvatarRender {
     private avatars: Avatar[];
-    private models: Model[] = [];
-    private skinnedModels: SkinnedModel[] = [];
+    data: AvatarRenderData[] = [];
 
     initialize(avatars: Avatar[]) {
         this.avatars = avatars;
+        for (let i = 0; i < avatars.length; i++) {
+            this.data[i] = {
+                models: [],
+                skinnedModels: [],
+            }
+        }
     }
 
-    onResourcesLoaded(gltf: GltfResource, { gfxDevice }: { gfxDevice: Gfx.Renderer}) {
-        for (const avatar of this.avatars) {
+    onResourcesLoaded(gltf: GltfResource, { gfxDevice }: { gfxDevice: Gfx.Renderer }) {
+        for (let avatarIdx = 0; avatarIdx < this.avatars.length; avatarIdx++) {
+            const avatar = this.avatars[avatarIdx];
+
             // Load models
             for (let i = 0; i < avatar.nodes.length; i++) {
                 const node = avatar.nodes[i];
-    
+
                 if (defined(node.skinId)) {
                     const meshId = assertDefined(node.meshId);
                     assert(node.skinId === 0);
-                    this.loadSkinnedModel(gfxDevice, gltf, node, meshId, avatar.skeleton);
+                    this.loadSkinnedModel(gfxDevice, gltf, node, meshId, avatar.skeleton, avatarIdx);
                 } else if (defined(node.meshId)) {
-                    this.loadModel(gfxDevice, gltf, node, node.meshId);
+                    this.loadModel(gfxDevice, gltf, node, node.meshId, avatarIdx);
                 }
             }
         }
@@ -56,12 +68,12 @@ export class AvatarRender {
             const resourceLayout: Gfx.ShaderResourceLayout = {
                 uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: uniformLayout }
             };
-            for (let i = 0; i < textures.length; i++) { 
+            for (let i = 0; i < textures.length; i++) {
                 const texName = textures[i];
                 resourceLayout[texName] = { index: i, type: Gfx.BindingType.Texture };
             }
-            
-            return  resourceLayout;
+
+            return resourceLayout;
         }
 
         const primMaterial = gltf.materials[prim.materialIndex];
@@ -88,7 +100,7 @@ export class AvatarRender {
                 if (uniform.type === Gfx.Type.Texture2D) {
                     const texId = gltf.textures[value.index].id;
                     material.setTexture(gfxDevice, name, texId);
-                } else { 
+                } else {
                     ubo.setFloats(name, value);
                 }
             }
@@ -102,64 +114,69 @@ export class AvatarRender {
         return material;
     }
 
-    loadSkinnedModel(gfxDevice: Gfx.Renderer, gltf: GltfResource, parent: Object3D, meshId: number, skeleton: Skeleton) {
+    loadSkinnedModel(gfxDevice: Gfx.Renderer, gltf: GltfResource, parent: Object3D, meshId: number, skeleton: Skeleton, avatarIdx: number) {
         const gltfMesh = gltf.meshes[meshId];
-    
+
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(gfxDevice, prim, gltf);
             const model = new SkinnedModel(gfxDevice, renderLists.opaque, prim.mesh, material);
             model.bindSkeleton(skeleton);
-            this.skinnedModels.push(model);
+            this.data[avatarIdx].skinnedModels.push(model);
             parent.add(model);
         }
     }
 
-    loadModel(gfxDevice: Gfx.Renderer, gltf: GltfResource, parent: Object3D, meshId: number) {
+    loadModel(gfxDevice: Gfx.Renderer, gltf: GltfResource, parent: Object3D, meshId: number, avatarIdx: number) {
         const gltfMesh = gltf.meshes[meshId];
 
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(gfxDevice, prim, gltf);
             const model = new Model(gfxDevice, renderLists.opaque, prim.mesh, material);
-            this.models.push(model);
+            this.data[avatarIdx].models.push(model);
             parent.add(model);
         }
     }
-    
+
     render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera }) {
-        for (let i = 0; i < this.skinnedModels.length; i++) {
-            const model = this.skinnedModels[i];
-            const uniforms = model.material.getUniformBuffer('uniforms');
+        for (let avatarIdx = 0; avatarIdx < this.avatars.length; avatarIdx++) {
+            if (!this.avatars[avatarIdx].active) continue;
+            const data = this.data[avatarIdx];
 
-            const boneFloats = uniforms.getFloatArray('u_joints');
-            boneFloats.set(model.skeleton.boneMatrices);
+            for (let i = 0; i < data.skinnedModels.length; i++) {
+                const model = data.skinnedModels[i];
+                const uniforms = model.material.getUniformBuffer('uniforms');
 
-            const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
-            
-            // @TODO: UniformBuffer.hasUniform()
-            // @TODO: UniformBuffer.trySet()
-            if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
+                const boneFloats = uniforms.getFloatArray('u_joints');
+                boneFloats.set(model.skeleton.boneMatrices);
+
+                const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
+
+                // @TODO: UniformBuffer.hasUniform()
+                // @TODO: UniformBuffer.trySet()
+                if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
+                    uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
+                }
+
+                if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
+                    uniforms.setMat4('u_model', matrixWorld);
+                }
+
+                uniforms.write(gfxDevice);
+
+                model.renderList.push(model.primitive);
+            }
+
+            for (let i = 0; i < data.models.length; i++) {
+                const model = data.models[i];
+
+                const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
+
+                const uniforms = model.material.getUniformBuffer('uniforms');
                 uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
-            } 
+                uniforms.write(gfxDevice);
 
-            if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
-                uniforms.setMat4('u_model', matrixWorld);
-            }      
-
-            uniforms.write(gfxDevice);
-
-            model.renderList.push(model.primitive);
-        }
-
-        for (let i = 0; i < this.models.length; i++) {
-            const model = this.models[i];
-
-            const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
-
-            const uniforms = model.material.getUniformBuffer('uniforms');
-            uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
-            uniforms.write(gfxDevice);
-
-            model.renderList.push(model.primitive);
+                model.renderList.push(model.primitive);
+            }
         }
     }
 }

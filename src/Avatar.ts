@@ -68,23 +68,26 @@ export class AvatarState {
 const kGltfFilename = 'data/Tn.glb';
 
 export class AvatarSystem {
-    public localAvatar: Avatar = new Avatar();
+    public localAvatar: Avatar;
     private avatarState: AvatarState = new AvatarState(true);
 
-    private avatars: Avatar[] = [this.localAvatar];
+    private avatars: Avatar[] = [];
     private gltf: GltfResource;
 
     private controller: AvatarController = new AvatarController();
     private animation = new AvatarAnim();
     private renderer: AvatarRender = new AvatarRender();
 
-    initialize(game: Dependencies) {
-        // @HACK:
-        this.localAvatar.active = true;
-        this.localAvatar.local = true;
-        this.avatars.push(new Avatar());
-        this.avatars[1].active = true;
+    constructor() {
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            this.avatars[i] = new Avatar();
+        }
 
+        this.localAvatar = this.avatars[0];
+        this.avatars[0].local = true;
+    }
+
+    initialize(game: Dependencies) {
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -134,6 +137,8 @@ export class AvatarSystem {
             const avatar = this.avatars[i];
             const state = states[i];
 
+            avatar.active = !!(state.flags & AvatarFlags.IsActive);
+
             const pos = new Vector3(state.pos);
             avatar.position.copy(pos);
             avatar.lookAt(
@@ -153,6 +158,7 @@ export class AvatarSystem {
         const inputCmd = game.input.getUserCommand();
         const dtSec = game.clock.simDt / 1000.0;
         this.avatarState = this.controller.update(this.avatarState, dtSec, inputCmd);
+        this.avatarState.flags |= AvatarFlags.IsActive;
     }
 
     render(game: Dependencies) {
