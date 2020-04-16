@@ -1,13 +1,12 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
-import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer } from './NetPacket';
+import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined } from '../util';
+import { defined, assert, assertDefined } from '../util';
 
 export enum NetClientEvent {
     Connect = "connect",
     Receive = "receive",
-    Acknowledge = "acknowledge",
 };
 
 const kPacketHistoryLength = 32;
@@ -21,8 +20,9 @@ export class NetClient extends EventDispatcher {
 
     private remoteSequence = 0;
     private localSequence = 0;
-    private localHistory: PacketBuffer = new PacketBuffer(kPacketHistoryLength);
-    private remoteHistory: PacketBuffer = new PacketBuffer(kPacketHistoryLength);
+    private ackBuffer: boolean[] = new Array(kPacketHistoryLength).fill(false);
+    private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
+    private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
 
     initialize(serverAddress: string) {
         this.socket = new WebUdpSocket(serverAddress);
@@ -45,22 +45,10 @@ export class NetClient extends EventDispatcher {
         }
     }
 
-    private readAckBitfield(bitfield: number, sequence: number, history: PacketBuffer) {
-        for (const packet of history) {
-            const bit = sequenceNumberWrap(sequence - packet.header.sequence);
-            const ackd = bitfield & (1 << bit);
-            if (ackd && !packet.isAcknowledged()) {
-                packet.setAcknowledged();
-                this.fire(NetClientEvent.Acknowledge, packet.payload);
-            }
-        }
-        return bitfield;
-    }
-
-    private writeAckBitfield(sequence: number, history: PacketBuffer) {
+    private writeAckBitfield(history: Packet[]) {
         let bitfield = 0;
         for (const packet of history) {
-            const bit = sequenceNumberWrap(sequence - packet.header.sequence);
+            const bit = sequenceNumberWrap(this.remoteSequence - packet.header.sequence);
             if (bit < 32) {
                 bitfield |= 1 << bit;
             }
@@ -74,7 +62,15 @@ export class NetClient extends EventDispatcher {
      * @param data The raw data received from the WebUDP connection
      */
     private receive(data: ArrayBuffer) {
-        const packet = this.remoteHistory.allocate().fromBuffer(data);
+        const sequence = new Uint16Array(data)[0];
+
+        // If this packet is older than our buffer allows, throw it away
+        if (sequence <= this.remoteSequence - kPacketHistoryLength) {
+            return;
+        }
+
+        // Parse and buffer the packet 
+        const packet = this.remoteHistory[sequence % kPacketHistoryLength].fromBuffer(data);
         if (!defined(packet)) {
             console.warn('NetClient: Received packet that was too large for buffer. Ignoring.');
             return;
@@ -86,7 +82,10 @@ export class NetClient extends EventDispatcher {
         }
 
         // Update the acknowledged state of all of the recently sent packets
-        this.readAckBitfield(packet.header.ackBitfield, packet.header.ack, this.localHistory);
+        const bitfield = packet.header.ackBitfield;
+        for (let i = 0; i < 32; i++) {
+            if (bitfield & 1 << i) { this.ackBuffer[(packet.header.ack + i) % kPacketHistoryLength] = true; }
+        }
 
         this.fire(NetClientEvent.Receive, packet.payload);
     }
@@ -97,36 +96,23 @@ export class NetClient extends EventDispatcher {
      * @param payload The payload to include in the packet
      */
     send(payload: Uint8Array) {
-        const packet = this.localHistory.allocate();
-
-        packet.header.sequence = this.localSequence;
-        packet.header.ack = this.remoteSequence;
-        packet.header.ackBitfield = this.writeAckBitfield(this.remoteSequence, this.remoteHistory);
-        packet.payload = payload;
-
-        const bytes = packet.toBuffer();
-        if (!defined(bytes)) {
+        if (payload.length > kPacketMaxPayloadSize) {
             console.warn('NetClient: Attempted to send packet that was too large for buffer. Ignoring.');
             return;
         }
+        
+        // Allocate the packet (being careful to set its unacknowledged state)
+        const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
+        this.ackBuffer[this.localSequence % kPacketHistoryLength] = false;
 
+        packet.header.sequence = this.localSequence;
+        packet.header.ack = this.remoteSequence;
+        packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
+        packet.payload = payload;
+
+        const bytes = packet.toBuffer();
         this.socket.send(bytes);
 
         this.localSequence += 1;
-    }
-
-    /**
-     * Compute the average round-trip-time between this client and the server.
-     * This is the local timestamp difference between when the packet was constructed, and when another packet was 
-     * received which acknowledged it. This is a bit inflated from the true packet latency, since it also includes
-     * time the packet was buffered on the client, and server processing time. 
-     * @TODO: If the server is processing at a fixed tick rate, we could subtract half to get a more accurate average
-     */
-    getAverageRTT() {
-        let total = 0;
-        for (const packet of this.localHistory) {
-            total += packet.getRTT();
-        }
-        return total / this.localHistory.count();
     }
 }
