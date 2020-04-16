@@ -14,6 +14,22 @@ Today is Entity Interpolation day (https://developer.valvesoftware.com/wiki/Sour
 - Calling NetClient::Send should return the sequence number, acks can be checked by accessing the ack buffer with the sequence.
 - Replace PacketBuffer with a much more reliable and simple data structure based on % 
 
+##### Evening
+I added interpolation, and spent a lot of time thinking about and fixing up the Clock system. I've settled on what I think is a pretty good architecture. Clock maintains three sets of times: 
+ - realTime/realDt, the CPU-based time at which this display frame started executing
+ - simTime/simDt, the time at which the current simulation time is executing (always behind real time) 
+ - renderTime/renderDt, the time at which the simulation will be sampled and rendered during this display frame
+
+At the beginning of each display frame (when the requestAnimationFrame callback fires), real time gets incremented by the real CPU dt. If the simulation time is behind the real time by more than the fixed simDt, UpdateFixed() is executed and simTime is increased by simDt. UpdateFixed() can be called multiple times in a single display frame, or not at all. The display frame "produces" time and the simulation consumes it. After UpdateFixed() has had its chance(s) to produce more simulation results, renderTime is used to interpolate (or extrapolate) the current simulation state for this display frame. Update() and Render() then consume this state and display it.
+
+Render time can be dilated and contracted. E.g. to implement a "hit stop" effect, we can slow down render time when striking an enemy, then increase it to catch back up with the most current sim time. This doesn't effect the simulation, and if it is quick enough, the user won't notice the lack of input response. 
+
+Sim time can also be manipulated, e.g. to send more user inputs to the server if we're experiencing packet loss. This increases the client's time compared to the server's, and thus gives the server more of a chance to get our input for a given simulation frame. Overwatch uses this technique and it's described in https://youtu.be/W3aieHjyNvw?t=1530.
+
+I also did a bit of NetClient cleanup and simplified PacketBuffer. We don't need a complicated ring buffer structure, we can just use the sequence modulo the buffer size. This was done in Quake World and seems very clean. 
+
+Finally I did a bit of work in the Avatar system so that it can handle multiple Avatar states. It's ready to consume AvatarState objects from the server!
+
 ### 2020-04-15
 ##### Morning
 I realized that there is a large storm cloud ahead. The server is currently written in C++, but it needs to simulate most everything, and in the same way as AvatarController.ts so that the client prediction is accurate. This would be much easier if they used the same language and could share the implementation. This may mean I need to look into running node on the server. I could have C++ handle the networking, running one thread per client, and copy messages in to JS-accessible buffers which it reads each tick. I still need to do more research.
