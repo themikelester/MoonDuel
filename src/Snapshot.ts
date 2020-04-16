@@ -8,8 +8,13 @@ export class Snapshot {
     frame: number;
     avatar: AvatarState = new AvatarState();
 
-    static lerp(a: Snapshot, b: Snapshot, t: number, result: Snapshot) {
-        AvatarState.lerp(a.avatar, b.avatar, t, result.avatar);
+    static lerp(result: Snapshot, a: Snapshot, b: Snapshot, t: number) {
+        AvatarState.lerp(result.avatar, a.avatar, b.avatar, t);
+        return result;
+    }
+
+    static copy(result: Snapshot, a: Snapshot) {
+        AvatarState.copy(result.avatar, a.avatar);
         return result;
     }
 }
@@ -79,9 +84,14 @@ export class SnapshotManager {
             console.warn('No valid snapshot for this frame');
             return false;
         } else {
+            if (a === b) {
+                Snapshot.copy(result, a);
+                return true;
+            }
+
             // Interpolate
             const t = delerp(aFrame, bFrame, simTime);
-            Snapshot.lerp(a, b, t, result);
+            Snapshot.lerp(result, a, b, t);
             return true;
         }
     }

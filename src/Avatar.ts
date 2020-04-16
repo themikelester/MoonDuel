@@ -42,11 +42,18 @@ export class AvatarState {
     orientation: vec3 = vec3.fromValues(0, 0, 1);
     flags: AvatarFlags = 0;
 
-    static lerp(a: AvatarState, b: AvatarState, t: number, result: AvatarState) {
+    static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
         vec3.lerp(result.pos, a.pos, b.pos, t);
         vec3.lerp(result.velocity, a.velocity, b.velocity, t);
         vec3.lerp(result.orientation, a.orientation, b.orientation, t);
         result.flags = a.flags & b.flags;
+    }
+
+    static copy(result: AvatarState, a: AvatarState) {
+        vec3.copy(result.pos, a.pos);
+        vec3.copy(result.velocity, a.velocity);
+        vec3.copy(result.orientation, a.orientation);
+        result.flags = a.flags;
     }
 }
 
