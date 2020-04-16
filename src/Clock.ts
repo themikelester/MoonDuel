@@ -13,7 +13,7 @@ export class Clock {
     public renderDt: number = 0;
 
     public simFrame: number = 0; // The integer frame number of the current simulation frame
-    private _simDt: number = 20; // The fixed time step of the simulation
+    private _simDt: number = 16; // The fixed time step of the simulation
     private _renderTimeDelay: number = this.simDt; // The initial delay between renderTime and realTime
 
     public paused = false;
