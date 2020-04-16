@@ -109,6 +109,9 @@ export class AvatarAnim {
             data.aWalk.play().setEffectiveWeight(0.0);
             data.aRun.play().setEffectiveWeight(0.0);
 
+            // Give each avatar a different idle phase, so their animations don't appear to sync
+            data.aIdle.time = i * (data.aIdle.getClip().duration / (this.avatars.length + 1)); 
+
             data.aWalk.time = kWalkStartStopTimes[data.startingFoot] * data.aWalk.getClip().duration;
             data.aRun.time = kRunStartStopTimes[data.startingFoot] * data.aRun.getClip().duration;
         }
