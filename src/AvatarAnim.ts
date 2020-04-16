@@ -69,71 +69,97 @@ class AnimationDebugMenu {
     }
 }
 
-export class AvatarAnim {
-    avatar: Avatar;
-    ready = false;
-    
+interface AvatarAnimData {
     aIdle: AnimationAction;
     aWalk: AnimationAction;
     aRun: AnimationAction;
+    startingFoot: number;
+}
 
-    startingFoot = 0;
-
+export class AvatarAnim {
+    avatars: Avatar[];
+    data: AvatarAnimData[] = [];
+    ready = false;
+    
     debugMenu: AnimationDebugMenu;
 
-    initialize(avatar: Avatar) {
-        this.avatar = avatar;
-        this.debugMenu = new AnimationDebugMenu(this.avatar);
+    initialize(avatars: Avatar[]) {
+        this.avatars = avatars;
+        this.debugMenu = new AnimationDebugMenu(this.avatars[0]);
     }
 
     onResourcesLoaded(gltf: GltfResource) {
-        // Buffer the animation clips now
-        this.aIdle = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'await1')));
-        this.aWalk = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'awalk1')));
-        this.aRun = this.avatar.animationMixer.clipAction(assertDefined(gltf.animations.find(a => a.name === 'brun1')));
+        const idleClip = assertDefined(gltf.animations.find(a => a.name === 'await1'));
+        const walkClip = assertDefined(gltf.animations.find(a => a.name === 'awalk1'));
+        const runClip = assertDefined(gltf.animations.find(a => a.name === 'brun1'));
 
-        this.aIdle.play().setEffectiveWeight(1.0);
-        this.aWalk.play().setEffectiveWeight(0.0);
-        this.aRun.play().setEffectiveWeight(0.0);
+        for (let i = 0; i < this.avatars.length; i++) {
+            const avatar = this.avatars[i];
+            
+            // Buffer the animation clips now
+            this.data[i] = {
+                aIdle: avatar.animationMixer.clipAction(idleClip),
+                aWalk: avatar.animationMixer.clipAction(walkClip),
+                aRun: avatar.animationMixer.clipAction(runClip),
+                startingFoot: 0,
+            };
 
-        this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
-        this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
+            const data = this.data[i];
+            data.aIdle.play().setEffectiveWeight(1.0);
+            data.aWalk.play().setEffectiveWeight(0.0);
+            data.aRun.play().setEffectiveWeight(0.0);
+
+            data.aWalk.time = kWalkStartStopTimes[data.startingFoot] * data.aWalk.getClip().duration;
+            data.aRun.time = kRunStartStopTimes[data.startingFoot] * data.aRun.getClip().duration;
+        }
 
         this.debugMenu.onResourcesLoaded(gltf.animations);
 
         this.ready = true;
     }
 
-    update(state: AvatarState, dtSec: number) {
+    update(states: AvatarState[], dtSec: number) {
         if (!this.ready) return;
 
-        const debugActive = this.debugMenu.update(dtSec);
-        if (debugActive) { return; }
+        for (let i = 0; i < states.length; i++) {
+            const data = this.data[i];
+            const avatar = this.avatars[i];
+            const state = states[i];
 
-        const speed = vec3.length(state.velocity);
-        const isWalking = state.flags & AvatarFlags.IsWalking;
-        const isUTurning = state.flags & AvatarFlags.IsUTurning;
+            if (!avatar.active) {
+                continue;
+            }
+            
+            if (avatar.local) {
+                const debugActive = this.debugMenu.update(dtSec);
+                if (debugActive) { continue; }
+            }
 
-        this.aIdle.weight = saturate(1.0 - speed / kAvatarWalkSpeed);
-        this.aRun.weight = saturate(delerp(isWalking ? kAvatarWalkSpeed : 0, kAvatarRunSpeed, speed));
-        this.aRun.timeScale = this.aRun.weight;
-        this.aWalk.weight = saturate(delerp(0, kAvatarWalkSpeed, speed)) - this.aRun.weight;
-        this.aWalk.timeScale = this.aWalk.weight;
+            const speed = vec3.length(state.velocity);
+            const isWalking = state.flags & AvatarFlags.IsWalking;
+            const isUTurning = state.flags & AvatarFlags.IsUTurning;
 
-        // if (isUTurning) {
-        //     this.aWalk.timeScale = -1.0;
-        // }
+            data.aIdle.weight = saturate(1.0 - speed / kAvatarWalkSpeed);
+            data.aRun.weight = saturate(delerp(isWalking ? kAvatarWalkSpeed : 0, kAvatarRunSpeed, speed));
+            data.aRun.timeScale = data.aRun.weight;
+            data.aWalk.weight = saturate(delerp(0, kAvatarWalkSpeed, speed)) - data.aRun.weight;
+            data.aWalk.timeScale = data.aWalk.weight;
 
-        if (speed <= 0.0) {
-            // Reset the walk animation so we always start from the same position when we begin walking again
-            this.aWalk.time = kWalkStartStopTimes[this.startingFoot] * this.aWalk.getClip().duration;
-            this.aRun.time = kRunStartStopTimes[this.startingFoot] * this.aRun.getClip().duration;
-            this.startingFoot = (this.startingFoot + 1) % 2;
+            // if (isUTurning) {
+            //     this.aWalk.timeScale = -1.0;
+            // }
+
+            if (speed <= 0.0) {
+                // Reset the walk animation so we always start from the same position when we begin walking again
+                data.aWalk.time = kWalkStartStopTimes[data.startingFoot] * data.aWalk.getClip().duration;
+                data.aRun.time = kRunStartStopTimes[data.startingFoot] * data.aRun.getClip().duration;
+                data.startingFoot = (data.startingFoot + 1) % 2;
+            }
+
+            avatar.animationMixer.update(dtSec);            
+
+            avatar.updateMatrixWorld();
+            avatar.skeleton.update();
         }
-
-        this.avatar.animationMixer.update(dtSec);            
-
-        this.avatar.updateMatrixWorld();
-        this.avatar.skeleton.update();
     }
 }

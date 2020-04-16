@@ -26,14 +26,18 @@ interface Dependencies {
 }
 
 export class Avatar extends Object3D {
+    active: boolean = false;
+    local: boolean = false;
+
     nodes: GltfNode[];
     animationMixer: AnimationMixer;
     skeleton: Skeleton;
 }
 
 export enum AvatarFlags {
-    IsWalking = 1 << 0,
-    IsUTurning = 1 << 1,
+    IsActive = 1 << 0,
+    IsWalking = 1 << 1,
+    IsUTurning = 1 << 2,
 }
 
 export class AvatarState {
@@ -41,6 +45,10 @@ export class AvatarState {
     velocity: vec3 = vec3.create();
     orientation: vec3 = vec3.fromValues(0, 0, 1);
     flags: AvatarFlags = 0;
+
+    constructor(isActive: boolean = false) {
+        this.flags = isActive ? AvatarFlags.IsActive : 0;
+    }
 
     static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
         vec3.lerp(result.pos, a.pos, b.pos, t);
@@ -61,7 +69,7 @@ const kGltfFilename = 'data/Tn.glb';
 
 export class AvatarSystem {
     public localAvatar: Avatar = new Avatar();
-    private avatarState: AvatarState = new AvatarState();
+    private avatarState: AvatarState = new AvatarState(true);
 
     private avatars: Avatar[] = [this.localAvatar];
     private gltf: GltfResource;
@@ -71,6 +79,12 @@ export class AvatarSystem {
     private renderer: AvatarRender = new AvatarRender();
 
     initialize(game: Dependencies) {
+        // @HACK:
+        this.localAvatar.active = true;
+        this.localAvatar.local = true;
+        this.avatars.push(new Avatar());
+        this.avatars[1].active = true;
+
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -78,7 +92,7 @@ export class AvatarSystem {
             this.onResourcesLoaded(game);
         });
 
-        this.animation.initialize(this.localAvatar);
+        this.animation.initialize(this.avatars);
         this.renderer.initialize(this.avatars);
     }
 
@@ -114,20 +128,25 @@ export class AvatarSystem {
     }
 
     update(game: Dependencies) {
-        const state = game.snapshot.displaySnapshot.avatar;
+        const states = game.snapshot.displaySnapshot.avatars;
 
-        const pos = new Vector3(state.pos);
-        this.localAvatar.position.copy(pos);
-        this.localAvatar.lookAt(
-            state.pos[0] + state.orientation[0],
-            state.pos[1] + state.orientation[1],
-            state.pos[2] + state.orientation[2],
-        )
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            const avatar = this.avatars[i];
+            const state = states[i];
 
-        this.localAvatar.updateMatrix();
-        this.localAvatar.updateMatrixWorld();
-        
-        this.animation.update(state, game.clock.renderDt / 1000.0);
+            const pos = new Vector3(state.pos);
+            avatar.position.copy(pos);
+            avatar.lookAt(
+                state.pos[0] + state.orientation[0],
+                state.pos[1] + state.orientation[1],
+                state.pos[2] + state.orientation[2],
+            )
+
+            avatar.updateMatrix();
+            avatar.updateMatrixWorld();
+        }
+            
+        this.animation.update(states, game.clock.renderDt / 1000.0);
     }
 
     updateFixed(game: Dependencies) {

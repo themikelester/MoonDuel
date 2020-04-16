@@ -6,15 +6,27 @@ import { delerp } from "./MathHelpers";
 
 export class Snapshot {
     frame: number;
-    avatar: AvatarState = new AvatarState();
+
+    static kAvatarCount = 2;
+    avatars: AvatarState[] = [];
+
+    constructor() {
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            this.avatars[i] = new AvatarState(i === 0);
+        }
+    }
 
     static lerp(result: Snapshot, a: Snapshot, b: Snapshot, t: number) {
-        AvatarState.lerp(result.avatar, a.avatar, b.avatar, t);
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            AvatarState.lerp(result.avatars[i], a.avatars[i], b.avatars[i], t);
+        }
         return result;
     }
 
     static copy(result: Snapshot, a: Snapshot) {
-        AvatarState.copy(result.avatar, a.avatar);
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            AvatarState.copy(result.avatars[i], a.avatars[i]);
+        }
         return result;
     }
 }
@@ -95,10 +107,13 @@ export class SnapshotManager {
     }
 
     createSnapshot(deps: Dependencies) {
-        const snapshot: Snapshot = {
-            frame: deps.clock.simFrame,
-            avatar: deps.avatar.getSnapshot(),
-        }
+        const lastSnapshot = this.buffer[this.latestFrame % this.bufferFrameCount];
+        const snapshot = new Snapshot();
+        if (lastSnapshot) Snapshot.copy(snapshot, lastSnapshot);
+
+        snapshot.frame = deps.clock.simFrame;
+        snapshot.avatars[0] = deps.avatar.getSnapshot();
+
         return snapshot;
     }
 }
