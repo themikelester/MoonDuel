@@ -48,6 +48,9 @@ export class AvatarState {
 
     constructor(isActive: boolean = false) {
         this.flags = isActive ? AvatarFlags.IsActive : 0;
+
+        // @HACK: Make all avatars active, for testing
+        this.flags = AvatarFlags.IsActive;
     }
 
     static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
