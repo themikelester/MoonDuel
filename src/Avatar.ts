@@ -127,7 +127,7 @@ export class AvatarSystem {
         this.localAvatar.updateMatrix();
         this.localAvatar.updateMatrixWorld();
         
-        this.animation.update(state, game.clock.dt / 1000.0);
+        this.animation.update(state, game.clock.renderDt / 1000.0);
     }
 
     updateFixed(game: Dependencies) {

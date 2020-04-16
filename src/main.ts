@@ -95,6 +95,7 @@ class Main {
 
     private tick(time: number) {
         this.clock.tick(time);
+        
         this.updateFixed();
         this.update();
         this.render();
@@ -108,11 +109,10 @@ class Main {
 
     private updateFixed() {
         while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
+            this.clock.updateFixed();
             this.input.updateFixed(this);
             this.avatar.updateFixed(this);
             this.snapshot.updateFixed(this);
-            
-            this.clock.updateFixedLate();
         }
     }
 

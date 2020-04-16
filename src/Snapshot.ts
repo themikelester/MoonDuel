@@ -31,18 +31,16 @@ export class SnapshotManager {
     private latestFrame: number;
 
     private bufferFrameCount: number;
-    private interpolationDelayMs: number = 32;
 
     initialize() {
         this.bufferFrameCount = 5 * 64;
 
         const menu = DebugMenu.addFolder('Snapshot');
         menu.add(this, 'bufferFrameCount', 64, 64 * 10, 64);
-        menu.add(this, 'interpolationDelayMs', 0, 240, 8);
     }
 
     update(game: Dependencies) {
-        let displaySnapshotTime = (game.clock.realTime / game.clock.simDt) - 1.0 - (this.interpolationDelayMs / game.clock.simDt);
+        let displaySnapshotTime = game.clock.renderTime / game.clock.simDt;
         const valid = this.getSnapshot(displaySnapshotTime, this.displaySnapshot);
     }
 
