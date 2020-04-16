@@ -115,4 +115,12 @@ export class NetClient extends EventDispatcher {
 
         this.localSequence += 1;
     }
+
+    isAcknowledged(sequence: number) {
+        if (sequence <= this.remoteSequence - kPacketHistoryLength) {
+            return false;
+        }
+
+        return this.ackBuffer[sequence % kPacketHistoryLength];
+    }
 }
