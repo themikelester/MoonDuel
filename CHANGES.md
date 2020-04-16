@@ -6,7 +6,15 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
-### 2020-15-03
+### 2020-04-16
+##### Morning
+Today is Entity Interpolation day (https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking#Entity_interpolation). Basically now that we have game states in the form of snapshots, we interpolate between the last two based on the leftover fixed frame time so that the simulation results appear smooth. After that I'd like to do a bit of cleanup. 
+- Implement reliable messages in NetClient, the quake way (one reliable in flight at a time, almost no extra complexity).
+- Remove messageId from the schema as we no longer have to worry about duplicates (since they'll have the same sequence number)
+- Calling NetClient::Send should return the sequence number, acks can be checked by accessing the ack buffer with the sequence.
+- Replace PacketBuffer with a much more reliable and simple data structure based on % 
+
+### 2020-04-15
 ##### Morning
 I realized that there is a large storm cloud ahead. The server is currently written in C++, but it needs to simulate most everything, and in the same way as AvatarController.ts so that the client prediction is accurate. This would be much easier if they used the same language and could share the implementation. This may mean I need to look into running node on the server. I could have C++ handle the networking, running one thread per client, and copy messages in to JS-accessible buffers which it reads each tick. I still need to do more research.
 
@@ -19,7 +27,7 @@ Big day. I struggled for a while which what to work on. After studying the links
 
 In order to test that my the new system was actually running completely on the newly generated states, I implemented a Snaphot system. This aggregates all of the states each fixed frame, with the ability to record the snapshots into a buffer, and then play them back. And it works! This is basically how spectating will work. The server will just send the client a stream of Snapshots and the client interpolates and plays them back smoothly. Neat!
 
-### 2020-14-03
+### 2020-04-14
 ##### Morning
 I think I'm going to put off implementing reliable messages until I have a basic game message protocol going. I'm going to spend the morning researching flatbuffers and alternatives. If I'm happy with flatbuffers, I'll implement them, but I think they lack bounds checking. 
 
@@ -32,7 +40,7 @@ I also need to find a way to share the schemas between the client and server. Cu
 
 I finally renamed MoonDuel from gfx-boilerplate. All the DNS routing still seems to work.
 
-### 2020-13-03
+### 2020-04-13
 ##### Morning
 Over the weekend I read a lot of Glen Fiedler articles (https://gafferongames.com/post/reliability_ordering_and_congestion_avoidance_over_udp/). I think the first thing I'm going to do is implement a reliability protocol, via ACKs, so that I can send some reliable messages such as client connected, and detect client ping. After that I'll look into different pre-rolled packet schemas so that I can avoid writing a lot of boilerplate serialization/schema code on the server side. I was hoping that flatbuffers would work, but it looks like they don't support min/max values for validation. Hopefully I'll be able to find an open source protocol, otherwise I'll write my own. 
 
@@ -41,21 +49,21 @@ I need to restructure the way that AvatarController and AvatarRender work in ord
 ##### Evening
 It was a productive day, but I underestimated how much work the reliability protocol would be. At 6PM I had it tested (lightly) and working. I basically followed the main idea of the Fiedler article linked above, with 16-bit sequence numbers. Tomorrow I'd like to do some more testing to make sure it's actually working how I think it's working. That probably means adding an API to request a reliable message and then resending it if it fails to be ack'd within the valid time. This requires simulating dropped packets. Can we do this in Chrome? Otherwise I'll have to write some code at the UDP layer to simulate drops.
 
-### 2020-10-03
+### 2020-04-10
 ##### Morning
 First off, get the game to send pings to the example EchoServer from https://github.com/seemk/WebUDP, which I currently have running in a Docker instance. Then I'll start a new project to write the game server and start sending custom messages to the clients. Hopefully by the end of the day two clients can be notified of each others existence.
 
 ##### Evening
 Good day! Got the game talking to the sample server. Set up a new project with a dockerfile that builds the WebUDP project, and links it to a new sample server. https://github.com/themikelester/MoonServer. Had the server relay connect messages to all connected clients, first client->client communication! Next up I'll try to hack in some positional data so that multiple avatars can be seen. 
 
-### 2020-09-03
+### 2020-04-09
 ##### Morning
 Same again as yesterday. Time to pound out some libwebrtc builds!
 
 ##### Evening
 Yes! I spent a few hours and got a bit further trying to build Google's libwebrtc, then got disheartened and went hunting for some other C++ webrtc implementations. Jackpot! Found https://github.com/seemk/WebUDP. Was stuck for a long time trying to get the example running. The server was building and the client was sending at least one TCP message to the server, but it wasn't establishing the rtc connection. Finally figured out that I needed to docker publish not only the :9555 port (which defaults to TCP) but also the :9555/udp port. Apparently the webrtc implementation in JS sends a udp message to the other peer after the SDP is established. Woohoo! 
 
-### 2020-08-03
+### 2020-04-08
 ##### Morning
 Same as yesterday. Time to pound out some libwebrtc builds!
 
@@ -71,7 +79,7 @@ Also started a fork of the client-server demo code that contains fixes for libwe
 
 It's compiling, but linking is currently failing with some missing libewebrtc symbols. That's a problem for tomorrow.
 
-### 2020-07-03
+### 2020-04-07
 ##### Morning
 Oh forgot to mention, I purchased the moonduel.io domain, and hooked it up to the github pages page. Today I plan on getting a Ubuntu docker instance set up, and try to get the client-server WebRTC example from http://blog.brkho.com/2017/03/15/dive-into-client-server-web-games-webrtc/ up and running. Then I'll try to adapt the client code so that I can connect to the server from instances of my client.
 
@@ -80,7 +88,7 @@ MY GOODNESS. Building libwebrtc is quite a chore. I spent the day trying to work
 
 Of note, I'm not using the install scripts that he linked in the original blog post, but a fork that has been updated to work with the latest libwebrtc "release" which as of now is 72, from early 2019. https://github.com/cloudwebrtc/libwebrtc-build
 
-### 2020-06-03
+### 2020-04-06
 ##### Morning
 Implement and solidify touch axes so that I can control the avatar on mobile. Clean up mobile HTML/CSS issues so that there is no scrolling and the app goes fullscreen on touch. Maybe implement some "safe zones" on the sides? I.e. areas where no important objects are so that there's always a place to slap down your pudgy fingers without hiding anything from view. We could just treat the 4:3 center of the screen as the only visible area when computing cameras. Probably a bit early for this. Mobile Day!
 
