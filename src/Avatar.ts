@@ -75,15 +75,16 @@ export class AvatarSystem {
     private avatarState: AvatarState = new AvatarState(true);
 
     private avatars: Avatar[] = [];
-    private gltf: GltfResource;
+    private controllers: AvatarController[] = [];
 
-    private controller: AvatarController = new AvatarController();
+    private gltf: GltfResource;
     private animation = new AvatarAnim();
     private renderer: AvatarRender = new AvatarRender();
 
     constructor() {
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
             this.avatars[i] = new Avatar();
+            this.controllers[i] = new AvatarController();
         }
 
         this.localAvatar = this.avatars[0];
@@ -160,7 +161,8 @@ export class AvatarSystem {
     updateFixed(game: Dependencies) {
         const inputCmd = game.input.getUserCommand();
         const dtSec = game.clock.simDt / 1000.0;
-        this.avatarState = this.controller.update(this.avatarState, dtSec, inputCmd);
+
+        this.avatarState = this.controllers[0].update(this.avatarState, dtSec, inputCmd);
         this.avatarState.flags |= AvatarFlags.IsActive;
     }
 
