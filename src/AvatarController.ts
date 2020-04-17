@@ -15,7 +15,6 @@ const kRunAcceleration = 3000;
  * Drive each Avatar's skeleton, position, oriention, and animation
  */
 export class AvatarController {
-    speed: number = 0;
     orientationTarget: vec3 = vec3.create();
     
     update(prevState: AvatarState, dtSec: number, input: UserCommand): AvatarState {
@@ -27,19 +26,20 @@ export class AvatarController {
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
         
         // Velocity
+        let speed = vec3.length(prevState.velocity);
         const accel = inputShouldWalk ? kWalkAcceleration : kRunAcceleration;
         const maxSpeed = inputShouldWalk ? kAvatarWalkSpeed : kAvatarRunSpeed;
 
         const dSpeed = (inputActive ? accel : -accel) * dtSec;
-        const targetSpeed = clamp(this.speed + dSpeed, 0, maxSpeed); 
+        const targetSpeed = clamp(speed + dSpeed, 0, maxSpeed); 
 
-        this.speed += clamp(
-            targetSpeed - this.speed, 
+        speed += clamp(
+            targetSpeed - speed, 
             -accel * dtSec,
             accel * dtSec,
         );
 
-        const velocity = vec3.scale(vec3.create(), prevState.orientation, this.speed);
+        const velocity = vec3.scale(vec3.create(), prevState.orientation, speed);
 
         // Position
         const pos = vec3.scaleAndAdd(vec3.create(), prevState.pos, velocity, dtSec);
@@ -65,7 +65,7 @@ export class AvatarController {
             }
         }
 
-        const walking = this.speed > 0;
+        const walking = speed > 0;
 
         // State evaluations
         let turnSpeedRadsPerSec = walking ? walkingTurnSpeed : standingTurnSpeed;
