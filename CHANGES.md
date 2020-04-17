@@ -6,6 +6,18 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-17
+##### Morning
+Late start. Spent the morning reading a few more articles, the most useful was https://developer.valvesoftware.com/wiki/Latency_Compensating_Methods_in_Client/Server_In-game_Protocol_Design_and_Optimization which talks a bit more in depth about the state of other players while the client is predicting inputs. I've been struggling to understand how that works. 
+
+Now that the client can mostly/kind-of interpolate and render based on a buffer of simulation states, the next step is to share simulation states across the network. For the client-server architecture, this means implementing a node<->C++ communication layer so that the WebUDP C++ library can handle the networking, pass the packets off to a node accessible buffer, and node can run the same prediction code that the client is executing. 
+
+Instead of starting work on that, I think I might dig into peer-to-peer options first. This is something that I've had in the back of my mind for a while. We definitely want client-server if you're joining a duel with randoms, e.g. go to moonduel.io just to play a few games, because a cheater would ruin the experience for everyone else in their server/room. But for personal duels / private rooms that are joined via a direct invite, cheating is not really an issue. Having these types of games be p2p has a lot of advantages, the biggest being that you could play with your friends anywhere in the world with low ping (and low server costs!). 
+
+A lot of the logic seems to be shareable between a p2p and client-server architecture. The ideas of simulation interpolation, and lag compensation / favor-the-shooter could be the same. Each client renders themselves at the current time T, and everyone else at time T - D, where D is the interpolation delay, say 100ms. If we go to interpolate the simulation state for time T-D and we don't have state for one of the players, we extrapolate their position (up to a limit, say another 100ms). When we attack, we're attacking against the state of the world which is D seconds old. We broadcast that we've attacked at time T-D (the simulation time that we were rendering) from our current position (which is really at time T, but that doesn't matter). The attackee receives the message some time later, and rewinds their state to time T-D and evaluates the hit. This is based on everyone's clocks being synchronized, which is achieved by the round-trip-time measurement system that I already have in place (time sent vs time acknowledged). 
+
+I'm going to spend some time investigating how hard it would be to get a WebRTC peer to peer connection going. Then I think the responsible thing to do would be to develop the systems that both architectures need, such as state reception and transmission, rather than command transmission (which is only needed by the client-server architecture). 
+
 ### 2020-04-16
 ##### Morning
 Today is Entity Interpolation day (https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking#Entity_interpolation). Basically now that we have game states in the form of snapshots, we interpolate between the last two based on the leftover fixed frame time so that the simulation results appear smooth. After that I'd like to do a bit of cleanup. 
