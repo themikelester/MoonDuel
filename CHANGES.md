@@ -6,6 +6,10 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-20
+##### Morning
+Oops, forgot to write the closing changelog last time. I didn't quiiite get two peers connecting via WebRTC, so I'm going to continue to persue that. After mulling it over on the weekend, I think I've come up with a solid connection protocol. The game starts and establishes a connection to the signalling server (I could just place a few of these around the world). The signalling server determines which room you will be in (either because you chose one via URL, or randomly). It replies to the client with the room description, which contains the ID of the server as well as all other clients in the room. The server can be a dedicated server for public/random rooms, or another peer for custom rooms (so that if you live in whoop whoop, you can still play with your friends with low ping). The client then starts attempting to establish a WebRTC connection to the server (or does nothing if it is the server). If another client joins, it attempts to connect to the server. Once a WebRTC connection is established, we do everything as normal. 
+
 ### 2020-04-17
 ##### Morning
 Late start. Spent the morning reading a few more articles, the most useful was https://developer.valvesoftware.com/wiki/Latency_Compensating_Methods_in_Client/Server_In-game_Protocol_Design_and_Optimization which talks a bit more in depth about the state of other players while the client is predicting inputs. I've been struggling to understand how that works. 
