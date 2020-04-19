@@ -9,8 +9,7 @@ import { DebugMenu } from './DebugMenu';
 import { Clock } from './Clock';
 import { clamp, angularDistance, MathConstants } from './MathHelpers';
 import { Object3D, Vector3 } from './Object3D';
-import { AvatarSystem, Avatar } from './Avatar';
-import { assert } from './util';
+import { AvatarSystem } from './Avatar';
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -42,7 +41,7 @@ export class CameraSystem {
     }
 
     update({ globalUniforms, input, clock }: { globalUniforms: GlobalUniforms, input: InputManager, clock: Clock }) {
-        this.controller.update(input, clock.dt);
+        this.controller.update(input, clock.realDt);
 
         const camPos = this.camera.getPos(this.camPos);
         globalUniforms.buffer.setVec3('g_camPos', camPos);
@@ -134,10 +133,6 @@ export class FollowCameraController implements CameraController {
 
     fromJSON(data: string) {
     }
-}
-
-function clampRange(v: number, lim: number): number {
-    return Math.max(-lim, Math.min(v, lim));
 }
 
 function computeUnitSphericalCoordinates(dst: vec3, azimuthal: number, polar: number): vec3 {

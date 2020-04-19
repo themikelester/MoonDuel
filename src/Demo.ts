@@ -224,7 +224,7 @@ export class Demo {
     
     update({ clock }: { clock: Clock }) {
         if (this.mixer) {
-            this.mixer.update(clock.dt / 1000.0);
+            this.mixer.update(clock.renderDt / 1000.0);
         }
     }
 
