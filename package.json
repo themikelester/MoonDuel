@@ -29,8 +29,10 @@
     "worker-loader": "^2.0.0"
   },
   "dependencies": {
+    "@types/socket.io-client": "^1.4.32",
     "dat.gui": "^0.7.6",
     "gl-matrix": "^3.2.1",
+    "socket.io-client": "^2.3.0",
     "three": "^0.115.0"
   },
   "scripts": {
