@@ -21,7 +21,9 @@ export class WebUdpSocket extends EventDispatcher {
     peer: RTCPeerConnection;
     isOpen: boolean = false;
 
-    async connect(signalSocket: SignalSocket, peerId?: ClientId) {
+    async connect(signalSocket: SignalSocket, peerId: ClientId) {
+        this.peerId = peerId;
+        
         this.signalSocket = signalSocket;
         this.signalSocket.on(SignalSocketEvents.Message, this.onMessage.bind(this));
 
@@ -51,8 +53,8 @@ export class WebUdpSocket extends EventDispatcher {
             this.fire(WebUdpEvent.Message, msg);
         }
 
-        // If a peer is not specified, just listen for a connection
-        if (peerId) {
+        // If we are the server, just listen for the connection
+        if (this.signalSocket.serverId !== this.signalSocket.clientId) {
             this.peerId = peerId;
 
             // Create our offer and send it to our peer via the signal server
@@ -65,7 +67,7 @@ export class WebUdpSocket extends EventDispatcher {
     async onMessage(msg: ClientMessageData, from: ClientId) {
         // Ignore messages that are not from our peer 
         // (there may be multiple WebRTC handshakes in flight if we're the server)
-        if (this.peerId && from !== this.peerId) {
+        if (from !== this.peerId) {
             return;
         }
 
@@ -78,7 +80,6 @@ export class WebUdpSocket extends EventDispatcher {
 
         // Construct an answer and send it back to our peer via the signal server
         if (msg.offer) {
-            this.peerId = from;
             await this.peer.setRemoteDescription(msg.offer);
             const answer = await this.peer.createAnswer();
             this.peer.setLocalDescription(answer);
@@ -181,7 +182,7 @@ export class WebUdpSocketServer extends EventDispatcher {
         };
         request.send(this.peer.localDescription!.sdp);
     }
-    
+
     send(data: string | Blob | ArrayBuffer | ArrayBufferView): boolean {
         if (this.isOpen) {
             this.channel.send(data as any);
