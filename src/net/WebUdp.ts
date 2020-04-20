@@ -23,7 +23,7 @@ export class WebUdpSocket extends EventDispatcher {
 
     async connect(signalSocket: SignalSocket, peerId: ClientId) {
         this.peerId = peerId;
-        
+
         this.signalSocket = signalSocket;
         this.signalSocket.on(SignalSocketEvents.Message, this.onMessage.bind(this));
 
@@ -38,26 +38,22 @@ export class WebUdpSocket extends EventDispatcher {
             }
         };
 
-        const channelOptions = {
-            ordered: false,
-            maxRetransmits: 0,
-        };
+        const isRemote = this.signalSocket.serverId !== this.signalSocket.clientId
 
-        this.channel = this.peer.createDataChannel('webudp', channelOptions);
-        this.channel.binaryType = 'arraybuffer';
-        this.channel.onopen = () => { this.isOpen = true; this.fire(WebUdpEvent.Open); }
-        this.channel.onclose = () => { this.isOpen = false; this.fire(WebUdpEvent.Close); }
-        this.channel.onerror = evt => { console.error("WebUdpPeer: Data channel error", evt); }
-        this.channel.onmessage = msg => {
-            console.log('WebUDP: Received message', msg);
-            this.fire(WebUdpEvent.Message, msg);
-        }
-
-        // If we are the server, just listen for the connection
-        if (this.signalSocket.serverId !== this.signalSocket.clientId) {
-            this.peerId = peerId;
-
-            // Create our offer and send it to our peer via the signal server
+        if (isRemote) {
+            // If we're the "remote", we have to listen for a datachannel to open
+            this.peer.ondatachannel = evt => {
+                this.setDataChannel(evt.channel);
+            };
+        } else {
+            // But if we're the "local", we create the data channel
+            const channel = this.peer.createDataChannel('webudp', {
+                ordered: false,
+                maxRetransmits: 0,
+            });
+            this.setDataChannel(channel);
+            
+            // And initiate the connection by creating and sending an offer
             const offer = await this.peer.createOffer();
             await this.peer.setLocalDescription(offer);
             signalSocket.send(this.peerId, { offer });
@@ -66,7 +62,7 @@ export class WebUdpSocket extends EventDispatcher {
 
     async onMessage(msg: ClientMessageData, from: ClientId) {
         // Ignore messages that are not from our peer 
-        // (there may be multiple WebRTC handshakes in flight if we're the server)
+        // (there may be multiple WebRTC handshakes in flight on this signalling socket)
         if (from !== this.peerId) {
             return;
         }
@@ -103,6 +99,18 @@ export class WebUdpSocket extends EventDispatcher {
     close() {
         this.channel.close();
     };
+
+    private setDataChannel(dataChannel: RTCDataChannel) {
+        dataChannel.binaryType = 'arraybuffer';
+        dataChannel.onopen = () => { this.isOpen = true; this.fire(WebUdpEvent.Open); }
+        dataChannel.onclose = () => { this.isOpen = false; this.fire(WebUdpEvent.Close); }
+        dataChannel.onerror = evt => { console.error("WebUdpPeer: Data channel error", evt); }
+        dataChannel.onmessage = msg => {
+            console.log('WebUDP: Received message', msg);
+            this.fire(WebUdpEvent.Message, msg);
+        }
+        this.channel = dataChannel;
+    }
 }
 
 export class WebUdpSocketServer extends EventDispatcher {
