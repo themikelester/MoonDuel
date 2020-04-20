@@ -24,11 +24,10 @@ export class NetClient extends EventDispatcher {
     private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
     private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
 
-    initialize(serverAddress: string) {
-        this.socket = new WebUdpSocket(serverAddress);
+    initialize(socket: WebUdpSocket) {
+        this.socket = socket;
         this.socket.on(WebUdpEvent.Open, this.onOpen.bind(this));
         this.socket.on(WebUdpEvent.Message, this.onMessage.bind(this));
-        this.socket.connect();
     }
 
     private onOpen(evt: WebUdpEvent) {
@@ -114,6 +113,10 @@ export class NetClient extends EventDispatcher {
         this.socket.send(bytes);
 
         this.localSequence += 1;
+    }
+
+    get isOpen() {
+        return this.socket.isOpen;
     }
 
     isAcknowledged(sequence: number) {
