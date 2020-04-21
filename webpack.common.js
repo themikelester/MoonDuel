@@ -18,7 +18,8 @@ const APP_DESCRIPTION = ''
 
 module.exports = {
   entry: {
-    main: './src/server.ts',
+    main: './src/main.ts',
+    server: './src/server.ts',
     embed: './src/embeds/embeds_main.ts',
   },
   output: {
@@ -105,6 +106,12 @@ module.exports = {
     new HtmlWebpackPlugin({
       chunks: ['main'],
       filename: 'index.html',
+      template: './src/index.html',
+      gtagId: GTAG_ID
+    }),
+    new HtmlWebpackPlugin({
+      chunks: ['server'],
+      filename: 'server.html',
       template: './src/index.html',
       gtagId: GTAG_ID
     }),
