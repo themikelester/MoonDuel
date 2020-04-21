@@ -1,7 +1,8 @@
 import { AvatarState, AvatarFlags } from "./Avatar";
 import { vec3 } from "gl-matrix";
-import { UserCommand, InputAction } from "./Input";
+import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
+import { UserCommand } from "./UserCommand";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();

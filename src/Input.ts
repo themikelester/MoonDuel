@@ -4,6 +4,7 @@ import screenfull, { Screenfull } from 'screenfull';
 import { defined } from "./util";
 import { Camera } from "./Camera";
 import { Clock } from "./Clock";
+import { UserCommand, UserCommandBuffer } from "./UserCommand";
 
 const fullscreen = (screenfull.isEnabled) ? screenfull as Screenfull : undefined;
 
@@ -25,19 +26,8 @@ const Keymap: Record<InputAction, ActionInfo> = {
     [InputAction.Fullscreen]: { id: 'fullscreen', name: 'Toggle Fullscreen', desc: 'Toggle fullscreen mode' },
 };
 
-export interface UserCommand {
-    headingX: number;
-    headingZ: number;
-    verticalAxis: number;
-    horizontalAxis: number;
-    actions: InputAction;
-};
-
 export class InputManager {
     controller: Controller = new Controller();
-    
-    private commandBuffer: UserCommand[] = [];
-    private commandSequence = 0;
 
     initialize({ toplevel }: { toplevel: HTMLElement}) {
         this.controller.attach(toplevel);
@@ -85,15 +75,11 @@ export class InputManager {
         return this.controller.getAxis(axisName);
     }
 
-    getUserCommand(simFrame: number = this.commandSequence) {
-        return this.commandBuffer[simFrame % kCommandBufferLength];
-    }
-
     update() {
         this.controller.updateAxes();
     }
 
-    updateFixed({ camera, clock }: { camera: Camera, clock: Clock }) {
+    updateFixed({ camera, clock, userCommands }: { camera: Camera, clock: Clock, userCommands: UserCommandBuffer }) {
         // Sample the current input state to find the currently active actions
         const actionCount = Object.keys(Keymap).length;
         let actions = 0;
@@ -113,8 +99,7 @@ export class InputManager {
             actions,
         }
 
-        this.commandSequence = clock.simFrame;
-        this.commandBuffer[this.commandSequence % kCommandBufferLength] = cmd;
+        userCommands.setUserCommand(clock.simFrame, cmd);
     }
 
     afterFrame() {

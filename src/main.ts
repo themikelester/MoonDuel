@@ -18,6 +18,7 @@ import { NetModule } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { StateManager } from './SaveState';
 import { SnapshotManager } from './Snapshot';
+import { UserCommandBuffer } from './UserCommand';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -44,6 +45,7 @@ class Main {
     public resources = new ResourceManager();
     public snapshot = new SnapshotManager();
     public state = new StateManager();
+    public userCommands = new UserCommandBuffer();
     
     constructor() {
         this.init();
@@ -76,6 +78,7 @@ class Main {
         this.debugGrid.initialize(this);
         this.snapshot.initialize();
         this.state.initialize(this);
+        this.userCommands.initialize();
         
         // Handle resizing
         window.onresize = this.onResize.bind(this);

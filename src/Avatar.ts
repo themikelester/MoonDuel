@@ -12,17 +12,16 @@ import { Skeleton, Bone } from "./Skeleton";
 import { InputManager } from "./Input";
 import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
-import { Quaternion } from "three/src/math/Quaternion";
-import { Euler } from "three/src/math/Euler";
 import { SnapshotManager, Snapshot } from "./Snapshot";
+import { UserCommandBuffer } from "./UserCommand";
 
 interface Dependencies {
     gfxDevice: Renderer;
     resources: ResourceManager;
     clock: Clock;
     camera: Camera;
-    input: InputManager;
     snapshot: SnapshotManager;
+    userCommands: UserCommandBuffer;
 }
 
 export class Avatar extends Object3D {
@@ -159,7 +158,7 @@ export class AvatarSystem {
     }
 
     updateFixed(game: Dependencies) {
-        const inputCmd = game.input.getUserCommand();
+        const inputCmd = game.userCommands.getUserCommand(game.clock.simFrame);
         const dtSec = game.clock.simDt / 1000.0;
 
         this.avatarState = this.controllers[0].update(this.avatarState, dtSec, inputCmd);
