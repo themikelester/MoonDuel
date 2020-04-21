@@ -48,36 +48,38 @@ export class SignalSocket extends EventDispatcher {
      * @param roomName Room to join
      */
     connect(address: string, roomName: string) {
-        this.socket = socketio.connect(address);
+        return new Promise((resolve, reject) => {
+            this.socket = socketio.connect(address);
 
-        this.socket.on('connect', () => {
-            console.debug('SignalSocket: Connected to MoonBeacon with ID:', this.socket.id);
-        });
-
-        this.socket.on('roomJoined', (details: RoomDetails) => {
-            console.debug('SignalSocket: Joined room:', details);
-            this.room = details;
-            this.fire(SignalSocketEvents.JoinedRoom);
-        })
-
-        this.socket.on('clientJoined', (client: ClientDetails) => {
-            console.debug('SignalSocket: Client joined:', client);
-            this.room.clients[client.id] = client;
-            this.fire(SignalSocketEvents.ClientJoined, client.id);
-        });
-
-        this.socket.on('clientLeaving', (clientId: ClientId, reason: string) => {
-            console.debug('SignalSocket: Client left:', clientId);
-            delete this.room.clients[clientId];
-        });
-
-        this.socket.on('message', (msg: ClientMessage) => {
-            console.debug('SignalSocket: Message received', msg);
-            this.fire(SignalSocketEvents.Message, msg.data, msg.from);
-        });
-
-        this.socket.on('messageRoom', (msg: RoomMessage) => {
-            this.fire(SignalSocketEvents.RoomMessage, msg.data, msg.from);
+            this.socket.on('connect', () => {
+                console.debug('SignalSocket: Connected to MoonBeacon with ID:', this.socket.id);
+            });
+    
+            this.socket.on('roomJoined', (details: RoomDetails) => {
+                console.debug('SignalSocket: Joined room:', details);
+                this.room = details;
+                resolve();
+            });
+    
+            this.socket.on('clientJoined', (client: ClientDetails) => {
+                console.debug('SignalSocket: Client joined:', client);
+                this.room.clients[client.id] = client;
+                this.fire(SignalSocketEvents.ClientJoined, client.id);
+            });
+    
+            this.socket.on('clientLeaving', (clientId: ClientId, reason: string) => {
+                console.debug('SignalSocket: Client left:', clientId);
+                delete this.room.clients[clientId];
+            });
+    
+            this.socket.on('message', (msg: ClientMessage) => {
+                console.debug('SignalSocket: Message received', msg);
+                this.fire(SignalSocketEvents.Message, msg.data, msg.from);
+            });
+    
+            this.socket.on('messageRoom', (msg: RoomMessage) => {
+                this.fire(SignalSocketEvents.RoomMessage, msg.data, msg.from);
+            });
         });
     }
 

@@ -17,20 +17,29 @@ declare global {
     }
 }
 
-// Begin connecting to the requested room
-const signalSocket = new SignalSocket();
-signalSocket.connect(kServerAddress, 'default');
-signalSocket.on(SignalSocketEvents.JoinedRoom, () => {
-    const isServer = signalSocket.serverId === signalSocket.clientId;
-    
-    // @HACK: If we're the first run in the room, run as a headless dedicated server
-    if (isServer) {
-        const server = new Server();
-        server.onConnect(signalSocket);
-        window.server = server;
-    } else {
-        // Start loading and running the client
-        window.client = new Client();
-        window.client.onConnect(signalSocket);
+async function Main() {
+    // Start loading and running the client
+    const client = new Client();
+    window.client = client;
+
+    // Begin connecting to the requested room
+    // If we're the first ones in there, start up a server instance and assign it this socket
+    // Then create a new socket and establish a new connection as a client
+    while (true) {
+        const signalSocket = new SignalSocket();
+        await signalSocket.connect(kServerAddress, 'default');
+
+        const isServer = signalSocket.serverId === signalSocket.clientId;
+        
+        if (isServer) {
+            const server = new Server();
+            server.onConnect(signalSocket);
+            window.server = server;
+        } else {
+            window.client.onConnect(signalSocket);
+            break;
+        }
     }
-});
+}
+
+Main();
