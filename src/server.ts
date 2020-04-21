@@ -8,13 +8,13 @@ import { NetModule } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { SnapshotManager } from './Snapshot';
 import { UserCommandBuffer } from './UserCommand';
+import { SignalSocket, SignalSocketEvents, ClientId } from './net/SignalSocket';
 
 export const enum InitErrorCode {
     SUCCESS,
-    NO_WEBGL_GENERIC,
 }
 
-class Server {
+export class Server {
     public headless: boolean = true;
 
     // Modules
@@ -51,6 +51,10 @@ class Server {
         return InitErrorCode.SUCCESS;
     }
 
+    onConnect(signalSocket: SignalSocket) {
+        this.net.onConnectServer(signalSocket);
+    }
+
     private tick(time: number) {
         this.clock.tick(time);
 
@@ -73,16 +77,3 @@ class Server {
         this.avatar.update(this);
     }
 }
-
-// Google Analytics
-declare var gtag: (command: string, eventName: string, eventParameters: { [key: string]: string }) => void;
-
-// Declare useful objects for easy access.
-declare global {
-    interface Window {
-        main: any;
-        debug: any;
-    }
-}
-
-window.main = new Server();

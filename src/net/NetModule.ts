@@ -9,7 +9,6 @@ const kPort = 8888;
 const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;
 
 export class NetModule {
-    signalSocket: SignalSocket = new SignalSocket();
     isServer: boolean;
 
     netClients: NetClient[] = [];
@@ -18,39 +17,33 @@ export class NetModule {
     builder = new flatbuffers.Builder(kPacketMaxPayloadSize);
 
     initialize() {
-        // Connect to the signalling server
-        this.signalSocket.connect(kServerAddress, 'default');
-        
-        this.signalSocket.on(SignalSocketEvents.JoinedRoom, () => {
-            this.isServer = this.signalSocket.serverId === this.signalSocket.clientId;
-            
-            if (!this.isServer) {
-                // Establish a WebUDP connection with the server
-                const server = new NetClient();
-                const socket = new WebUdpSocket();
+    }
 
-                socket.connect(this.signalSocket, this.signalSocket.serverId);
-                server.initialize(socket);
-                server.on(NetClientEvent.Receive, (data: any) => {
-                    console.log('Received', data);
-                });
+    onConnectServer(signalSocket: SignalSocket) {
+        signalSocket.on(SignalSocketEvents.ClientJoined, (clientId: ClientId) => {
+            // Create a new client and listen for it to connect
+            const client = new NetClient();
+            const socket = new WebUdpSocket();
 
-                this.netClients = [server];
-            }
+            socket.connect(signalSocket, clientId);
+            client.initialize(socket);
 
-            if (this.isServer) {
-                this.signalSocket.on(SignalSocketEvents.ClientJoined, (clientId: ClientId) => {
-                    // Create a new client and listen for it to connect
-                    const client = new NetClient();
-                    const socket = new WebUdpSocket();
+            this.netClients.push(client);
+        })
+    }
 
-                    socket.connect(this.signalSocket, clientId);
-                    client.initialize(socket);
+    onConnectClient(signalSocket: SignalSocket) {
+        // Establish a WebUDP connection with the server
+        const server = new NetClient();
+        const socket = new WebUdpSocket();
 
-                    this.netClients.push(client);
-                })
-            }
+        socket.connect(signalSocket, signalSocket.serverId);
+        server.initialize(socket);
+        server.on(NetClientEvent.Receive, (data: any) => {
+            console.log('Received', data);
         });
+
+        this.netClients = [server];
     }
 
     update() {
