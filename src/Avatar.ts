@@ -9,19 +9,25 @@ import { AnimationMixer } from "./Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
 import { assertDefined } from "./util";
 import { Skeleton, Bone } from "./Skeleton";
-import { InputManager } from "./Input";
 import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
 import { SnapshotManager, Snapshot } from "./Snapshot";
 import { UserCommandBuffer } from "./UserCommand";
 
 interface Dependencies {
-    gfxDevice: Renderer;
+    headless: boolean;
+
+    gfxDevice?: Renderer;
     resources: ResourceManager;
     clock: Clock;
-    camera: Camera;
+    camera?: Camera;
     snapshot: SnapshotManager;
     userCommands: UserCommandBuffer;
+}
+
+interface GameDependencies extends Dependencies {
+    gfxDevice: Renderer;
+    camera: Camera;
 }
 
 export class Avatar extends Object3D {
@@ -130,7 +136,7 @@ export class AvatarSystem {
         }
 
         this.animation.onResourcesLoaded(this.gltf);
-        this.renderer.onResourcesLoaded(this.gltf, game);
+        if (!game.headless) this.renderer.onResourcesLoaded(this.gltf, (game as GameDependencies).gfxDevice);
     }
 
     update(game: Dependencies) {
@@ -165,8 +171,11 @@ export class AvatarSystem {
         this.avatarState.flags |= AvatarFlags.IsActive;
     }
 
-    render(game: Dependencies) {
-        this.renderer.render(game);
+    render(deps: Dependencies) {
+        if (!deps.headless) {
+            const game = deps as GameDependencies;
+            this.renderer.render(game.gfxDevice, game.camera);
+        }
     }
 
     getSnapshot() {

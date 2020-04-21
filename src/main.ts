@@ -29,6 +29,7 @@ class Main {
     public toplevel: HTMLElement;
     public canvas: HTMLCanvasElement = document.createElement('canvas');
 
+    public headless: boolean = false;
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
 

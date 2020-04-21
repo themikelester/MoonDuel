@@ -33,7 +33,7 @@ export class AvatarRender {
         }
     }
 
-    onResourcesLoaded(gltf: GltfResource, { gfxDevice }: { gfxDevice: Gfx.Renderer }) {
+    onResourcesLoaded(gltf: GltfResource, gfxDevice: Gfx.Renderer) {
         for (let avatarIdx = 0; avatarIdx < this.avatars.length; avatarIdx++) {
             const avatar = this.avatars[avatarIdx];
 
@@ -137,7 +137,7 @@ export class AvatarRender {
         }
     }
 
-    render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera }) {
+    render(gfxDevice: Gfx.Renderer, camera: Camera) {
         for (let avatarIdx = 0; avatarIdx < this.avatars.length; avatarIdx++) {
             if (!this.avatars[avatarIdx].active) continue;
             const data = this.data[avatarIdx];
