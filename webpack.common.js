@@ -18,7 +18,7 @@ const APP_DESCRIPTION = ''
 
 module.exports = {
   entry: {
-    main: './src/main.ts',
+    main: './src/server.ts',
     embed: './src/embeds/embeds_main.ts',
   },
   output: {
