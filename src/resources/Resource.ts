@@ -15,7 +15,7 @@ export enum ResourceStatus {
 }
 
 export interface ResourceLoadingContext {
-  renderer: Renderer;
+  renderer?: Renderer;
 }
 
 export interface Resource {

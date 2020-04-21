@@ -722,7 +722,7 @@ function loadTechniquesAsync(res: GltfResource, asset: GltfAsset) {
 function loadTechniquesSync(data: TransientData['techniques'], context: ResourceLoadingContext): GltfTechnique[] {
     if (!defined(data)) return [];
 
-    const shaderIds = data.shaders.map((src: any) => {
+    const shaderIds = !defined(context.renderer) ? [] : data.shaders.map((src: any) => {
         const vertSourceBuf = data.shaderData[src.vsIndex];
         const fragSourceBuf = data.shaderData[src.fsIndex];
         
@@ -732,7 +732,7 @@ function loadTechniquesSync(data: TransientData['techniques'], context: Resource
             fragSource: decodeText(fragSourceBuf),
         }
         
-        return context.renderer.createShader(desc);
+        return context.renderer!.createShader(desc);
     });
 
     const techniques = data.techniques.map((src: any) => ({
@@ -895,14 +895,14 @@ function loadTexturesSync(data: TransientData['textures'], context: ResourceLoad
 
     // Upload textures to the GPU
     // @TODO: Currently creating multiple copies of textures to support different sampler parameter sets
-    if (defined(self.createImageBitmap)) {
+    if (defined(self.createImageBitmap) && defined(context.renderer)) {
         for (const texture of data.textures) {
             const imageData = data.imageData[texture.imageIndex] as ImageBitmap;
             assert(imageData instanceof ImageBitmap);
             textures.push({
                 desc: texture.desc,
                 name: texture.name,
-                id: context.renderer.createTexture(texture.name, texture.desc, imageData),
+                id: context.renderer!.createTexture(texture.name, texture.desc, imageData),
             });
         }
 
@@ -949,7 +949,7 @@ function safariTextureLoadHack(resource: GltfResource, context: ResourceLoadingC
             resource.textures[i] = {
                 desc: texture.desc,
                 name: texture.name,
-                id: context.renderer.createTexture(texture.name, texture.desc, imageData as HTMLImageElement),
+                id: !defined(context.renderer) ? -1 : context.renderer.createTexture(texture.name, texture.desc, imageData as HTMLImageElement),
             };
         }
     }
@@ -1199,10 +1199,12 @@ export class GltfLoader implements ResourceLoader {
         resource.textures = loadTexturesSync(resource.transient.textures, context);
 
         // Upload Vertex and Index buffers to the GPU
-        for (let idx in resource.bufferData) {
-            const bufferView = resource.bufferViews[idx];
-            const bufferData = resource.bufferData[idx];
-            bufferView.buffer = context.renderer.createBuffer(bufferView.name, bufferView.type, Gfx.Usage.Static, bufferData);
+        if (defined(context.renderer)) {
+            for (let idx in resource.bufferData) {
+                const bufferView = resource.bufferViews[idx];
+                const bufferData = resource.bufferData[idx];
+                bufferView.buffer = context.renderer.createBuffer(bufferView.name, bufferView.type, Gfx.Usage.Static, bufferData);
+            }
         }
 
         if (resource.status === ResourceStatus.Loaded) {

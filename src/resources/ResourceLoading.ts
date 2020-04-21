@@ -43,7 +43,7 @@ export class ResourceManager {
     cache: { [key: string]: Resource } = {};
     requests: { [key: string]: ResourceLoadedCallback<Resource>[] } = {};
 
-    initialize(renderer: Renderer) {
+    initialize(renderer?: Renderer) {
         this.worker = new Worker();
         this.worker.onmessage = (e: MessageEvent) => this.onMessage(e);
         this.context = {

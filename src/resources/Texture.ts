@@ -33,7 +33,7 @@ export class TextureLoader implements ResourceLoader {
 
   loadSync(context: ResourceLoadingContext, resource: TextureResource): void {    
     if (resource.imageBitmap) {
-      resource.texture = context.renderer.createTexture(resource.name, {
+      resource.texture = !context.renderer ? -1 : context.renderer.createTexture(resource.name, {
         usage: Gfx.Usage.Static,
         type: Gfx.TextureType.Texture2D,
         format: Gfx.TexelFormat.U8x3,
@@ -62,7 +62,7 @@ export class TextureLoader implements ResourceLoader {
       }
       
       if (defined(resource.imageElement) && resource.imageElement.complete) {
-        resource.texture = context.renderer.createTexture(resource.name, {
+        resource.texture = !context.renderer ? -1 : context.renderer.createTexture(resource.name, {
           usage: Gfx.Usage.Static,
           type: Gfx.TextureType.Texture2D,
           format: Gfx.TexelFormat.U8x3,
@@ -77,7 +77,7 @@ export class TextureLoader implements ResourceLoader {
   }
 
   unloadSync(context: ResourceLoadingContext, resource: TextureResource) {
-    if (defined(resource.texture)) { context.renderer.removeTexture(resource.texture); }
+    if (defined(resource.texture) && context.renderer) { context.renderer.removeTexture(resource.texture); }
     if (defined(resource.imageBitmap)) { resource.imageBitmap.close(); }
   }
 }
