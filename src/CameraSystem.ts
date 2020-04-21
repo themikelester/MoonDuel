@@ -18,6 +18,7 @@ const vec3Up = vec3.fromValues(0, 1, 0);
 
 interface Dependencies {
     avatar: AvatarSystem;
+    debugMenu: DebugMenu;
 }
 
 export class CameraSystem {
@@ -94,10 +95,10 @@ export class FollowCameraController implements CameraController {
         this.pitch = Math.PI * 0.5;
         this.distance = 1000;
 
-        const debugMenu = DebugMenu.addFolder('FollowCam');
-        debugMenu.add(this, 'pitch', 0.0, Math.PI * 0.5, Math.PI * 0.01);
-        debugMenu.add(this, 'minDistance', 500, 2000, 100);
-        debugMenu.add(this, 'maxDistance', 500, 3000, 100);
+        const folder = deps.debugMenu.addFolder('FollowCam');
+        folder.add(this, 'pitch', 0.0, Math.PI * 0.5, Math.PI * 0.01);
+        folder.add(this, 'minDistance', 500, 2000, 100);
+        folder.add(this, 'maxDistance', 500, 3000, 100);
     }
 
     public update(inputManager: InputManager, dt: number): boolean {

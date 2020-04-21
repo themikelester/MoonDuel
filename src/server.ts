@@ -9,6 +9,7 @@ import { ResourceManager } from './resources/ResourceLoading';
 import { SnapshotManager } from './Snapshot';
 import { UserCommandBuffer } from './UserCommand';
 import { SignalSocket, SignalSocketEvents, ClientId } from './net/SignalSocket';
+import { DebugMenu } from './DebugMenu';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -16,6 +17,8 @@ export const enum InitErrorCode {
 
 export class Server {
     public headless: boolean = true;
+
+    public debugMenu: DebugMenu = new DebugMenu();
 
     // Modules
     public avatar = new AvatarSystem();
@@ -34,10 +37,10 @@ export class Server {
 
         // Initialize Modules
         this.resources.initialize();
-        this.clock.initialize();
+        this.clock.initialize(this);
         this.net.initialize();
         this.avatar.initialize(this);
-        this.snapshot.initialize();
+        this.snapshot.initialize(this);
         this.userCommands.initialize();
 
         if (!IS_DEVELOPMENT) {

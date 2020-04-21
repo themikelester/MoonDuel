@@ -11,15 +11,15 @@ export class Compositor {
 
     constructor(public canvas: HTMLCanvasElement, public gfxDevice: Gfx.Renderer) {}
 
-    public initialize(): void {
+    public initialize({ debugMenu }: { debugMenu: DebugMenu }): void {
         // Parse RenderLists and allocate any GFX resources they may need
         for (let list in renderLists) {
             renderLists[list].defaultDepthStateId = this.gfxDevice.createDepthStencilState(renderLists[list].defaultDepthState);
         }
         
         // Debug
-        const debugMenu = DebugMenu.addFolder('Compositor');
-        debugMenu.add(this, 'resolutionScale', 1, 16, 1);
+        const folder = debugMenu.addFolder('Compositor');
+        folder.add(this, 'resolutionScale', 1, 16, 1);
     }
 
     public render(): void {

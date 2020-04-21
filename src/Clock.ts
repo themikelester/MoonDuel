@@ -22,12 +22,12 @@ export class Clock {
     private platformTime = 0.0;
     private stepDt = 0.0;
 
-    initialize() {
-        DebugMenu.add(this, 'paused');
-        DebugMenu.add(this, 'speed', 0.05, 2.0, 0.05);
-        DebugMenu.add(this, 'simDt', 8, 512, 8);
-        DebugMenu.add(this, 'step');
-        DebugMenu.add(this, 'renderTimeDelay', 0, 240, 8);
+    initialize({ debugMenu }: { debugMenu: DebugMenu }) {
+        debugMenu.add(this, 'paused');
+        debugMenu.add(this, 'speed', 0.05, 2.0, 0.05);
+        debugMenu.add(this, 'simDt', 8, 512, 8);
+        debugMenu.add(this, 'step');
+        debugMenu.add(this, 'renderTimeDelay', 0, 240, 8);
         this.zero();
     }
 

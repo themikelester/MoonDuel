@@ -20,8 +20,8 @@ class AnimationDebugMenu {
     constructor(private targetAvatar: Avatar) {}
 
     // Populate a DebugMenu folder with functions to play (and control) all possible animations 
-    onResourcesLoaded(animations: AnimationClip[]) {
-        this.debugMenu = DebugMenu.addFolder('Animation');
+    onResourcesLoaded(animations: AnimationClip[], debugMenu: DebugMenu) {
+        this.debugMenu = debugMenu.addFolder('Animation');
         this.debugAnimationMixer = new AnimationMixer(this.targetAvatar);
 
         const funcs = {
@@ -88,7 +88,7 @@ export class AvatarAnim {
         this.debugMenu = new AnimationDebugMenu(this.avatars[0]);
     }
 
-    onResourcesLoaded(gltf: GltfResource) {
+    onResourcesLoaded(gltf: GltfResource, debugMenu: DebugMenu) {
         const idleClip = assertDefined(gltf.animations.find(a => a.name === 'await1'));
         const walkClip = assertDefined(gltf.animations.find(a => a.name === 'awalk1'));
         const runClip = assertDefined(gltf.animations.find(a => a.name === 'brun1'));
@@ -116,7 +116,7 @@ export class AvatarAnim {
             data.aRun.time = kRunStartStopTimes[data.startingFoot] * data.aRun.getClip().duration;
         }
 
-        this.debugMenu.onResourcesLoaded(gltf.animations);
+        this.debugMenu.onResourcesLoaded(gltf.animations, debugMenu);
 
         this.ready = true;
     }

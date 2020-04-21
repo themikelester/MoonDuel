@@ -24,10 +24,10 @@ export interface IDebugMenu {
     update(): void;
 }
 
-class DebugMenuShim implements IDebugMenu {
+export class DebugMenu implements IDebugMenu {
     private _gui: any;
     private _add: IArguments[] = [];
-    private _folders: { [name: string]: DebugMenuShim } = {};
+    private _folders: { [name: string]: DebugMenu } = {};
     private _saveObject: any;
 
     constructor() {
@@ -38,7 +38,7 @@ class DebugMenuShim implements IDebugMenu {
     }
 
     addFolder(propName:string): IDebugMenu {
-        this._folders[propName] = new DebugMenuShim();
+        this._folders[propName] = new DebugMenu();
         return this._folders[propName];
     }
 
@@ -96,13 +96,3 @@ class DebugMenuShim implements IDebugMenu {
         this._saveObject = saveObject;
     }
 }
-
-
-// @HACK: Install a global DebugMenu keyboard shortcut
-window.onkeyup = (e: KeyboardEvent) => {
-    if (e.code === 'KeyT') {
-        DebugMenu.show();
-    }
-};
-
-export let DebugMenu = new DebugMenuShim();

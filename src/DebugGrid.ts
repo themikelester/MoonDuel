@@ -40,7 +40,7 @@ export class DebugGrid {
     private primitive: RenderPrimitive;
     private uniforms: UniformBuffer;
 
-    initialize({ gfxDevice, globalUniforms }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms}) {
+    initialize({ gfxDevice, globalUniforms, debugMenu }: { gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, debugMenu: DebugMenu}) {
         // Safari does not support WebGL2, so no version 300 GLSL which we use for derivatives
         // This could be written as a 100 shader with an extension, but its just a debug feature
         if (!gfxDevice.isGfxFeatureSupported(Gfx.Feature.ShaderGlsl300)) {
@@ -79,10 +79,10 @@ export class DebugGrid {
         this.primitive.indexType = Gfx.Type.Ushort;
         this.primitive.elementCount = 6;
 
-        const debugMenu = DebugMenu.addFolder('DebugGrid');
-        debugMenu.add(this, 'enabled');
-        debugMenu.add(this, 'gridUnit', 1, 100, 10);
-        debugMenu.add(this, 'gridRadius');
+        const menu = debugMenu.addFolder('DebugGrid');
+        menu.add(this, 'enabled');
+        menu.add(this, 'gridUnit', 1, 100, 10);
+        menu.add(this, 'gridRadius');
     }
 
     render({ gfxDevice }: { gfxDevice: Gfx.Renderer }) {

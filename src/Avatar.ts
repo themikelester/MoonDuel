@@ -13,6 +13,7 @@ import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
 import { SnapshotManager, Snapshot } from "./Snapshot";
 import { UserCommandBuffer } from "./UserCommand";
+import { DebugMenu } from "./DebugMenu";
 
 interface Dependencies {
     headless: boolean;
@@ -23,6 +24,7 @@ interface Dependencies {
     camera?: Camera;
     snapshot: SnapshotManager;
     userCommands: UserCommandBuffer;
+    debugMenu: DebugMenu;
 }
 
 interface GameDependencies extends Dependencies {
@@ -135,7 +137,7 @@ export class AvatarSystem {
             avatar.animationMixer = new AnimationMixer(avatar);
         }
 
-        this.animation.onResourcesLoaded(this.gltf);
+        this.animation.onResourcesLoaded(this.gltf, game.debugMenu);
         if (!game.headless) this.renderer.onResourcesLoaded(this.gltf, (game as GameDependencies).gfxDevice);
     }
 

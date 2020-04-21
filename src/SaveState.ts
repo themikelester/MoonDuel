@@ -8,13 +8,14 @@ const kStateStorageKey = 'state';
 
 type StateModules = {
     cameraSystem: CameraSystem,
+    debugMenu: DebugMenu,
 }
 
 export class StateManager {
     clearing: boolean = false;
 
     initialize(modules: StateModules) {
-        DebugMenu.add(this, 'clearState');
+        modules.debugMenu.add(this, 'clearState');
 
         const success = this.loadState(modules);
         if (success) console.log('Loaded state from localStorage');
@@ -35,7 +36,7 @@ export class StateManager {
         window.localStorage.setItem(kStateStorageKey, stateString);
     }
     
-    loadState({ cameraSystem }: StateModules): boolean {
+    loadState({ cameraSystem, debugMenu }: StateModules): boolean {
         const stateString = window.localStorage.getItem(kStateStorageKey);
         if (!defined(stateString)) { return false; }
         
@@ -46,7 +47,7 @@ export class StateManager {
     
         try {
             cameraSystem.fromJSON(state.cameraSystem);
-            DebugMenu.fromJSON(state.DebugMenu);
+            debugMenu.fromJSON(state.DebugMenu);
         } catch(e) {
             console.warn('Failed to load state:', e);
             return false;

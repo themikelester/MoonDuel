@@ -1,8 +1,8 @@
 import { Clock } from "./Clock";
 import { AvatarState, AvatarSystem } from "./Avatar";
-import { DebugMenu } from "./DebugMenu";
 import { defined, assert } from "./util";
 import { delerp } from "./MathHelpers";
+import { DebugMenu } from "./DebugMenu";
 
 export class Snapshot {
     frame: number;
@@ -44,10 +44,10 @@ export class SnapshotManager {
 
     private bufferFrameCount: number;
 
-    initialize() {
+    initialize({ debugMenu }: { debugMenu: DebugMenu }) {
         this.bufferFrameCount = 5 * 64;
 
-        const menu = DebugMenu.addFolder('Snapshot');
+        const menu = debugMenu.addFolder('Snapshot');
         menu.add(this, 'bufferFrameCount', 64, 64 * 10, 64);
     }
 

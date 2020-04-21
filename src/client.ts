@@ -34,6 +34,8 @@ export class Client {
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
 
+    public debugMenu: DebugMenu = new DebugMenu();
+
     // Modules
     public avatar = new AvatarSystem();
     public clock = new Clock();
@@ -69,16 +71,16 @@ export class Client {
 
         // Initialize Modules
         this.resources.initialize(this.gfxDevice);
-        this.clock.initialize();
+        this.clock.initialize(this);
         this.input.initialize(this);
         this.net.initialize();
         this.cameraSystem.initialize(this);
-        this.compositor.initialize();
+        this.compositor.initialize(this);
         this.globalUniforms.initialize();
         // this.demo.initialize(this);
         this.avatar.initialize(this);
         this.debugGrid.initialize(this);
-        this.snapshot.initialize();
+        this.snapshot.initialize(this);
         this.state.initialize(this);
         this.userCommands.initialize();
         
@@ -90,7 +92,7 @@ export class Client {
             // Initialize Rollbar/Sentry for error reporting
         } else {
             // Show debug menu by default on development builds
-            DebugMenu.show();
+            this.debugMenu.show();
         }
 
         window.requestAnimationFrame(this.tick.bind(this));
@@ -111,7 +113,7 @@ export class Client {
 
         this.input.afterFrame();
 
-        DebugMenu.update();
+        this.debugMenu.update();
 
         window.requestAnimationFrame(this.tick.bind(this));
     }
