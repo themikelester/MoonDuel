@@ -8,6 +8,12 @@ Change Log
 
 ### 2020-04-20
 ##### Morning
+Today I'm going to work on cleaning up the netcode, and separating server logic from client logic. Mainly the issue detailed below, where the server loop needs to run on a setInterval not requestAnimationFrame. The "host" (a client which also acts as the server in a p2p environment) should run both of these loops. I'd also like to get a pure server (where the client logic doesn't run, i.e. a headless host) implemented so I can leave it running in a background tab and have clients connect to it. That would make it much easier to test and improve the "client disconnected" logic. Right now I think it takes way to long to detect a disconnect. 
+
+I'm also a bit worried about maintaining a websocket connection to the signalling server during gameplay. When disconnected it looks like the sockets are polling, and I wouldn't want any TCP traffic going out during the game that could disrupt UDP packets. If I can ensure that there is absolutely no traffic on the signalling socket that we could try to maintain a connection, otherwise I think we should tear it down after the WebRTC pipe is set up. But that's likely a problem for another day. 
+
+### 2020-04-20
+##### Morning
 Oops, forgot to write the closing changelog last time. I didn't quiiite get two peers connecting via WebRTC, so I'm going to continue to persue that. After mulling it over on the weekend, I think I've come up with a solid connection protocol. The game starts and establishes a connection to the signalling server (I could just place a few of these around the world). The signalling server determines which room you will be in (either because you chose one via URL, or randomly). It replies to the client with the room description, which contains the ID of the server as well as all other clients in the room. The server can be a dedicated server for public/random rooms, or another peer for custom rooms (so that if you live in whoop whoop, you can still play with your friends with low ping). The client then starts attempting to establish a WebRTC connection to the server (or does nothing if it is the server). If another client joins, it attempts to connect to the server. Once a WebRTC connection is established, we do everything as normal. 
 
 ##### Evening
