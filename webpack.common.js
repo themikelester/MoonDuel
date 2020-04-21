@@ -20,7 +20,6 @@ module.exports = {
   entry: {
     main: './src/main.ts',
     server: './src/server.ts',
-    embed: './src/embeds/embeds_main.ts',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -114,11 +113,6 @@ module.exports = {
       filename: 'server.html',
       template: './src/index.html',
       gtagId: GTAG_ID
-    }),
-    new HtmlWebpackPlugin({
-      chunks: ['embed'],
-      filename: 'embed.html',
-      template: './src/embed.html',
     }),
     new SizePlugin(),
     new BundleAnalyzerPlugin({ 
