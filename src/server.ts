@@ -4,7 +4,7 @@ import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
 // Modules
 import { AvatarSystem } from './Avatar';
 import { Clock } from './Clock';
-import { NetModule } from './net/NetModule';
+import { NetModuleServer } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { SnapshotManager } from './Snapshot';
 import { UserCommandBuffer } from './UserCommand';
@@ -23,7 +23,7 @@ export class Server {
     // Modules
     public avatar = new AvatarSystem();
     public clock = new Clock();
-    public net = new NetModule();
+    public net = new NetModuleServer();
     public resources = new ResourceManager();
     public snapshot = new SnapshotManager();
     public userCommands = new UserCommandBuffer();
@@ -55,7 +55,7 @@ export class Server {
     }
 
     onConnect(signalSocket: SignalSocket) {
-        this.net.onConnectServer(signalSocket);
+        this.net.onConnect(signalSocket);
     }
 
     private tick(time: number) {
@@ -68,15 +68,15 @@ export class Server {
     private updateFixed() {
         while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
             this.clock.updateFixed();
-            this.avatar.updateFixed(this);
-            this.snapshot.updateFixed(this);
+            // this.avatar.updateFixed(this);
+            // this.snapshot.updateFixed(this);
         }
     }
 
     private update() {
         this.net.update();  
-        this.snapshot.update(this);  
-        this.resources.update();
-        this.avatar.update(this);
+        // this.snapshot.update(this);  
+        // this.resources.update();
+        // this.avatar.update(this);
     }
 }

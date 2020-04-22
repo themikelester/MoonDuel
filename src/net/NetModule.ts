@@ -8,10 +8,8 @@ import { WebUdpSocket } from "./WebUdp";
 const kPort = 8888;
 const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;
 
-export class NetModule {
-    isServer: boolean;
-
-    NetChannels: NetChannel[] = [];
+export class NetModuleClient {
+    netChannel: NetChannel;
 
     messageId = 0;
     builder = new flatbuffers.Builder(kPacketMaxPayloadSize);
@@ -19,20 +17,7 @@ export class NetModule {
     initialize() {
     }
 
-    onConnectServer(signalSocket: SignalSocket) {
-        signalSocket.on(SignalSocketEvents.ClientJoined, (clientId: ClientId) => {
-            // Create a new client and listen for it to connect
-            const client = new NetChannel();
-            const socket = new WebUdpSocket();
-
-            socket.connect(signalSocket, clientId);
-            client.initialize(socket);
-
-            this.NetChannels.push(client);
-        })
-    }
-
-    onConnectClient(signalSocket: SignalSocket) {
+    onConnect(signalSocket: SignalSocket) {
         // Establish a WebUDP connection with the server
         const server = new NetChannel();
         const socket = new WebUdpSocket();
@@ -43,7 +28,7 @@ export class NetModule {
             console.log('Received', data);
         });
 
-        this.NetChannels = [server];
+        this.netChannel = server;
     }
 
     update() {
@@ -56,8 +41,43 @@ export class NetModule {
         this.builder.clear();
     }
     
-    private broadcast(data: Uint8Array) {
-        for (const client of this.NetChannels) {
+    broadcast(data: Uint8Array) {
+        if (this.netChannel) this.netChannel.send(data);
+    }
+}
+
+export class NetModuleServer {
+    netChannels: NetChannel[] = [];
+
+    messageId = 0;
+    builder = new flatbuffers.Builder(kPacketMaxPayloadSize);
+
+    initialize() {
+    }
+
+    onConnect(signalSocket: SignalSocket) {
+        signalSocket.on(SignalSocketEvents.ClientJoined, (clientId: ClientId) => {
+            // Create a new client and listen for it to connect
+            const channel = new NetChannel();
+            const socket = new WebUdpSocket();
+
+            socket.connect(signalSocket, clientId);
+            channel.on(NetChannelEvent.Receive, this.onMessage.bind(this, clientId));
+            channel.initialize(socket);
+
+            this.netChannels.push(channel);
+        })
+    }
+
+    onMessage(clientId: ClientId, msg: Uint8Array) {
+        console.log(`Received message from ${clientId}:`, msg);
+    }
+
+    update() {
+    }
+    
+    broadcast(data: Uint8Array) {
+        for (const client of this.netChannels) {
             client.send(data);
         }
     }

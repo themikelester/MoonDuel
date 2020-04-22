@@ -14,7 +14,7 @@ import { DebugGrid } from './DebugGrid';
 import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
 import { InputManager } from './Input';
-import { NetModule } from './net/NetModule';
+import { NetModuleClient } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { StateManager } from './SaveState';
 import { SnapshotManager } from './Snapshot';
@@ -45,7 +45,7 @@ export class Client {
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
     public demo = new Demo();
     public input = new InputManager();
-    public net = new NetModule();
+    public net = new NetModuleClient();
     public resources = new ResourceManager();
     public snapshot = new SnapshotManager();
     public state = new StateManager();
@@ -101,7 +101,7 @@ export class Client {
     }
 
     onConnect(signalSocket: SignalSocket) {
-        this.net.onConnectClient(signalSocket);
+        this.net.onConnect(signalSocket);
     }
 
     private tick(time: number) {
