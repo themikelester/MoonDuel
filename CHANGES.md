@@ -6,13 +6,21 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
-### 2020-04-20
+### 2020-04-22
+##### Morning
+Today is the day I'm going to try to actually implement "multiplayer". I'll have the client send UserCommand messages to the server, and the server will send everyone Snapshots. The client won't bother doing any prediction, it will just dumbly render the latest server state. That should allow me to play a reasonable quality multiplayer "match" locally, since the latency is basically nil. After that, I'll need to implement prediction, delta encoding, and UserCommand buffering.
+
+### 2020-04-21
 ##### Morning
 Today I'm going to work on cleaning up the netcode, and separating server logic from client logic. Mainly the issue detailed below, where the server loop needs to run on a setInterval not requestAnimationFrame. The "host" (a client which also acts as the server in a p2p environment) should run both of these loops. I'd also like to get a pure server (where the client logic doesn't run, i.e. a headless host) implemented so I can leave it running in a background tab and have clients connect to it. That would make it much easier to test and improve the "client disconnected" logic. Right now I think it takes way to long to detect a disconnect. 
 
 I'm also a bit worried about maintaining a websocket connection to the signalling server during gameplay. When disconnected it looks like the sockets are polling, and I wouldn't want any TCP traffic going out during the game that could disrupt UDP packets. If I can ensure that there is absolutely no traffic on the signalling socket that we could try to maintain a connection, otherwise I think we should tear it down after the WebRTC pipe is set up. But that's likely a problem for another day. 
 
+##### Afternoon
 Well I set up a separate server bundle (basically main.ts with all non-essential modules removed) which webpack builds into a separate server.html. When running this tab, everything works great, clients can connect and talk fine. But if the server/host tab is in the background, chrome throttles it to 1 tick per second. I learned that web workers are not subject to this. "This is perfect. I'll run the server code on a background thread and the client code on the main thread. The server code can send out WebRTC data channel packets just like normal, and the code can remain completely separete". Turns out, WebRTC is not yet supported on workers. There is a lot of discussion and positive interest in this on the forums, so I wouldn't be surprised if this is added in a future RTC version. So WebRTC stuff must run on the main thread. There is another exemption to the 1hz rule: If the tab is playing audio, it is considered foreground and is exempt. This could definitely work, as the main case I'm trying to prevent is the host switching tabs for a few seconds to look at something and sending everyone's ping to 1000+ms. So I think I'll continue pursuing the architecture where the "host" is just running server and client code together on the main thread.
+
+##### Next Morning
+I was able to get a pretty nice client/server side-by-side architecture going. Each "instance" starts executing the client code immediately, which means you get to see your avatar and move him around ASAP. A SignalSocket establishes a connection to the signal server and attempts to join a room. If it succeeds, and the signal socket is chosen as the server, the instance starts executing the server code and assigns the signal socket to it. A new signal socket connection is started, and once connected, this is assigned to the client. If the first socket joins the room and there is already a server, it gets assigned to the client immediately. I think this will work well as a p2p architecture, at least in the near term. Since both the server and client code are running in the same JS context, they share globals. The only trouble this caused was with the DebugMenu, which is no longer a global but a toplevel member of both Client and Server.
 
 ### 2020-04-20
 ##### Morning
