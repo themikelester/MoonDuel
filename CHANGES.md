@@ -10,6 +10,9 @@ Change Log
 ##### Morning
 Today is the day I'm going to try to actually implement "multiplayer". I'll have the client send UserCommand messages to the server, and the server will send everyone Snapshots. The client won't bother doing any prediction, it will just dumbly render the latest server state. That should allow me to play a reasonable quality multiplayer "match" locally, since the latency is basically nil. After that, I'll need to implement prediction, delta encoding, and UserCommand buffering.
 
+##### Evening
+I was able to hack together the client sending input, server accepting input and running simulation, server sending state back, and client rendering state. But it is super dirty, and not even committed. There seem to be WebRTC troubles when I attempted to get a second client to connect, and all sorts of other problems like the server having its own avatar because it has a ClientID. Lots of stuff to clean up for tomorrow.
+
 ### 2020-04-21
 ##### Morning
 Today I'm going to work on cleaning up the netcode, and separating server logic from client logic. Mainly the issue detailed below, where the server loop needs to run on a setInterval not requestAnimationFrame. The "host" (a client which also acts as the server in a p2p environment) should run both of these loops. I'd also like to get a pure server (where the client logic doesn't run, i.e. a headless host) implemented so I can leave it running in a background tab and have clients connect to it. That would make it much easier to test and improve the "client disconnected" logic. Right now I think it takes way to long to detect a disconnect. 
