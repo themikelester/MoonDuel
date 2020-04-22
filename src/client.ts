@@ -125,6 +125,8 @@ export class Client {
             this.avatar.updateFixed(this);
             this.snapshot.updateFixed(this);
         }
+        
+        this.userCommands.transmit(this);
     }
 
     private update() {

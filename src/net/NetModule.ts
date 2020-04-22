@@ -4,9 +4,14 @@ import { NetSchemas } from './schemas/schemas_generated';
 import { flatbuffers } from 'flatbuffers';
 import { SignalSocket, SignalSocketEvents, ClientId } from "./SignalSocket";
 import { WebUdpSocket } from "./WebUdp";
+import { UserCommandBuffer } from "../UserCommand";
 
 const kPort = 8888;
 const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;
+
+interface Dependencies {
+    userCommands: UserCommandBuffer;
+}
 
 export class NetModuleClient {
     netChannel: NetChannel;
@@ -32,13 +37,6 @@ export class NetModuleClient {
     }
 
     update() {
-        // Send a heartbeat at 60hz
-        NetSchemas.Heartbeat.startHeartbeat(this.builder);
-        const heartbeat = NetSchemas.Heartbeat.endHeartbeat(this.builder);
-        const message = NetSchemas.Message.createMessage(this.builder, this.messageId++, NetSchemas.Data.Heartbeat, heartbeat);
-        this.builder.finish(message);
-        this.broadcast(this.builder.asUint8Array());
-        this.builder.clear();
     }
     
     broadcast(data: Uint8Array) {
@@ -47,12 +45,14 @@ export class NetModuleClient {
 }
 
 export class NetModuleServer {
+    context: Dependencies;
     netChannels: NetChannel[] = [];
 
     messageId = 0;
     builder = new flatbuffers.Builder(kPacketMaxPayloadSize);
 
-    initialize() {
+    initialize(deps: Dependencies) {
+        this.context = deps;
     }
 
     onConnect(signalSocket: SignalSocket) {
@@ -70,7 +70,8 @@ export class NetModuleServer {
     }
 
     onMessage(clientId: ClientId, msg: Uint8Array) {
-        console.log(`Received message from ${clientId}:`, msg);
+        // @HACK: Assume it's a usercommand
+        this.context.userCommands.receive(msg);
     }
 
     update() {

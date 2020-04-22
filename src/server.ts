@@ -38,7 +38,7 @@ export class Server {
         // Initialize Modules
         this.resources.initialize();
         this.clock.initialize(this);
-        this.net.initialize();
+        this.net.initialize(this);
         this.avatar.initialize(this);
         this.snapshot.initialize(this);
         this.userCommands.initialize();
