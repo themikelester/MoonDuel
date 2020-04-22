@@ -61,7 +61,8 @@ export class NetChannel extends EventDispatcher {
      * @param data The raw data received from the WebUDP connection
      */
     private receive(data: ArrayBuffer) {
-        const sequence = new Uint16Array(data)[0];
+        const view = new DataView(data);
+        const sequence = view.getUint16(0, true);
 
         // If this packet is older than our buffer allows, throw it away
         if (sequence <= this.remoteSequence - kPacketHistoryLength) {
