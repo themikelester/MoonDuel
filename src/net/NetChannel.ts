@@ -31,7 +31,6 @@ export class NetChannel extends EventDispatcher {
     }
 
     private onOpen(evt: WebUdpEvent) {
-        console.log('Connected to server');
         this.fire(NetChannelEvent.Connect);
     }
 

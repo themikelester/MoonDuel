@@ -6,12 +6,13 @@ import { SignalSocket, SignalSocketEvents, ClientId } from "./SignalSocket";
 import { WebUdpSocket } from "./WebUdp";
 import { UserCommandBuffer } from "../UserCommand";
 import { NetClient } from "./NetClient";
+import { AvatarSystem } from "../Avatar";
 
 const kPort = 8888;
 const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;
 
 interface Dependencies {
-    userCommands: UserCommandBuffer;
+    avatar: AvatarSystem;
 }
 
 export class NetModuleClient {
@@ -57,10 +58,13 @@ export class NetModuleServer {
     }
 
     onConnect(signalSocket: SignalSocket) {
-        signalSocket.on(SignalSocketEvents.ClientJoined, (clientId: ClientId) => {
-            // Create a new client and listen for it to connect
+        signalSocket.on(SignalSocketEvents.ClientJoined, async (clientId: ClientId) => {
+            // Create a new client and listen for it to join
             const client = new NetClient();
-            client.initialize(signalSocket, clientId);
+            const clientConnected = client.initialize(signalSocket, clientId);
+            await clientConnected;
+
+            console.debug(`[Server] NetChannel: Client ${clientId} connected`);
             this.clients.push(client);
         })
     }

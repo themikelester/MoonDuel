@@ -30,6 +30,14 @@ export class NetClient {
         socket.connect(signalSocket, clientId);
         this.channel.on(NetChannelEvent.Receive, this.onMessage.bind(this));
         this.channel.initialize(socket);
+
+        return new Promise((resolve, reject) => {
+            // @TODO: Reject after timeout period
+            this.channel.once(NetChannelEvent.Connect, () => {
+                this.state = NetClientState.Connected,
+                resolve();
+            });
+        });
     }
 
     onMessage(msg: Uint8Array) {
