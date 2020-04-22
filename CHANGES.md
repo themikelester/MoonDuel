@@ -6,6 +6,10 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-23
+##### Morning
+I really need to do some cleaning up. I often have to restart a few times before a client->server connection can even be established. I think zombie instances are hanging around and staying connected to the signalling server.
+
 ### 2020-04-22
 ##### Morning
 Today is the day I'm going to try to actually implement "multiplayer". I'll have the client send UserCommand messages to the server, and the server will send everyone Snapshots. The client won't bother doing any prediction, it will just dumbly render the latest server state. That should allow me to play a reasonable quality multiplayer "match" locally, since the latency is basically nil. After that, I'll need to implement prediction, delta encoding, and UserCommand buffering.
