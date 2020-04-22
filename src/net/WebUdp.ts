@@ -105,10 +105,7 @@ export class WebUdpSocket extends EventDispatcher {
         dataChannel.onopen = () => { this.isOpen = true; this.fire(WebUdpEvent.Open); }
         dataChannel.onclose = () => { this.isOpen = false; this.fire(WebUdpEvent.Close); }
         dataChannel.onerror = evt => { console.error("WebUdpPeer: Data channel error", evt); }
-        dataChannel.onmessage = msg => {
-            console.log('WebUDP: Received message', msg);
-            this.fire(WebUdpEvent.Message, msg);
-        }
+        dataChannel.onmessage = msg => { this.fire(WebUdpEvent.Message, msg); }
         this.channel = dataChannel;
     }
 }
