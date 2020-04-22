@@ -1,4 +1,4 @@
-import { NetClient, NetClientEvent } from "./NetClient";
+import { NetChannel, NetChannelEvent } from "./NetChannel";
 import { kPacketMaxPayloadSize } from "./NetPacket";
 import { NetSchemas } from './schemas/schemas_generated';
 import { flatbuffers } from 'flatbuffers';
@@ -11,7 +11,7 @@ const kServerAddress = window.location.protocol + "//" + window.location.hostnam
 export class NetModule {
     isServer: boolean;
 
-    netClients: NetClient[] = [];
+    NetChannels: NetChannel[] = [];
 
     messageId = 0;
     builder = new flatbuffers.Builder(kPacketMaxPayloadSize);
@@ -22,28 +22,28 @@ export class NetModule {
     onConnectServer(signalSocket: SignalSocket) {
         signalSocket.on(SignalSocketEvents.ClientJoined, (clientId: ClientId) => {
             // Create a new client and listen for it to connect
-            const client = new NetClient();
+            const client = new NetChannel();
             const socket = new WebUdpSocket();
 
             socket.connect(signalSocket, clientId);
             client.initialize(socket);
 
-            this.netClients.push(client);
+            this.NetChannels.push(client);
         })
     }
 
     onConnectClient(signalSocket: SignalSocket) {
         // Establish a WebUDP connection with the server
-        const server = new NetClient();
+        const server = new NetChannel();
         const socket = new WebUdpSocket();
 
         socket.connect(signalSocket, signalSocket.serverId);
         server.initialize(socket);
-        server.on(NetClientEvent.Receive, (data: any) => {
+        server.on(NetChannelEvent.Receive, (data: any) => {
             console.log('Received', data);
         });
 
-        this.netClients = [server];
+        this.NetChannels = [server];
     }
 
     update() {
@@ -57,7 +57,7 @@ export class NetModule {
     }
     
     private broadcast(data: Uint8Array) {
-        for (const client of this.netClients) {
+        for (const client of this.NetChannels) {
             client.send(data);
         }
     }

@@ -4,7 +4,7 @@ import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kP
 import { EventDispatcher } from '../EventDispatcher';
 import { defined, assert, assertDefined } from '../util';
 
-export enum NetClientEvent {
+export enum NetChannelEvent {
     Connect = "connect",
     Receive = "receive",
 };
@@ -15,7 +15,7 @@ const kPacketHistoryLength = 32;
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
  * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
  */
-export class NetClient extends EventDispatcher {
+export class NetChannel extends EventDispatcher {
     private socket: WebUdpSocket;
 
     private remoteSequence = 0;
@@ -32,7 +32,7 @@ export class NetClient extends EventDispatcher {
 
     private onOpen(evt: WebUdpEvent) {
         console.log('Connected to server');
-        this.fire(NetClientEvent.Connect);
+        this.fire(NetChannelEvent.Connect);
     }
 
     private onMessage(evt: MessageEvent) {
@@ -57,7 +57,7 @@ export class NetClient extends EventDispatcher {
 
     /**
      * Process a packet that was received from the server. 
-     * Fires NetClientEvent.Receive with the packet payload for any interested listeners. 
+     * Fires NetChannelEvent.Receive with the packet payload for any interested listeners. 
      * @param data The raw data received from the WebUDP connection
      */
     private receive(data: ArrayBuffer) {
@@ -71,7 +71,7 @@ export class NetClient extends EventDispatcher {
         // Parse and buffer the packet 
         const packet = this.remoteHistory[sequence % kPacketHistoryLength].fromBuffer(data);
         if (!defined(packet)) {
-            console.warn('NetClient: Received packet that was too large for buffer. Ignoring.');
+            console.warn('NetChannel: Received packet that was too large for buffer. Ignoring.');
             return;
         }
 
@@ -86,7 +86,7 @@ export class NetClient extends EventDispatcher {
             if (bitfield & 1 << i) { this.ackBuffer[(packet.header.ack + i) % kPacketHistoryLength] = true; }
         }
 
-        this.fire(NetClientEvent.Receive, packet.payload);
+        this.fire(NetChannelEvent.Receive, packet.payload);
     }
 
     /**
@@ -96,7 +96,7 @@ export class NetClient extends EventDispatcher {
      */
     send(payload: Uint8Array) {
         if (payload.length > kPacketMaxPayloadSize) {
-            console.warn('NetClient: Attempted to send packet that was too large for buffer. Ignoring.');
+            console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
             return;
         }
         
