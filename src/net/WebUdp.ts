@@ -50,6 +50,8 @@ export class WebUdpSocket extends EventDispatcher {
     channel: RTCDataChannel;
     isOpen: boolean = false;
 
+    unloadCallback = () => this.close();
+
     /**
      * Attempt to initiate a WebRTC connection with a peer via the signal server.
      * @NOTE: The peer must already be listening for offers. See WebUdpSocketFactory.
@@ -65,7 +67,7 @@ export class WebUdpSocket extends EventDispatcher {
 
         const iceServers = await signalSocket.requestIceServers();
 
-        this.peer = new RTCPeerConnection(iceServers);
+        this.createPeer(iceServers);
         
         // Watch for any important changes on the WebRTC connection
         this.peer.onconnectionstatechange = () => {
@@ -127,7 +129,7 @@ export class WebUdpSocket extends EventDispatcher {
         // @TODO: This only needs to happen once on the server
         const iceServers = await signalSocket.requestIceServers();
 
-        this.peer = new RTCPeerConnection(iceServers);
+        this.createPeer(iceServers);
 
         // Start pinging STUN/TURN servers to generate ICE candidates
         const iceCandidatesPromise = this.getIceCandidates();
@@ -166,8 +168,15 @@ export class WebUdpSocket extends EventDispatcher {
         this.channel.close();
         this.peer.close();
         
+        window.removeEventListener('beforeunload', this.unloadCallback);
+
         this.fire(WebUdpEvent.Close);
     };
+
+    private createPeer(config: RTCConfiguration) {
+        this.peer = new RTCPeerConnection(config);
+        window.addEventListener('beforeunload', this.unloadCallback);
+    }
 
     private onDataChannelOpen() {
         console.debug('WebUDP: DataChannel open'); 
