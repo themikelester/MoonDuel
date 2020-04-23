@@ -29,7 +29,6 @@ export class WebUdpSocketFactory extends EventDispatcher {
 
     async listen(onNewConnectionCallback: (socket: WebUdpSocket) => void) {
         this.signalSocket.on(SignalSocketEvents.Message, this.onMessage.bind(this, onNewConnectionCallback));
-        this.signalSocket.connect();
         this.iceServers = await this.signalSocket.requestIceServers();
     }
 

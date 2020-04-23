@@ -1,5 +1,6 @@
 import * as socketio from 'socket.io-client';
 import { EventDispatcher } from '../EventDispatcher';
+import { assert } from '../util';
 
 export type ClientId = string;
 
@@ -41,6 +42,7 @@ const kServerAddress = window.location.protocol + "//" + window.location.hostnam
  */
 export class SignalSocket extends EventDispatcher {
     private room: RoomDetails;
+    private connected: boolean = false;
     private socket: SocketIOClient.Socket;
 
     /**
@@ -49,10 +51,12 @@ export class SignalSocket extends EventDispatcher {
      * @param roomName Room to join
      */
     connect(address: string = kServerAddress) {
+        assert(!this.connected);
         return new Promise(resolve => {
             this.socket = socketio.connect(address);
 
             this.socket.on('connect', () => {
+                this.connected = true;
                 console.debug('SignalSocket: Connected to MoonBeacon with ID:', this.socket.id);
             });
 
