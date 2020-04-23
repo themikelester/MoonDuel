@@ -19,8 +19,13 @@ interface ClientAnswer {
 }
 
 export class WebUdpSocketFactory extends EventDispatcher {
-    signalSocket: SignalSocket = new SignalSocket();
+    signalSocket: SignalSocket;
     iceServers: RTCConfiguration;
+
+    constructor(signalSocket: SignalSocket) {
+        super();
+        this.signalSocket = signalSocket;
+    }
 
     async listen(onNewConnectionCallback: (socket: WebUdpSocket) => void) {
         this.signalSocket.on(SignalSocketEvents.Message, this.onMessage.bind(this, onNewConnectionCallback));

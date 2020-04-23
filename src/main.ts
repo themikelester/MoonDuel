@@ -1,6 +1,7 @@
 import { Client } from './client';
 import { Server } from './server';
 import { SignalSocket, SignalSocketEvents } from './net/SignalSocket';
+import { WebUdpSocket, WebUdpSocketFactory, WebUdpEvent } from './net/WebUdp';
 
 const kPort = 8888;
 const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;
@@ -22,24 +23,24 @@ async function Main() {
     const client = new Client();
     window.client = client;
 
+    // @HACK
     // Begin connecting to the requested room
     // If we're the first ones in there, start up a server instance and assign it this socket
     // Then create a new socket and establish a new connection as a client
-    while (true) {
-        const signalSocket = new SignalSocket();
-        await signalSocket.connect(kServerAddress, 'default');
+    const signalSocket = new SignalSocket();
+    await signalSocket.connect(kServerAddress);
 
-        const isServer = signalSocket.serverId === signalSocket.clientId;
-        
-        if (isServer) {
-            const server = new Server();
-            server.onConnect(signalSocket);
-            window.server = server;
-        } else {
-            window.client.onConnect(signalSocket);
-            break;
-        }
+    const isServer = signalSocket.serverId === signalSocket.clientId;
+    
+    if (isServer) {
+        const server = new Server();
+        server.onConnect(signalSocket);
+        window.server = server;
+    } else {
+        signalSocket.close();
     }
+        
+    client.onConnect(signalSocket.serverId);
 }
 
 Main();

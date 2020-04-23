@@ -100,8 +100,8 @@ export class Client {
         return InitErrorCode.SUCCESS;
     }
 
-    onConnect(signalSocket: SignalSocket) {
-        this.net.onConnect(signalSocket);
+    onConnect(serverId: string) {
+        this.net.onConnect(serverId);
     }
 
     private tick(time: number) {

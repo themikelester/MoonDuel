@@ -1,7 +1,7 @@
 import { NetChannel, NetChannelEvent } from "./NetChannel";
 import { SignalSocket, ClientId } from "./SignalSocket";
 import { assert } from "../util";
-import { WebUdpSocket } from "./WebUdp";
+import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer } from "../UserCommand";
 
 enum NetClientState {
@@ -20,14 +20,21 @@ export class NetClient {
 
     userCommands: UserCommandBuffer = new UserCommandBuffer();
 
-    initialize(signalSocket: SignalSocket, clientId: ClientId) {
+    initialize(socket: WebUdpSocket) {
         assert(this.state === NetClientState.Free);
-        this.id = clientId;
+        console.debug(`NetClient: ${socket.peerId} is attempting to connect`);
 
+        socket.on(WebUdpEvent.Open, () => {
+            console.debug(`NetClient: ${socket.peerId} connected`);
+        });
+
+        socket.on(WebUdpEvent.Close, () => {
+            console.debug(`NetClient: ${socket.peerId} disconnected`);
+        });
+        
+        this.id = socket.peerId;
         this.channel = new NetChannel();
-        const socket = new WebUdpSocket();
 
-        socket.connect(signalSocket, clientId);
         this.channel.on(NetChannelEvent.Receive, this.onMessage.bind(this));
         this.channel.initialize(socket);
 

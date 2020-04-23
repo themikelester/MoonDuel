@@ -3,7 +3,7 @@ import { kPacketMaxPayloadSize } from "./NetPacket";
 import { NetSchemas } from './schemas/schemas_generated';
 import { flatbuffers } from 'flatbuffers';
 import { SignalSocket, SignalSocketEvents, ClientId } from "./SignalSocket";
-import { WebUdpSocket } from "./WebUdp";
+import { WebUdpSocket, WebUdpSocketFactory, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer } from "../UserCommand";
 import { NetClient } from "./NetClient";
 import { AvatarSystem } from "../Avatar";
@@ -24,12 +24,12 @@ export class NetModuleClient {
     initialize() {
     }
 
-    onConnect(signalSocket: SignalSocket) {
+    onConnect(serverId: ClientId) {
         // Establish a WebUDP connection with the server
         const server = new NetChannel();
         const socket = new WebUdpSocket();
 
-        socket.connect(signalSocket, signalSocket.serverId);
+        socket.connect(serverId);
         server.initialize(socket);
         server.on(NetChannelEvent.Receive, (data: any) => {
             console.log('Received', data);
@@ -57,16 +57,16 @@ export class NetModuleServer {
         this.context = deps;
     }
 
-    onConnect(signalSocket: SignalSocket) {
-        signalSocket.on(SignalSocketEvents.ClientJoined, async (clientId: ClientId) => {
-            // Create a new client and listen for it to join
+    async onConnect(signalSocket: SignalSocket) {
+        const listener = new WebUdpSocketFactory(signalSocket);
+        await listener.listen(async (socket: WebUdpSocket) => {
             const client = new NetClient();
-            const clientConnected = client.initialize(signalSocket, clientId);
+            const clientConnected = client.initialize(socket);
             await clientConnected;
 
-            console.debug(`[Server] NetChannel: Client ${clientId} connected`);
+            console.debug(`[Server] NetChannel: Client ${client.id} connected`);
             this.clients.push(client);
-        })
+        });
     }
 
     update() {
