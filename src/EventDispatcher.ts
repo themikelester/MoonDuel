@@ -52,7 +52,7 @@ export class EventDispatcher {
      */
     once(name: string, callback: Callback): EventDispatcher {
         const callbackAndRemove = (...args: any) => {
-            callback(args);
+            callback(...args);
             this.off(name, callbackAndRemove);
         }
 
