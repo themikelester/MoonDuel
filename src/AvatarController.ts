@@ -91,10 +91,10 @@ export class AvatarController {
             vec3.rotateY(orientation, prevState.orientation, ZeroVec3, rotation);
         }
 
-        let flags = 0;
+        let flags = prevState.flags & ~(AvatarFlags.IsWalking | AvatarFlags.IsUTurning);
         if (inputShouldWalk) flags |= AvatarFlags.IsWalking;
         if (uTurning) flags |= AvatarFlags.IsUTurning;
-        const state: AvatarState = {
+        const state: AvatarState = {...prevState, 
             pos,
             velocity,
             orientation,
