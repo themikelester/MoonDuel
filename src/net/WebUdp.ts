@@ -164,13 +164,17 @@ export class WebUdpSocket extends EventDispatcher {
     };
 
     close() {
-        this.isOpen = false;
-        this.channel.close();
-        this.peer.close();
-        
-        window.removeEventListener('beforeunload', this.unloadCallback);
+        if (defined(this.peer)) {
+            this.fire(WebUdpEvent.Close);
 
-        this.fire(WebUdpEvent.Close);
+            this.isOpen = false;
+            this.channel.close();
+            this.peer.close();
+            
+            window.removeEventListener('beforeunload', this.unloadCallback);
+    
+            delete this.peer;
+        }
     };
 
     private createPeer(config: RTCConfiguration) {
