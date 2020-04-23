@@ -6,6 +6,12 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-24
+##### Morning
+Avatar day. When the server detects that a new client has joined, it needs to activate a new Avatar and assign it a clientID that matches the new client. The client probably needs to send some kind of initial state so that we don't have to pop the avatar, but maybe this is not necessary if we also change maps. I'm having a hard time planning out how adding a new Avatar will work, so I'm just going to get in there and see what happens.
+
+Now that NetClient is stable I'd also like to redo the ping computation. 
+
 ### 2020-04-23
 ##### Morning
 I really need to do some cleaning up. I often have to restart a few times before a client->server connection can even be established. I think zombie instances are hanging around and staying connected to the signalling server.
