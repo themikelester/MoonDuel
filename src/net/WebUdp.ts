@@ -66,6 +66,16 @@ export class WebUdpSocket extends EventDispatcher {
         const iceServers = await signalSocket.requestIceServers();
 
         this.peer = new RTCPeerConnection(iceServers);
+        
+        // Watch for any important changes on the WebRTC connection
+        this.peer.onconnectionstatechange = () => {
+            switch(this.peer.connectionState) {
+                case "connected": break;
+                case "disconnected": break;
+                case "failed": this.close(); break;
+                case "closed": this.close(); break;
+              }
+        };
 
         // Start pinging STUN/TURN servers to generate ICE candidates
         const iceCandidatesPromise = this.getIceCandidates();
@@ -152,7 +162,11 @@ export class WebUdpSocket extends EventDispatcher {
     };
 
     close() {
+        this.isOpen = false;
         this.channel.close();
+        this.peer.close();
+        
+        this.fire(WebUdpEvent.Close);
     };
 
     private onDataChannelOpen() {
@@ -164,9 +178,7 @@ export class WebUdpSocket extends EventDispatcher {
 
     private onDataChannelClosed() {
         console.debug('WebUDP: DataChannel closed'); 
-
-        this.isOpen = false; 
-        this.fire(WebUdpEvent.Close);
+        this.close();
     }
 
     private onDataChannelError(evt: RTCErrorEvent) {
