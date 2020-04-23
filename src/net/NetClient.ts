@@ -1,5 +1,4 @@
 import { NetChannel, NetChannelEvent } from "./NetChannel";
-import { SignalSocket, ClientId } from "./SignalSocket";
 import { assert } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer } from "../UserCommand";
@@ -27,6 +26,7 @@ export class NetClient {
 
         socket.on(WebUdpEvent.Open, () => {
             console.debug(`NetClient: ${socket.peerId} connected`);
+            this.state = NetClientState.Connected;
         });
 
         socket.on(WebUdpEvent.Close, () => {
@@ -39,14 +39,6 @@ export class NetClient {
 
         this.channel.on(NetChannelEvent.Receive, this.onMessage.bind(this));
         this.channel.initialize(socket);
-
-        return new Promise((resolve, reject) => {
-            // @TODO: Reject after timeout period
-            this.channel.once(NetChannelEvent.Connect, () => {
-                this.state = NetClientState.Connected,
-                resolve();
-            });
-        });
     }
 
     onMessage(msg: Uint8Array) {

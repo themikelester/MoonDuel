@@ -63,10 +63,7 @@ export class NetModuleServer {
         const listener = new WebUdpSocketFactory(signalSocket);
         await listener.listen(async (socket: WebUdpSocket) => {
             const client = new NetClient();
-            const clientConnected = client.initialize(socket);
-            await clientConnected;
-
-            console.debug(`[Server] NetChannel: Client ${client.id} connected`);
+            client.initialize(socket);
             this.clients.push(client);
         });
     }

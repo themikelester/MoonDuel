@@ -5,7 +5,6 @@ import { EventDispatcher } from '../EventDispatcher';
 import { defined } from '../util';
 
 export enum NetChannelEvent {
-    Connect = "connect",
     Receive = "receive",
 };
 
@@ -26,12 +25,7 @@ export class NetChannel extends EventDispatcher {
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
-        this.socket.on(WebUdpEvent.Open, this.onOpen.bind(this));
         this.socket.on(WebUdpEvent.Message, this.onMessage.bind(this));
-    }
-
-    private onOpen(evt: WebUdpEvent) {
-        this.fire(NetChannelEvent.Connect);
     }
 
     private onMessage(evt: MessageEvent) {
