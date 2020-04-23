@@ -10,6 +10,11 @@ Change Log
 ##### Morning
 I really need to do some cleaning up. I often have to restart a few times before a client->server connection can even be established. I think zombie instances are hanging around and staying connected to the signalling server.
 
+##### Evening
+Spent the whole day cleaning up. Most of the changes were to the way that WebUdpSocket wraps the WebRTC connection. Now it opens it's own socketio socket to the signalling server, instead of being handed one that is already connected. All it needs is the serverId, just like a UDP socket would need the server address. This means that the game is still ignorant of the concept of rooms, it just attempts to connect to server. The game is back to the state it was in last night, where there is a terribly ugly form of "multiplayer" happening, except now NetClient, NetChannel, and WebUdpSocket are pretty clean, and multiple clients can connect to the same server. 
+
+I still haven't submitted the changes to make the "multiplayer" work (client sends updates, server sends snapshots) because it's super dirty. Tomorrow I'd like to clean that up and get it submitted, figure out how to broadcast to everyone that a new client has joined / create its avatar, and start sending simulation frame numbers with these packets (right now it's just "lets grab the latest data available and use that"). 
+
 ### 2020-04-22
 ##### Morning
 Today is the day I'm going to try to actually implement "multiplayer". I'll have the client send UserCommand messages to the server, and the server will send everyone Snapshots. The client won't bother doing any prediction, it will just dumbly render the latest server state. That should allow me to play a reasonable quality multiplayer "match" locally, since the latency is basically nil. After that, I'll need to implement prediction, delta encoding, and UserCommand buffering.
