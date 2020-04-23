@@ -168,7 +168,7 @@ export class WebUdpSocket extends EventDispatcher {
             this.fire(WebUdpEvent.Close);
 
             this.isOpen = false;
-            this.channel.close();
+            if (this.channel) this.channel.close();
             this.peer.close();
             
             window.removeEventListener('beforeunload', this.unloadCallback);
