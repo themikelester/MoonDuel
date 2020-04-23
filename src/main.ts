@@ -1,7 +1,6 @@
 import { Client } from './client';
 import { Server } from './server';
-import { SignalSocket, SignalSocketEvents } from './net/SignalSocket';
-import { WebUdpSocket, WebUdpSocketFactory, WebUdpEvent } from './net/WebUdp';
+import { SignalSocket } from './net/SignalSocket';
 
 const kPort = 8888;
 const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;

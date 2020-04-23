@@ -2,7 +2,7 @@
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined, assert, assertDefined } from '../util';
+import { defined } from '../util';
 
 export enum NetChannelEvent {
     Connect = "connect",

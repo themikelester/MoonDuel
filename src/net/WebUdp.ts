@@ -35,7 +35,7 @@ export class WebUdpSocketFactory extends EventDispatcher {
 
     async onMessage(callback: (socket: WebUdpSocket) => void, msg: ClientOffer, from: ClientId) {
         console.debug('WebUDP: Received message', msg);
-        const offer = assertDefined(msg.offer, 'Expected an offer');
+        assertDefined(msg.offer, 'Expected an offer');
 
         // Spawn a new WebUdpSocket for each offer received
         const socket = new WebUdpSocket();

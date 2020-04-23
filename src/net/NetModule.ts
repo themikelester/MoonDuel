@@ -48,6 +48,7 @@ export class NetModuleClient {
 
 export class NetModuleServer {
     context: Dependencies;
+    signalSocket: SignalSocket;
     clients: NetClient[] = [];
 
     messageId = 0;
@@ -58,6 +59,7 @@ export class NetModuleServer {
     }
 
     async onConnect(signalSocket: SignalSocket) {
+        this.signalSocket = signalSocket;
         const listener = new WebUdpSocketFactory(signalSocket);
         await listener.listen(async (socket: WebUdpSocket) => {
             const client = new NetClient();
