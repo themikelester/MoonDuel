@@ -1,15 +1,8 @@
 import { NetChannel, NetChannelEvent } from "./NetChannel";
-import { kPacketMaxPayloadSize } from "./NetPacket";
-import { NetSchemas } from './schemas/schemas_generated';
-import { flatbuffers } from 'flatbuffers';
-import { SignalSocket, SignalSocketEvents, ClientId } from "./SignalSocket";
-import { WebUdpSocket, WebUdpSocketFactory, WebUdpEvent } from "./WebUdp";
-import { UserCommandBuffer } from "../UserCommand";
+import { SignalSocket, ClientId } from "./SignalSocket";
+import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
 import { NetClient } from "./NetClient";
 import { AvatarSystem } from "../Avatar";
-
-const kPort = 8888;
-const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;
 
 interface Dependencies {
     avatar: AvatarSystem;
@@ -17,9 +10,6 @@ interface Dependencies {
 
 export class NetModuleClient {
     netChannel: NetChannel;
-
-    messageId = 0;
-    builder = new flatbuffers.Builder(kPacketMaxPayloadSize);
 
     initialize() {
     }
@@ -50,9 +40,6 @@ export class NetModuleServer {
     context: Dependencies;
     signalSocket: SignalSocket;
     clients: NetClient[] = [];
-
-    messageId = 0;
-    builder = new flatbuffers.Builder(kPacketMaxPayloadSize);
 
     initialize(deps: Dependencies) {
         this.context = deps;
