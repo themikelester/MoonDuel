@@ -82,7 +82,6 @@ export class Client {
         this.debugGrid.initialize(this);
         this.snapshot.initialize(this);
         this.state.initialize(this);
-        this.userCommands.initialize();
         
         // Handle resizing
         window.onresize = this.onResize.bind(this);

@@ -34,20 +34,15 @@ function deserialize(data: Uint8Array): UserCommand {
 
 export class UserCommandBuffer {
     private buffer: UserCommand[] = [];
-    private bufferSize = 0;
-    private lastFrame = 0;
-
-    initialize() {
-        // @TODO: Choose a real length, perhaps based on simDt?
-        this.bufferSize = 64;
-    }
+    private bufferSize = 64; // @TODO: Choose a real length, perhaps based on simDt?
+    private lastFrame = -1;
 
     setUserCommand(frame: number, cmd: UserCommand) {
         this.buffer[frame % this.bufferSize] = cmd;
         this.lastFrame = frame;
     }
 
-    getUserCommand(frame: number = this.lastFrame) {
+    getUserCommand(frame: number = Math.max(0, this.lastFrame)) {
         if (frame <= this.lastFrame - this.bufferSize || frame > this.lastFrame) {
             console.warn('Requested UserCommand outside of buffer');
             return kEmptyCommand;
@@ -57,8 +52,9 @@ export class UserCommandBuffer {
     }
 
     receive(msg: Uint8Array) {
+        // @HACK:
         const cmd = deserialize(msg);
-        console.log('Received command:', cmd);
+        this.setUserCommand(0, cmd);
     }
 
     /**
