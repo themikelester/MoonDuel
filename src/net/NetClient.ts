@@ -7,6 +7,7 @@ import { UserCommandBuffer } from "../UserCommand";
 enum NetClientState {
     Free,
     Connected,
+    Disconnected,
 }
 
 export class NetClient {
@@ -30,6 +31,7 @@ export class NetClient {
 
         socket.on(WebUdpEvent.Close, () => {
             console.debug(`NetClient: ${socket.peerId} disconnected`);
+            this.state = NetClientState.Disconnected;
         });
         
         this.id = socket.peerId;
