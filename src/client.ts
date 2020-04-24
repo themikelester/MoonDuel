@@ -122,7 +122,6 @@ export class Client {
             this.clock.updateFixed();
             this.input.updateFixed(this);
             this.avatar.updateFixed(this);
-            this.snapshot.updateFixed(this);
         }
         
         this.userCommands.transmit(this);

@@ -69,7 +69,7 @@ export class Server {
         while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
             this.clock.updateFixed();
             // this.avatar.updateFixed(this);
-            // this.snapshot.updateFixed(this);
+            this.snapshot.updateFixed(this);
         }
     }
 
