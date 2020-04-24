@@ -3,8 +3,9 @@ import { assert } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
+import { ClientId } from "./SignalSocket";
 
-enum NetClientState {
+export enum NetClientState {
     Free,
     Connected,
     Disconnected,
@@ -35,34 +36,51 @@ export class NetClient extends EventDispatcher {
 
     userCommands: UserCommandBuffer = new UserCommandBuffer();
 
-    initialize(socket: WebUdpSocket) {
+    private initialize(socket: WebUdpSocket) {
         assert(this.state === NetClientState.Free);
-        console.debug(`NetClient: ${socket.peerId} is attempting to connect`);
+        console.debug(`NetClient: ${this.id} is attempting to connect`);
 
         socket.on(WebUdpEvent.Open, () => {
-            console.debug(`NetClient: ${socket.peerId} connected`);
+            console.debug(`NetClient: ${this.id} connected`);
             this.state = NetClientState.Connected;
             this.fire(NetClientEvents.Connected);
         });
 
         socket.on(WebUdpEvent.Close, () => {
-            console.debug(`NetClient: ${socket.peerId} disconnected`);
+            console.debug(`NetClient: ${this.id} disconnected`);
             this.state = NetClientState.Disconnected;
             this.fire(NetClientEvents.Disconnected);
         });
         
-        this.id = socket.peerId;
         this.channel = new NetChannel();
 
         this.channel.on(NetChannelEvent.Receive, this.onMessage.bind(this));
         this.channel.initialize(socket);
     }
 
+    /**
+     * The Client calls this to connect to a specific ClientID that will act as the server
+     */
+    async connect(serverId: ClientId) {
+        const socket = new WebUdpSocket();
+        
+        // Wait for the WebUdp socket to be assigned a ClientID by the signalling server
+        await socket.connect(serverId);
+        this.id = socket.clientId;
+
+        this.initialize(socket);
+    }
+
+    /**
+     * Accept a connection to a Client's NetClient produced by a WebUdpSocketFactory.
+     */
+    accept(socket: WebUdpSocket) {
+        this.id = socket.peerId;
+        this.initialize(socket);
+    }
+
     onMessage(msg: Uint8Array) {
         this.ping = this.channel.averageRtt;
-        
-        // @HACK: Assume it's a usercommand
-        this.userCommands.receive(msg);
         
         this.fire.bind(NetClientEvents.Message, msg);
     }
