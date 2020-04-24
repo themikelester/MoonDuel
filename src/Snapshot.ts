@@ -1,5 +1,5 @@
 import { Clock } from "./Clock";
-import { AvatarState, AvatarSystem } from "./Avatar";
+import { AvatarState, AvatarSystemServer } from "./Avatar";
 import { defined, assert } from "./util";
 import { delerp } from "./MathHelpers";
 import { DebugMenu } from "./DebugMenu";
@@ -13,7 +13,7 @@ export class Snapshot {
 
     constructor() {
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            this.avatars[i] = new AvatarState(i === 0);
+            this.avatars[i] = new AvatarState();
         }
     }
 
@@ -46,7 +46,6 @@ function deserialize(data: Uint8Array): Snapshot {
 
 interface Dependencies {
     clock: Clock;
-    avatar: AvatarSystem;
 }
 
 export class SnapshotManager {
@@ -69,7 +68,7 @@ export class SnapshotManager {
         const valid = this.getSnapshot(displaySnapshotTime, this.displaySnapshot);
     }
 
-    updateFixed(deps: Dependencies) {
+    updateFixed(deps: { clock: Clock, avatar: AvatarSystemServer }) {
         this.buffer[deps.clock.simFrame % this.bufferFrameCount] = this.createSnapshot(deps);
         this.latestFrame = deps.clock.simFrame;
     }
@@ -133,13 +132,13 @@ export class SnapshotManager {
         if (data.byteLength > 0) net.broadcast(data);
     }
 
-    createSnapshot(deps: Dependencies) {
+    createSnapshot({ clock, avatar }: { clock: Clock, avatar: AvatarSystemServer }) {
         const lastSnapshot = this.buffer[this.latestFrame % this.bufferFrameCount];
         const snapshot = new Snapshot();
         if (lastSnapshot) Snapshot.copy(snapshot, lastSnapshot);
 
-        snapshot.frame = deps.clock.simFrame;
-        snapshot.avatars[0] = deps.avatar.getSnapshot();
+        snapshot.frame = clock.simFrame;
+        snapshot.avatars = avatar.getSnapshot();
 
         return snapshot;
     }

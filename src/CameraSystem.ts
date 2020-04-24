@@ -9,7 +9,7 @@ import { DebugMenu } from './DebugMenu';
 import { Clock } from './Clock';
 import { clamp, angularDistance, MathConstants } from './MathHelpers';
 import { Object3D, Vector3 } from './Object3D';
-import { AvatarSystem } from './Avatar';
+import { AvatarSystemClient } from './Avatar';
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -17,7 +17,7 @@ const scratchVector3A = new Vector3(vec3.create());
 const vec3Up = vec3.fromValues(0, 1, 0);
 
 interface Dependencies {
-    avatar: AvatarSystem;
+    avatar: AvatarSystemClient;
     debugMenu: DebugMenu;
 }
 

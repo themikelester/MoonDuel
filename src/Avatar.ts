@@ -14,20 +14,23 @@ import { vec3 } from "gl-matrix";
 import { SnapshotManager, Snapshot } from "./Snapshot";
 import { UserCommandBuffer } from "./UserCommand";
 import { DebugMenu } from "./DebugMenu";
+import { NetModuleServer } from "./net/NetModule";
 
-interface Dependencies {
-    headless: boolean;
-
-    gfxDevice?: Renderer;
+interface ServerDependencies {
+    debugMenu: DebugMenu;
     resources: ResourceManager;
     clock: Clock;
-    camera?: Camera;
     snapshot: SnapshotManager;
-    userCommands: UserCommandBuffer;
-    debugMenu: DebugMenu;
+
+    net: NetModuleServer;
 }
 
-interface GameDependencies extends Dependencies {
+interface ClientDependencies {
+    debugMenu: DebugMenu;
+    resources: ResourceManager;
+    clock: Clock;
+    snapshot: SnapshotManager;
+
     gfxDevice: Renderer;
     camera: Camera;
 }
@@ -48,6 +51,7 @@ export enum AvatarFlags {
 }
 
 export class AvatarState {
+    clientId?: string;
     pos: vec3 = vec3.create();
     velocity: vec3 = vec3.create();
     orientation: vec3 = vec3.fromValues(0, 0, 1);
@@ -55,9 +59,6 @@ export class AvatarState {
 
     constructor(isActive: boolean = false) {
         this.flags = isActive ? AvatarFlags.IsActive : 0;
-
-        // @HACK: Make all avatars active, for testing
-        this.flags = AvatarFlags.IsActive;
     }
 
     static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
@@ -77,9 +78,8 @@ export class AvatarState {
 
 const kGltfFilename = 'data/Tn.glb';
 
-export class AvatarSystem {
-    public localAvatar: Avatar;
-    private avatarState: AvatarState = new AvatarState(true);
+export class AvatarSystemClient {
+    private localAvatar: Avatar;
 
     private avatars: Avatar[] = [];
     private controllers: AvatarController[] = [];
@@ -93,12 +93,10 @@ export class AvatarSystem {
             this.avatars[i] = new Avatar();
             this.controllers[i] = new AvatarController();
         }
-
         this.localAvatar = this.avatars[0];
-        this.avatars[0].local = true;
     }
 
-    initialize(game: Dependencies) {
+    initialize(game: ClientDependencies) {
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -110,7 +108,7 @@ export class AvatarSystem {
         this.renderer.initialize(this.avatars);
     }
 
-    onResourcesLoaded(game: Dependencies) {
+    onResourcesLoaded(game: ClientDependencies) {
         for (const avatar of this.avatars) {
             // Clone all nodes
             avatar.nodes = this.gltf.nodes.map(src => src.clone(false));
@@ -138,10 +136,10 @@ export class AvatarSystem {
         }
 
         this.animation.onResourcesLoaded(this.gltf, game.debugMenu);
-        if (!game.headless) this.renderer.onResourcesLoaded(this.gltf, (game as GameDependencies).gfxDevice);
+        this.renderer.onResourcesLoaded(this.gltf, game.gfxDevice);
     }
 
-    update(game: Dependencies) {
+    update(game: ClientDependencies) {
         const states = game.snapshot.displaySnapshot.avatars;
 
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
@@ -165,22 +163,121 @@ export class AvatarSystem {
         this.animation.update(states, game.clock.renderDt / 1000.0);
     }
 
-    updateFixed(game: Dependencies) {
-        const inputCmd = game.userCommands.getUserCommand(game.clock.simFrame);
-        const dtSec = game.clock.simDt / 1000.0;
-
-        this.avatarState = this.controllers[0].update(this.avatarState, dtSec, inputCmd);
-        this.avatarState.flags |= AvatarFlags.IsActive;
+    updateFixed(game: ClientDependencies) {
+        // @TODO: Prediction
     }
 
-    render(deps: Dependencies) {
-        if (!deps.headless) {
-            const game = deps as GameDependencies;
-            this.renderer.render(game.gfxDevice, game.camera);
+    render(game: ClientDependencies) {
+        this.renderer.render(game.gfxDevice, game.camera);
+    }
+}
+
+export class AvatarSystemServer {
+    private states: AvatarState[] = [];
+    private avatars: Avatar[] = [];
+    private controllers: AvatarController[] = [];
+
+    private gltf: GltfResource;
+    private animation = new AvatarAnim();
+
+    constructor() {
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            this.states[i] = new AvatarState();
+            this.avatars[i] = new Avatar();
+            this.controllers[i] = new AvatarController();
         }
     }
 
+    initialize(game: ServerDependencies) {
+        // Start loading all necessary resources
+        game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
+            if (error) { return console.error(`Failed to load resource`, error); }
+            this.gltf = resource as GltfResource;
+            this.onResourcesLoaded(game);
+        });
+
+        this.animation.initialize(this.avatars);
+    }
+
+    onResourcesLoaded(game: ServerDependencies) {
+        for (const avatar of this.avatars) {
+            // Clone all nodes
+            avatar.nodes = this.gltf.nodes.map(src => src.clone(false));
+            for (let i = 0; i < avatar.nodes.length; i++) {
+                const src = this.gltf.nodes[i];
+                const node = avatar.nodes[i];
+                for (const child of src.children) {
+                    const childIdx = this.gltf.nodes.indexOf(child as GltfNode);
+                    node.add(avatar.nodes[childIdx]);
+                }
+            }
+
+            // Assign the loaded scene graph to this Avatar object
+            for (const rootNodeId of this.gltf.rootNodeIds.slice(0, 1)) {
+                avatar.add(avatar.nodes[rootNodeId]);
+            }
+            
+            // Create skeletons from the first GLTF skin
+            const skin = assertDefined(this.gltf.skins[0]);
+            const bones = skin.joints.map(jointId => avatar.nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
+            const ibms = skin.inverseBindMatrices?.map(ibm => new Matrix4().fromArray(ibm));
+            avatar.skeleton = new Skeleton(bones as Object3D[] as Bone[], ibms);
+        
+            avatar.animationMixer = new AnimationMixer(avatar);
+        }
+
+        this.animation.onResourcesLoaded(this.gltf, game.debugMenu);
+    }
+
+    update(game: ServerDependencies) {
+        const states = game.snapshot.displaySnapshot.avatars;
+
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            const avatar = this.avatars[i];
+            const state = states[i];
+
+            avatar.active = !!(state.flags & AvatarFlags.IsActive);
+
+            const pos = new Vector3(state.pos);
+            avatar.position.copy(pos);
+            avatar.lookAt(
+                state.pos[0] + state.orientation[0],
+                state.pos[1] + state.orientation[1],
+                state.pos[2] + state.orientation[2],
+            )
+
+            avatar.updateMatrix();
+            avatar.updateMatrixWorld();
+        }
+            
+        this.animation.update(states, game.clock.renderDt / 1000.0);
+    }
+
+    updateFixed(game: ServerDependencies) {
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            const state = this.states[i];
+            const avatar = this.avatars[i];
+
+            if (!(state.flags & AvatarFlags.IsActive)) continue;
+
+            const client = game.net.clients.find(c => c.id === state.clientId);
+            if (client) {
+                // @HACK: For now just use the last received command
+                const inputCmd = client.userCommands.getUserCommand();
+                const dtSec = game.clock.simDt / 1000.0;
+        
+                this.states[i] = this.controllers[i].update(state, dtSec, inputCmd);
+            }
+        }
+    }
+
+    addAvatar(clientId: string) {
+        const state = assertDefined(this.states.find(s => !(s.flags & AvatarFlags.IsActive)), "Out of avatars");
+        state.flags |= AvatarFlags.IsActive;
+        state.clientId = clientId;
+    }
+
     getSnapshot() {
-        return this.avatarState;
+        return this.states;
     }
 }

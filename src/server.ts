@@ -2,7 +2,7 @@
 import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
 
 // Modules
-import { AvatarSystem } from './Avatar';
+import { AvatarSystemServer } from './Avatar';
 import { Clock } from './Clock';
 import { NetModuleServer } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
@@ -16,12 +16,10 @@ export const enum InitErrorCode {
 }
 
 export class Server {
-    public headless: boolean = true;
-
     public debugMenu: DebugMenu = new DebugMenu();
 
     // Modules
-    public avatar = new AvatarSystem();
+    public avatar = new AvatarSystemServer();
     public clock = new Clock();
     public net = new NetModuleServer();
     public resources = new ResourceManager();
@@ -68,7 +66,7 @@ export class Server {
     private updateFixed() {
         while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
             this.clock.updateFixed();
-            // this.avatar.updateFixed(this);
+            this.avatar.updateFixed(this);
             this.snapshot.updateFixed(this);
         }
 

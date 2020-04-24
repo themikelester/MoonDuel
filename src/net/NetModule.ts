@@ -2,11 +2,11 @@ import { NetChannel, NetChannelEvent } from "./NetChannel";
 import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
 import { NetClient } from "./NetClient";
-import { AvatarSystem } from "../Avatar";
+import { AvatarSystemServer } from "../Avatar";
 import { SnapshotManager } from "../Snapshot";
 
 interface Dependencies {
-    avatar: AvatarSystem;
+    avatar: AvatarSystemServer;
     snapshot: SnapshotManager;
 }
 
@@ -56,6 +56,7 @@ export class NetModuleServer {
         await listener.listen(async (socket: WebUdpSocket) => {
             const client = new NetClient();
             client.initialize(socket);
+            this.context.avatar.addAvatar(client.id);
             this.clients.push(client);
         });
     }

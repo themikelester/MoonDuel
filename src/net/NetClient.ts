@@ -7,6 +7,14 @@ enum NetClientState {
     Free,
     Connected,
     Disconnected,
+
+    // The Quake 3 Arena states:
+	// CS_FREE,		// can be reused for a new connection
+	// CS_ZOMBIE,		// client has been disconnected, but don't reuse
+	// 				// connection for a couple seconds
+	// CS_CONNECTED,	// has been assigned to a client_t, but no gamestate yet
+	// CS_PRIMED,		// gamestate has been sent, but client hasn't sent a usercmd
+	// CS_ACTIVE		// client is fully in game
 }
 
 export class NetClient {

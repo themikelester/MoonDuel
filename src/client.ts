@@ -6,7 +6,7 @@ import { Camera } from './Camera';
 import { DebugMenu } from './DebugMenu';
 
 // Modules
-import { AvatarSystem } from './Avatar';
+import { AvatarSystemClient } from './Avatar';
 import { CameraSystem } from './CameraSystem';
 import { Clock } from './Clock';
 import { Compositor } from './Compositor';
@@ -30,14 +30,13 @@ export class Client {
     public toplevel: HTMLElement;
     public canvas: HTMLCanvasElement = document.createElement('canvas');
 
-    public headless: boolean = false;
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
 
     public debugMenu: DebugMenu = new DebugMenu();
 
     // Modules
-    public avatar = new AvatarSystem();
+    public avatar = new AvatarSystemClient();
     public clock = new Clock();
     public cameraSystem = new CameraSystem(this.camera);
     public compositor = new Compositor(this.canvas, this.gfxDevice);
