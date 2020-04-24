@@ -57,7 +57,8 @@ export class Server {
         this.net.onConnect(signalSocket);
     }
 
-    private tick(time: number) {
+    private tick() {
+        const time = performance.now();
         this.clock.tick(time);
 
         this.updateFixed();
