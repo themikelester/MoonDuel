@@ -45,6 +45,7 @@ export class WebUdpSocketFactory extends EventDispatcher {
 
 export class WebUdpSocket extends EventDispatcher {
     peer: RTCPeerConnection;
+    clientId: ClientId;
     peerId: ClientId;
     channel: RTCDataChannel;
     isOpen: boolean = false;
@@ -56,64 +57,72 @@ export class WebUdpSocket extends EventDispatcher {
      * @NOTE: The peer must already be listening for offers. See WebUdpSocketFactory.
      * @param peerId the peer's ClientID
      */
-    async connect(peerId: string) {
+    connect(peerId: string): Promise<any> {
         assert(!defined(this.peer), 'WebUdpSocket.connect/listen() may only be called once');
 
         this.peerId = peerId;
 
+        // Connect to the signal server 
         const signalSocket = new SignalSocket();
-        signalSocket.connect();
-
-        const iceServers = await signalSocket.requestIceServers();
-
-        this.createPeer(iceServers);
-        
-        // Watch for any important changes on the WebRTC connection
-        this.peer.onconnectionstatechange = () => {
-            switch(this.peer.connectionState) {
-                case "connected": break;
-                case "disconnected": break;
-                case "failed": this.close(); break;
-                case "closed": this.close(); break;
-              }
-        };
-
-        // Start pinging STUN/TURN servers to generate ICE candidates
-        const iceCandidatesPromise = this.getIceCandidates();
-
-        // But if we're the "local", we create the data channel
-        const channel = this.peer.createDataChannel('webudp', {
-            ordered: false,
-            maxRetransmits: 0,
+        const connectedToSignalServer = signalSocket.connect().then(() => {
+            this.clientId = signalSocket.clientId
         });
-        this.setDataChannel(channel);
 
-        // And initiate the connection by creating and sending an offer
-        const rtcOffer = await this.peer.createOffer();
-        await this.peer.setLocalDescription(rtcOffer);
-
-        // Wait for all ICE candidates to be created
-        const iceCandidates = await iceCandidatesPromise;
-
-        // Send the SDP and ICE candidates in one message
-        const offer: ClientOffer = { offer: rtcOffer, iceCandidates };
-        signalSocket.send(this.peerId, offer);
-
-        signalSocket.once(SignalSocketEvents.Message, (msg: ClientAnswer, from: ClientId) => {
-            const answer = assertDefined(msg.answer, 'Expected "answer" message from remote peer');
-            console.debug('WebUDP: Received answer', msg.answer);
-
-            // Accept the answer
-            this.peer.setRemoteDescription(msg.answer);
-
-            // And accept all of the remote's ICE candidates
-            for (const candidate of msg.iceCandidates) {
-                this.peer.addIceCandidate(candidate);
-            }
-
-            // @TODO: Also close after timeout, or on error
-            signalSocket.close();
+        // Begin the WebRTC handshake
+        connectedToSignalServer.then(async () => {
+            const iceServers = await signalSocket.requestIceServers();
+    
+            this.createPeer(iceServers);
+            
+            // Watch for any important changes on the WebRTC connection
+            this.peer.onconnectionstatechange = () => {
+                switch(this.peer.connectionState) {
+                    case "connected": break;
+                    case "disconnected": break;
+                    case "failed": this.close(); break;
+                    case "closed": this.close(); break;
+                  }
+            };
+    
+            // Start pinging STUN/TURN servers to generate ICE candidates
+            const iceCandidatesPromise = this.getIceCandidates();
+    
+            // But if we're the "local", we create the data channel
+            const channel = this.peer.createDataChannel('webudp', {
+                ordered: false,
+                maxRetransmits: 0,
+            });
+            this.setDataChannel(channel);
+    
+            // And initiate the connection by creating and sending an offer
+            const rtcOffer = await this.peer.createOffer();
+            await this.peer.setLocalDescription(rtcOffer);
+    
+            // Wait for all ICE candidates to be created
+            const iceCandidates = await iceCandidatesPromise;
+    
+            // Send the SDP and ICE candidates in one message
+            const offer: ClientOffer = { offer: rtcOffer, iceCandidates };
+            signalSocket.send(this.peerId, offer);
+    
+            signalSocket.once(SignalSocketEvents.Message, (msg: ClientAnswer, from: ClientId) => {
+                const answer = assertDefined(msg.answer, 'Expected "answer" message from remote peer');
+                console.debug('WebUDP: Received answer', msg.answer);
+    
+                // Accept the answer
+                this.peer.setRemoteDescription(msg.answer);
+    
+                // And accept all of the remote's ICE candidates
+                for (const candidate of msg.iceCandidates) {
+                    this.peer.addIceCandidate(candidate);
+                }
+    
+                // @TODO: Also close after timeout, or on error
+                signalSocket.close();
+            });
         });
+
+        return connectedToSignalServer;
     }
 
     /**
@@ -124,6 +133,7 @@ export class WebUdpSocket extends EventDispatcher {
         assert(!defined(this.peer), 'WebUdpSocket.connect/listen() may only be called once');
 
         this.peerId = peerId;
+        this.clientId = signalSocket.clientId;
 
         // @TODO: This only needs to happen once on the server
         const iceServers = await signalSocket.requestIceServers();
