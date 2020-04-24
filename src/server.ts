@@ -41,7 +41,6 @@ export class Server {
         this.net.initialize(this);
         this.avatar.initialize(this);
         this.snapshot.initialize(this);
-        this.userCommands.initialize();
 
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
