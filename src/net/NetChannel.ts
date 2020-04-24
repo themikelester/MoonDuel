@@ -3,23 +3,26 @@ import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
 import { defined } from '../util';
+import { lerp } from '../MathHelpers';
 
 export enum NetChannelEvent {
     Receive = "receive",
 };
 
 const kPacketHistoryLength = 32;
+const kPingMovingAveragePower = 1.0/10.0;
 
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
  * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
  */
 export class NetChannel extends EventDispatcher {
+    averageRtt: number = 0; // Moving average of packet round-trip-time
+
     private socket: WebUdpSocket;
 
     private remoteSequence = 0;
     private localSequence = 0;
-    private ackBuffer: boolean[] = new Array(kPacketHistoryLength).fill(false);
     private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
     private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
 
@@ -40,9 +43,11 @@ export class NetChannel extends EventDispatcher {
     private writeAckBitfield(history: Packet[]) {
         let bitfield = 0;
         for (const packet of history) {
-            const bit = sequenceNumberWrap(this.remoteSequence - packet.header.sequence);
-            if (bit < 32) {
-                bitfield |= 1 << bit;
+            if (packet.header.sequence !== -1) {
+                const bit = sequenceNumberWrap(this.remoteSequence - packet.header.sequence);
+                if (bit < 32) {
+                    bitfield |= 1 << bit;
+                }
             }
         }
         return bitfield;
@@ -77,7 +82,14 @@ export class NetChannel extends EventDispatcher {
         // Update the acknowledged state of all of the recently sent packets
         const bitfield = packet.header.ackBitfield;
         for (let i = 0; i < 32; i++) {
-            if (bitfield & 1 << i) { this.ackBuffer[(packet.header.ack + i) % kPacketHistoryLength] = true; }
+            if (bitfield & 1 << i) {
+                const sequence = packet.header.ack - i; 
+                const p = this.localHistory[sequence % kPacketHistoryLength];
+                if (p.header.sequence === sequence && !p.acknowledged) {
+                    const packetRtt = p.acknowledge();
+                    this.averageRtt = lerp(this.averageRtt, packetRtt, kPingMovingAveragePower);
+                }
+            }
         }
 
         this.fire(NetChannelEvent.Receive, packet.payload);
@@ -94,9 +106,8 @@ export class NetChannel extends EventDispatcher {
             return;
         }
         
-        // Allocate the packet (being careful to set its unacknowledged state)
+        // Allocate the packet
         const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
-        this.ackBuffer[this.localSequence % kPacketHistoryLength] = false;
 
         packet.header.sequence = this.localSequence;
         packet.header.ack = this.remoteSequence;
@@ -118,6 +129,6 @@ export class NetChannel extends EventDispatcher {
             return false;
         }
 
-        return this.ackBuffer[sequence % kPacketHistoryLength];
+        return this.localHistory[sequence % kPacketHistoryLength].acknowledged;
     }
 }

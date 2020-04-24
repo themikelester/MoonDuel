@@ -15,6 +15,11 @@ export class Packet {
     header: PacketHeader;
     payload: Uint8Array;
 
+    get acknowledged() { return defined(this.ackTime); }
+
+    private ackTime?: number;
+    private sendTime: number;
+
     private readonly dataView: DataView;
     private readonly bytes: Uint8Array;
 
@@ -51,7 +56,16 @@ export class Packet {
         this.dataView.setUint32(4, this.header.ackBitfield, true);
         this.bytes.set(this.payload, kPacketHeaderSize);
 
+        // Assume we are transmitting the packet immediately, so mark it as unacknowledged
+        this.sendTime = performance.now();
+        this.ackTime = undefined;
+
         return this.bytes.subarray(0, kPacketHeaderSize + this.payload.byteLength);
+    }
+
+    acknowledge(): number {
+        this.ackTime = performance.now();
+        return this.ackTime - this.sendTime;
     }
 }
 

@@ -50,6 +50,8 @@ export class NetClient {
     }
 
     onMessage(msg: Uint8Array) {
+        this.ping = this.channel.averageRtt;
+
         // @HACK: Assume it's a usercommand
         this.userCommands.receive(msg);
     }
