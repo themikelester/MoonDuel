@@ -1,7 +1,7 @@
 import { NetChannel, NetChannelEvent } from "./NetChannel";
 import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
-import { NetClient } from "./NetClient";
+import { NetClient, NetClientEvents } from "./NetClient";
 import { AvatarSystemServer } from "../Avatar";
 import { SnapshotManager } from "../Snapshot";
 
@@ -55,10 +55,19 @@ export class NetModuleServer {
         const listener = new WebUdpSocketFactory(signalSocket);
         await listener.listen(async (socket: WebUdpSocket) => {
             const client = new NetClient();
+            client.on(NetClientEvents.Connected, this.onClientConnected.bind(this, client));
+            client.on(NetClientEvents.Disconnected, this.onClientDisconnected.bind(this, client));
             client.initialize(socket);
-            this.context.avatar.addAvatar(client.id);
             this.clients.push(client);
         });
+    }
+
+    onClientConnected(client: NetClient) {
+        this.context.avatar.addAvatar(client.id);
+    }
+
+    onClientDisconnected(client: NetClient) {
+        // this.context.avatar.removeAvatar(client.id);
     }
 
     update() {

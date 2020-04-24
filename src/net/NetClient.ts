@@ -2,6 +2,7 @@ import { NetChannel, NetChannelEvent } from "./NetChannel";
 import { assert } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer } from "../UserCommand";
+import { EventDispatcher } from "../EventDispatcher";
 
 enum NetClientState {
     Free,
@@ -17,7 +18,13 @@ enum NetClientState {
 	// CS_ACTIVE		// client is fully in game
 }
 
-export class NetClient {
+export enum NetClientEvents { 
+    Connected = 'connected',
+    Disconnected = 'disconnected',
+    Message = 'message',
+}
+
+export class NetClient extends EventDispatcher {
     id: string;
     state: NetClientState = NetClientState.Free;
 
@@ -35,11 +42,13 @@ export class NetClient {
         socket.on(WebUdpEvent.Open, () => {
             console.debug(`NetClient: ${socket.peerId} connected`);
             this.state = NetClientState.Connected;
+            this.fire(NetClientEvents.Connected);
         });
 
         socket.on(WebUdpEvent.Close, () => {
             console.debug(`NetClient: ${socket.peerId} disconnected`);
             this.state = NetClientState.Disconnected;
+            this.fire(NetClientEvents.Disconnected);
         });
         
         this.id = socket.peerId;
@@ -51,8 +60,10 @@ export class NetClient {
 
     onMessage(msg: Uint8Array) {
         this.ping = this.channel.averageRtt;
-
+        
         // @HACK: Assume it's a usercommand
         this.userCommands.receive(msg);
+        
+        this.fire.bind(NetClientEvents.Message, msg);
     }
 }
