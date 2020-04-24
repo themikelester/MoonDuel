@@ -12,7 +12,7 @@ interface Dependencies {
 
 export class NetModuleClient {
     context: Dependencies;
-    netChannel: NetChannel;
+    client: NetClient;
 
     initialize(context: Dependencies) {
         this.context = context;
@@ -20,24 +20,22 @@ export class NetModuleClient {
 
     onConnect(serverId: ClientId) {
         // Establish a WebUDP connection with the server
-        const server = new NetChannel();
         const socket = new WebUdpSocket();
+        this.client = new NetClient();
+        this.client.initialize(socket);
 
         socket.connect(serverId);
-        server.initialize(socket);
-        server.on(NetChannelEvent.Receive, (data: any) => {
+        this.client.channel.on(NetChannelEvent.Receive, (data: any) => {
             // @HACK: Assume it's state
             this.context.snapshot.receive(data);
         });
-
-        this.netChannel = server;
     }
 
     update() {
     }
     
     broadcast(data: Uint8Array) {
-        if (this.netChannel) this.netChannel.send(data);
+        if (this.client) this.client.channel.send(data);
     }
 }
 
