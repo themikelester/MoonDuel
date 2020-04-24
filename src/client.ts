@@ -73,7 +73,7 @@ export class Client {
         this.resources.initialize(this.gfxDevice);
         this.clock.initialize(this);
         this.input.initialize(this);
-        this.net.initialize();
+        this.net.initialize(this);
         this.cameraSystem.initialize(this);
         this.compositor.initialize(this);
         this.globalUniforms.initialize();

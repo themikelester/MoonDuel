@@ -3,11 +3,12 @@ import { AvatarState, AvatarSystem } from "./Avatar";
 import { defined, assert } from "./util";
 import { delerp } from "./MathHelpers";
 import { DebugMenu } from "./DebugMenu";
+import { NetModuleServer } from "./net/NetModule";
 
 export class Snapshot {
     frame: number;
 
-    static kAvatarCount = 2;
+    static kAvatarCount = 3;
     avatars: AvatarState[] = [];
 
     constructor() {
@@ -29,6 +30,18 @@ export class Snapshot {
         }
         return result;
     }
+}
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+function serialize(snap: Snapshot): Uint8Array {
+    const str = JSON.stringify(snap);
+    return encoder.encode(str);
+}
+
+function deserialize(data: Uint8Array): Snapshot {
+    const str = decoder.decode(data);
+    return JSON.parse(str);
 }
 
 interface Dependencies {
@@ -104,6 +117,20 @@ export class SnapshotManager {
             Snapshot.lerp(result, a, b, t);
             return true;
         }
+    }
+
+    receive(msg: Uint8Array) {
+        const snap = deserialize(msg);
+        this.buffer[snap.frame % this.bufferFrameCount] = snap;
+        this.latestFrame = snap.frame;
+    }
+
+    transmit({ net }: { net: NetModuleServer }) {
+        // @HACK:
+        const lastState = this.buffer[this.latestFrame % this.bufferFrameCount];
+        const data = serialize(lastState);
+
+        if (data.byteLength > 0) net.broadcast(data);
     }
 
     createSnapshot(deps: Dependencies) {

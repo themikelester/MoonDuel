@@ -3,15 +3,19 @@ import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
 import { NetClient } from "./NetClient";
 import { AvatarSystem } from "../Avatar";
+import { SnapshotManager } from "../Snapshot";
 
 interface Dependencies {
     avatar: AvatarSystem;
+    snapshot: SnapshotManager;
 }
 
 export class NetModuleClient {
+    context: Dependencies;
     netChannel: NetChannel;
 
-    initialize() {
+    initialize(context: Dependencies) {
+        this.context = context;
     }
 
     onConnect(serverId: ClientId) {
@@ -22,7 +26,8 @@ export class NetModuleClient {
         socket.connect(serverId);
         server.initialize(socket);
         server.on(NetChannelEvent.Receive, (data: any) => {
-            console.log('Received', data);
+            // @HACK: Assume it's state
+            this.context.snapshot.receive(data);
         });
 
         this.netChannel = server;

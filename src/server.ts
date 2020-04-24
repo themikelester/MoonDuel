@@ -71,6 +71,8 @@ export class Server {
             // this.avatar.updateFixed(this);
             this.snapshot.updateFixed(this);
         }
+
+        this.snapshot.transmit(this);
     }
 
     private update() {
