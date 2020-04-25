@@ -9,6 +9,7 @@ export class Clock {
     public renderTime: number = 0; // The display time, which is when the the simulation state will be sampled and rendered. 
                                    // @NOTE: This can be behind or ahead of the sim time due to dilation/contraction
 
+    // @TODO: Should this be the same as realTime?                                   
     public serverTime: number = -1; // The estimated simulation time on the server. (If we are the server, same as simTime).
 
     public realDt: number = 0;
