@@ -31,8 +31,7 @@ export class NetClient extends EventDispatcher {
     id: string;
     state: NetClientState = NetClientState.Free;
 
-    ping: number = -1;
-    rate: number = -1; // bytes per second
+    ping?: number = -1;
 
     channel: NetChannel;
 
@@ -128,7 +127,7 @@ export class NetClient extends EventDispatcher {
     }
 
     onMessage(msg: Uint8Array) {
-        this.ping = this.channel.averageRtt;
+        this.ping = this.channel.ping;
         
         if (msg[0] === 0) this.receiveServerFrame(msg);
         else this.receiveClientFrame(msg);

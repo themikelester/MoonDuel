@@ -3,9 +3,12 @@ import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
 import { NetClient, NetClientEvents, NetClientState } from "./NetClient";
 import { AvatarSystemServer } from "../Avatar";
 import { Snapshot } from "../Snapshot";
+import { Clock } from "../Clock";
+import { assert, defined } from "../util";
 
 interface Dependencies {
     avatar: AvatarSystemServer;
+    clock: Clock;
 }
 
 export class NetModuleClient {
@@ -18,8 +21,20 @@ export class NetModuleClient {
 
     onConnect(serverId: ClientId) {
         // Establish a WebUDP connection with the server
+        this.client.on(NetClientEvents.Message, this.onMessage.bind(this));
         this.client.connect(serverId);
     }
+
+    onMessage(data: Uint8Array) {
+        // Once our ping is calculated, sync our simulation time to that of the server
+        if (this.context.clock.serverTime === -1 && defined(this.client.ping)) {
+            const latestFrame = this.client.snapshot.getSnapshot().frame;
+            const latestTime = latestFrame * this.context.clock.simDt;
+            const serverTime = latestTime + (0.5 * this.client.ping);
+            this.context.clock.syncToServerTime(serverTime);
+        }
+    }
+
 }
 
 export class NetModuleServer {

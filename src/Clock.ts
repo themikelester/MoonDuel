@@ -9,6 +9,8 @@ export class Clock {
     public renderTime: number = 0; // The display time, which is when the the simulation state will be sampled and rendered. 
                                    // @NOTE: This can be behind or ahead of the sim time due to dilation/contraction
 
+    public serverTime: number = -1; // The estimated simulation time on the server. (If we are the server, same as simTime).
+
     public realDt: number = 0;
     public renderDt: number = 0;
 
@@ -39,12 +41,24 @@ export class Clock {
         this.renderTime = this.realTime - this._renderTimeDelay;
     }
 
+    syncToServerTime(serverTime: number) {
+        this.serverTime = serverTime;
+        this.simTime = serverTime + 50.0; // @TODO: Need to set this somehow
+        this.simFrame = this.simTime / this.simDt;
+        this.renderTime = this.serverTime - this._renderTimeDelay;
+    }
+
     tick(platformTime: number) {
         const platformDt = platformTime - this.platformTime;
         this.platformTime = platformTime;
 
         this.realDt = platformDt;
         this.realTime += this.realDt;
+
+        // Keep server time in sync if it has been set
+        if (this.serverTime !== -1) {
+            this.serverTime += platformDt;
+        }
         
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
         this.renderTime = this.renderTime + this.renderDt;

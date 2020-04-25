@@ -2,7 +2,7 @@
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined } from '../util';
+import { defined, assert } from '../util';
 import { lerp } from '../MathHelpers';
 
 export enum NetChannelEvent {
@@ -10,6 +10,7 @@ export enum NetChannelEvent {
 };
 
 const kPacketHistoryLength = 32;
+const kPingMinAcks = 10; // The minimum number of ACKs that we need before computing the Ping/RTT
 const kPingMovingAveragePower = 1.0/10.0;
 
 /**
@@ -17,7 +18,8 @@ const kPingMovingAveragePower = 1.0/10.0;
  * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
  */
 export class NetChannel extends EventDispatcher {
-    averageRtt: number = 0; // Moving average of packet round-trip-time
+    private averageRtt: number = 0; // Moving average of packet round-trip-time
+    private ackCount: number = 0;
 
     private socket: WebUdpSocket;
 
@@ -86,8 +88,7 @@ export class NetChannel extends EventDispatcher {
                 const sequence = packet.header.ack - i; 
                 const p = this.localHistory[sequence % kPacketHistoryLength];
                 if (p.header.sequence === sequence && !p.acknowledged) {
-                    const packetRtt = p.acknowledge();
-                    this.averageRtt = lerp(this.averageRtt, packetRtt, kPingMovingAveragePower);
+                    this.acknowledge(p);
                 }
             }
         }
@@ -124,11 +125,34 @@ export class NetChannel extends EventDispatcher {
         return this.socket.isOpen;
     }
 
+    get ping() {
+        return (this.ackCount < kPingMinAcks) ? undefined : this.averageRtt;
+    }
+
     isAcknowledged(sequence: number) {
         if (sequence <= this.remoteSequence - kPacketHistoryLength) {
             return false;
         }
 
         return this.localHistory[sequence % kPacketHistoryLength].acknowledged;
+    }
+
+    private acknowledge(packet: Packet) {
+        const packetRtt = packet.acknowledge();
+
+        this.ackCount += 1;
+        assert(this.ackCount <= this.localSequence);
+        
+        // Compute ping using an exponential moving average, but not until we have enough valid samples.
+        // Sum initial samples so that they can be averaged as the first sample point for the moving average. 
+        if (this.ackCount <= kPingMinAcks) {
+            this.averageRtt += packetRtt;
+
+            if (this.ackCount === kPingMinAcks) {
+                this.averageRtt /= kPingMinAcks;
+            }
+        } else {
+            this.averageRtt = lerp(this.averageRtt, packetRtt, kPingMovingAveragePower);
+        }
     }
 }
