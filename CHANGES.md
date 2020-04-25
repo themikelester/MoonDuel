@@ -6,11 +6,25 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-25
+##### Morning
+When a client joins, the server needs to to include the current time/frame so that the clocks can synchronize. From the client's perspective, the current server time is time that it received in the message, plus half round-trip-time. Then the client can render X ms behind the server state (interpolation time) and stay X ms ahead of the server so that it doesn't starve for input. 
+
+Current overview:
+Each snapshot that comes down is tagged with the server frame. The client wants to be rendering the interpolation between the latest two frames received from the server. The latest frame is going to arrive about half-rtt behind the current server time. So the maximum target render time should be about server time - (half-RTT + half-frame).
+
+The logic above determines the state that the client renders EXCEPT for the local avatar, which will be a few frames ahead because of prediction. The client wants to stay X ms ahead of the server so that the server never misses the clients input for a given frame. This time is at least half-RTT, plus some buffer. So if the server time is frame 40, and the render time is frame 38.5 (16ms frames, 30ms ping), then the client time should be about frame 42. It takes 15ms for the input for frame 42 to reach the server, and the server won't process frame 42 for another 32ms. Even if the packet is dropped, the next packet for frame 41 may reach the server, and it also contains all recent unacknowledged input commands. 
+
+As for rendering, in the scenario above, the client would render the state of the world (all the other avatars) as they were at their canonical positions as of frame 38.5 (the current render time). It renders its own local avatar as of frame 42 (the current client time). In the case of an attack on this frame, the client sends its attack command and its current render time (38.5, but this doesn't actually need to be transmitted, the server can compute it) as of frame 42. When the server processes frame 42 (assuming it didn't miss your input), it knows where you and everyone else are as of frame 42. It rewinds everyone else (not you!) to the render time of your client, 38.5. Now the server's state has your position as of frame 42, and everyone else's as 38.5, which is exactly what you saw on your client when you attacked. It evaluates the hit and responds to your client. You receive the response two frames later on frame 44. 
+
 ### 2020-04-24
 ##### Morning
 Avatar day. When the server detects that a new client has joined, it needs to activate a new Avatar and assign it a clientID that matches the new client. The client probably needs to send some kind of initial state so that we don't have to pop the avatar, but maybe this is not necessary if we also change maps. I'm having a hard time planning out how adding a new Avatar will work, so I'm just going to get in there and see what happens.
 
 Now that NetClient is stable I'd also like to redo the ping computation. 
+
+##### Next Morning
+It wasn't avatar day. I was having trouble focusing. I ended up doing more cleaning of the netcode, and re-implementing ping detection at the NetChannel level.
 
 ### 2020-04-23
 ##### Morning
