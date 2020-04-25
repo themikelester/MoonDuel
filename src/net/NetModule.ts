@@ -29,9 +29,6 @@ export class NetModuleClient {
         // @HACK: Assume it's state
         this.context.snapshot.receive(data);
     }
-
-    update() {
-    }
     
     broadcast(data: Uint8Array) {
         if (this.client && this.client.state === NetClientState.Connected) {

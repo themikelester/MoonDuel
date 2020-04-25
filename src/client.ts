@@ -117,15 +117,13 @@ export class Client {
         while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
             this.clock.updateFixed();
             this.input.updateFixed(this);
-            this.avatar.updateFixed(this);
+
+            // @TODO: Avatar prediction
         }
-        
-        this.userCommands.transmit(this);
     }
 
     private update() {
         this.input.update();
-        this.net.update();  
         this.snapshot.update(this);  
         this.resources.update();
         this.avatar.update(this);
