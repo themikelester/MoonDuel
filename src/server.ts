@@ -65,7 +65,7 @@ export class Server {
     private updateFixed() {
         while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
             this.clock.updateFixed();
-            // this.avatar.updateFixed(this);
+            this.avatar.updateFixed(this);
             const snap = this.snapshot.createSnapshot(this);
             this.snapshot.setSnapshot(snap);
             this.net.transmitToClients(snap);
