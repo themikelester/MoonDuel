@@ -16,7 +16,7 @@ export class Clock {
 
     public simFrame: number = 0; // The integer frame number of the current simulation frame
     private _simDt: number = 16; // The fixed time step of the simulation
-    private _renderTimeDelay: number = this.simDt * 2; // The initial delay between renderTime and realTime
+    private renderTimeDelay: number = this.simDt * 2; // The initial delay between renderTime and realTime
 
     public paused = false;
     public speed = 1.0;
@@ -34,18 +34,16 @@ export class Clock {
     }
 
     zero() {
-        this._renderTimeDelay = Math.max(this._renderTimeDelay, this.simDt);
+        this.renderTimeDelay = Math.max(this.renderTimeDelay, this.simDt);
         this.realTime = 0;
         this.simTime = 0;
         this.simFrame = 0;
-        this.renderTime = this.realTime - this._renderTimeDelay;
     }
 
     syncToServerTime(serverTime: number) {
         this.serverTime = serverTime;
         this.simTime = serverTime + 50.0; // @TODO: Need to set this somehow
         this.simFrame = this.simTime / this.simDt;
-        this.renderTime = this.serverTime - this._renderTimeDelay;
     }
 
     tick(platformTime: number) {
@@ -61,7 +59,7 @@ export class Clock {
         }
         
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
-        this.renderTime = this.renderTime + this.renderDt;
+        this.renderTime = (this.serverTime !== -1 ? this.serverTime : this.realTime) - this.renderTimeDelay;
 
         this.stepDt = 0.0
     }
@@ -69,15 +67,6 @@ export class Clock {
     updateFixed() {
         this.simTime += this.simDt;
         this.simFrame += 1;
-    }
-
-    set renderTimeDelay(value: number) {
-        this._renderTimeDelay = value;
-        this.renderTime = this.realTime - this._renderTimeDelay;
-    }
-
-    get renderTimeDelay() {
-        return this._renderTimeDelay;
     }
     
     /**
