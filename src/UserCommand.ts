@@ -1,13 +1,27 @@
 import { InputAction } from "./Input";
 import { NetModuleClient } from "./net/NetModule";
 
-export interface UserCommand {
+export class UserCommand {
     headingX: number;
     headingZ: number;
     verticalAxis: number;
     horizontalAxis: number;
     actions: InputAction;
-};
+
+    static serialize(dst: Uint8Array, cmd: UserCommand): number {
+        // @TODO: Quantize on setUserCommand. Any prediction happening on the client should use a cmd that is equivalent to the one returned by serialize() and then deserialize()
+        // @TODO: Much better compression
+        const str = JSON.stringify(cmd);
+        const buf = encoder.encode(str);
+        dst.set(buf);
+        return buf.byteLength;
+    }
+    
+    static deserialize(data: Uint8Array): UserCommand {
+        const str = decoder.decode(data);
+        return JSON.parse(str);
+    }
+}
 
 const kEmptyCommand: UserCommand = {
     headingX: 0,
@@ -19,18 +33,6 @@ const kEmptyCommand: UserCommand = {
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-
-function serialize(cmd: UserCommand): Uint8Array {
-    // @TODO: Quantize on setUserCommand. Any prediction happening on the client should use a cmd that is equivalent to the one returned by serialize() and then deserialize()
-    // @TODO: Much better compression
-    const str = JSON.stringify(cmd);
-    return encoder.encode(str);
-}
-
-function deserialize(data: Uint8Array): UserCommand {
-    const str = decoder.decode(data);
-    return JSON.parse(str);
-}
 
 export class UserCommandBuffer {
     private buffer: UserCommand[] = [];
@@ -49,22 +51,5 @@ export class UserCommandBuffer {
         }
 
         return this.buffer[frame % this.bufferSize];
-    }
-
-    receive(msg: Uint8Array) {
-        // @HACK:
-        const cmd = deserialize(msg);
-        this.setUserCommand(0, cmd);
-    }
-
-    /**
-     * Send a buffer of user commands to the server
-     */
-    transmit({ net }: { net: NetModuleClient}) {
-        // @HACK:
-        const lastCommand = this.getUserCommand();
-        const data = serialize(lastCommand);
-
-        net.broadcast(data);
     }
 }

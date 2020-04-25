@@ -119,6 +119,11 @@ export class Client {
             this.input.updateFixed(this);
 
             // @TODO: Avatar prediction
+
+            if (this.net.client.state === NetClientState.Connected) {
+                const cmd = this.userCommands.getUserCommand();
+                this.net.client.transmitClientFrame(this.clock.simFrame, cmd);
+            }
         }
     }
 

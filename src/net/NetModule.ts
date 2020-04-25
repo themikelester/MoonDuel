@@ -60,9 +60,7 @@ export class NetModuleServer {
         // this.context.avatar.removeAvatar(client.id);
     }
 
-    onClientMessage(client: NetClient, data: Uint8Array) {            
-        // @HACK: Assume it's a usercommand
-        client.userCommands.receive(data);
+    onClientMessage(client: NetClient, data: Uint8Array) {
     }
 
     transmitToClients(snap: Snapshot) {

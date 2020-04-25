@@ -1,7 +1,7 @@
 import { NetChannel, NetChannelEvent } from "./NetChannel";
 import { assert } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
-import { UserCommandBuffer } from "../UserCommand";
+import { UserCommandBuffer, UserCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
@@ -40,6 +40,7 @@ export class NetClient extends EventDispatcher {
     userCommands: UserCommandBuffer = new UserCommandBuffer();
 
     private msgBuffer = new Uint8Array(kPacketMaxPayloadSize);
+    private msgView = new DataView(this.msgBuffer.buffer);
 
     private initialize(socket: WebUdpSocket) {
         assert(this.state === NetClientState.Free);
@@ -84,10 +85,27 @@ export class NetClient extends EventDispatcher {
         this.initialize(socket);
     }
 
-    transmitClientFrame() {
-        this.msgBuffer[0] = 1; // Client frame
+    transmitClientFrame(frame: number, cmd: UserCommand) {
+        // Buffer this frame's command so that we can retransmit if it is dropped
+        this.userCommands.setUserCommand(frame, cmd);
 
-        // Send all unacknowledged user commands that are still buffered
+        // Construct the message
+        this.msgBuffer[0] = 1; // Client frame
+        this.msgView.setUint32(1, frame, true); // Frame number
+        const size = UserCommand.serialize(this.msgBuffer.subarray(5), cmd);
+
+        this.channel.send(this.msgBuffer.subarray(0, size + 5));
+
+        // @TODO: Send all unacknowledged user commands that are still buffered
+    }
+
+    receiveClientFrame(msg: Uint8Array) {
+        if (msg.byteLength > 5) {
+            const view = new DataView(msg.buffer);
+            const frame = view.getUint32(1, true);
+            const cmd = UserCommand.deserialize(msg.subarray(5));
+            this.userCommands.setUserCommand(frame, cmd);
+        }
     }
 
     transmitServerFrame(snap: Snapshot) {
@@ -107,10 +125,6 @@ export class NetClient extends EventDispatcher {
             const snap = Snapshot.deserialize(msg.subarray(1));
             this.snapshot.setSnapshot(snap);
         }
-    }
-
-    receiveClientFrame(msg: Uint8Array) {
-
     }
 
     onMessage(msg: Uint8Array) {
