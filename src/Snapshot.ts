@@ -77,7 +77,7 @@ export class SnapshotManager {
 
         // Find the first snapshot AFTER the requested time
         let bFrame = Math.ceil(simTime);
-        while (bFrame <= this.latestFrame && !defined(this.buffer[bFrame % this.bufferFrameCount])) { bFrame -= 1; };
+        while (bFrame <= this.latestFrame && !defined(this.buffer[bFrame % this.bufferFrameCount])) { bFrame += 1; };
 
         const aValid = aFrame >= oldestFrame;
         const bValid = bFrame <= this.latestFrame;
