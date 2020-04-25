@@ -82,6 +82,6 @@ export class NetClient extends EventDispatcher {
     onMessage(msg: Uint8Array) {
         this.ping = this.channel.averageRtt;
         
-        this.fire.bind(NetClientEvents.Message, msg);
+        this.fire(NetClientEvents.Message, msg);
     }
 }
