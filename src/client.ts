@@ -16,7 +16,7 @@ import { InputManager } from './Input';
 import { NetModuleClient } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { StateManager } from './SaveState';
-import { SnapshotManager } from './Snapshot';
+import { SnapshotManager, Snapshot } from './Snapshot';
 import { UserCommandBuffer } from './UserCommand';
 import { SignalSocket } from './net/SignalSocket';
 
@@ -31,6 +31,7 @@ export class Client {
 
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
+    public displaySnapshot: Snapshot = new Snapshot();
 
     public debugMenu: DebugMenu = new DebugMenu();
 
@@ -76,7 +77,6 @@ export class Client {
         this.globalUniforms.initialize();
         this.avatar.initialize(this);
         this.debugGrid.initialize(this);
-        this.snapshot.initialize(this);
         this.state.initialize(this);
         
         // Handle resizing
@@ -123,8 +123,11 @@ export class Client {
     }
 
     private update() {
+        // Interpolate the latest world state for rendering
+        const snapTime = this.clock.renderTime / this.clock.simDt;
+        this.snapshot.lerpSnapshot(snapTime, this.displaySnapshot);
+
         this.input.update();
-        this.snapshot.update(this);  
         this.resources.update();
         this.avatar.update(this);
         this.cameraSystem.update(this);

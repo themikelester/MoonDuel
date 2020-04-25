@@ -2,8 +2,9 @@ import { Clock } from "./Clock";
 import { AvatarState, AvatarSystemServer } from "./Avatar";
 import { defined, assert } from "./util";
 import { delerp } from "./MathHelpers";
-import { DebugMenu } from "./DebugMenu";
-import { NetModuleServer } from "./net/NetModule";
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 export class Snapshot {
     frame: number;
@@ -30,50 +31,40 @@ export class Snapshot {
         }
         return result;
     }
-}
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-function serialize(snap: Snapshot): Uint8Array {
-    const str = JSON.stringify(snap);
-    return encoder.encode(str);
-}
-
-function deserialize(data: Uint8Array): Snapshot {
-    const str = decoder.decode(data);
-    return JSON.parse(str);
-}
-
-interface Dependencies {
-    clock: Clock;
+    static serialize(dst: Uint8Array, snap: Snapshot): number {
+        // @HACK
+        const str = JSON.stringify(snap);
+        const buf = encoder.encode(str);
+        dst.set(buf);
+        return buf.byteLength;
+    }
+    
+    static deserialize(data: Uint8Array): Snapshot {
+        // @HACK
+        const str = decoder.decode(data);
+        return JSON.parse(str);
+    }
 }
 
 export class SnapshotManager {
-    public displaySnapshot = new Snapshot();
-
     private buffer: Snapshot[] = [];
-    private latestFrame: number;
+    private latestFrame: number = -1;
 
-    private bufferFrameCount: number;
+    private bufferFrameCount: number = 64;
 
-    initialize({ debugMenu }: { debugMenu: DebugMenu }) {
-        this.bufferFrameCount = 5 * 64;
-
-        const menu = debugMenu.addFolder('Snapshot');
-        menu.add(this, 'bufferFrameCount', 64, 64 * 10, 64);
+    setSnapshot(snap: Snapshot) {
+        assert(snap.frame > (this.latestFrame - this.bufferFrameCount));
+        this.buffer[snap.frame % this.bufferFrameCount] = snap;
+        this.latestFrame = Math.max(this.latestFrame, snap.frame);
     }
 
-    update(game: Dependencies) {
-        let displaySnapshotTime = game.clock.renderTime / game.clock.simDt;
-        const valid = this.getSnapshot(displaySnapshotTime, this.displaySnapshot);
+    getSnapshot(simFrame: number = this.latestFrame) {
+        assert(simFrame > (this.latestFrame - this.bufferFrameCount));
+        return this.buffer[simFrame % this.bufferFrameCount];
     }
 
-    updateFixed(deps: { clock: Clock, avatar: AvatarSystemServer }) {
-        this.buffer[deps.clock.simFrame % this.bufferFrameCount] = this.createSnapshot(deps);
-        this.latestFrame = deps.clock.simFrame;
-    }
-
-    getSnapshot(simTime: number, result: Snapshot): boolean {
+    lerpSnapshot(simTime: number, result: Snapshot): boolean {
         const oldestFrame = Math.max(0, this.latestFrame - this.bufferFrameCount - 1);
         if (simTime < oldestFrame) {
             console.warn('Requested snapshot older than buffer length')
@@ -118,20 +109,9 @@ export class SnapshotManager {
         }
     }
 
-    receive(msg: Uint8Array) {
-        const snap = deserialize(msg);
-        this.buffer[snap.frame % this.bufferFrameCount] = snap;
-        this.latestFrame = snap.frame;
-    }
-
-    transmit({ net }: { net: NetModuleServer }) {
-        // @HACK:
-        const lastState = this.buffer[this.latestFrame % this.bufferFrameCount];
-        const data = serialize(lastState);
-
-        if (data.byteLength > 0) net.broadcast(data);
-    }
-
+    /**
+     * Sample all necessary systems to create a new snapshot of the current state of the world
+     */
     createSnapshot({ clock, avatar }: { clock: Clock, avatar: AvatarSystemServer }) {
         const lastSnapshot = this.buffer[this.latestFrame % this.bufferFrameCount];
         const snapshot = new Snapshot();

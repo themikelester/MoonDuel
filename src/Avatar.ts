@@ -33,6 +33,7 @@ interface ClientDependencies {
 
     gfxDevice: Renderer;
     camera: Camera;
+    displaySnapshot: Snapshot;
 }
 
 export class Avatar extends Object3D {
@@ -140,7 +141,7 @@ export class AvatarSystemClient {
     }
 
     update(game: ClientDependencies) {
-        const states = game.snapshot.displaySnapshot.avatars;
+        const states = game.displaySnapshot.avatars;
 
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
             const avatar = this.avatars[i];
@@ -230,27 +231,27 @@ export class AvatarSystemServer {
     }
 
     update(game: ServerDependencies) {
-        const states = game.snapshot.displaySnapshot.avatars;
+        // const states = game.displaySnapshot.avatars;
 
-        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            const avatar = this.avatars[i];
-            const state = states[i];
+        // for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+        //     const avatar = this.avatars[i];
+        //     const state = states[i];
 
-            avatar.active = !!(state.flags & AvatarFlags.IsActive);
+        //     avatar.active = !!(state.flags & AvatarFlags.IsActive);
 
-            const pos = new Vector3(state.pos);
-            avatar.position.copy(pos);
-            avatar.lookAt(
-                state.pos[0] + state.orientation[0],
-                state.pos[1] + state.orientation[1],
-                state.pos[2] + state.orientation[2],
-            )
+        //     const pos = new Vector3(state.pos);
+        //     avatar.position.copy(pos);
+        //     avatar.lookAt(
+        //         state.pos[0] + state.orientation[0],
+        //         state.pos[1] + state.orientation[1],
+        //         state.pos[2] + state.orientation[2],
+        //     )
 
-            avatar.updateMatrix();
-            avatar.updateMatrixWorld();
-        }
+        //     avatar.updateMatrix();
+        //     avatar.updateMatrixWorld();
+        // }
             
-        this.animation.update(states, game.clock.renderDt / 1000.0);
+        // this.animation.update(states, game.clock.renderDt / 1000.0);
     }
 
     updateFixed(game: ServerDependencies) {

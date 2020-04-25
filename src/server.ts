@@ -6,7 +6,7 @@ import { AvatarSystemServer } from './Avatar';
 import { Clock } from './Clock';
 import { NetModuleServer } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
-import { SnapshotManager } from './Snapshot';
+import { SnapshotManager, Snapshot } from './Snapshot';
 import { UserCommandBuffer } from './UserCommand';
 import { SignalSocket, SignalSocketEvents, ClientId } from './net/SignalSocket';
 import { DebugMenu } from './DebugMenu';
@@ -38,7 +38,6 @@ export class Server {
         this.clock.initialize(this);
         this.net.initialize(this);
         this.avatar.initialize(this);
-        this.snapshot.initialize(this);
 
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
@@ -67,16 +66,17 @@ export class Server {
         while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
             this.clock.updateFixed();
             this.avatar.updateFixed(this);
-            this.snapshot.updateFixed(this);
-        }
 
-        this.snapshot.transmit(this);
+            // Generate a snapshot
+            const snap = this.snapshot.createSnapshot(this);
+         
+            // Send it to the clients
+            const data = new Uint8Array(1024);
+            const length = Snapshot.serialize(data, snap);
+            this.net.broadcast(data.subarray(0, length));
+        }
     }
 
     private update() {
-        this.net.update();  
-        // this.snapshot.update(this);  
-        // this.resources.update();
-        // this.avatar.update(this);
     }
 }

@@ -3,7 +3,7 @@ import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
 import { NetClient, NetClientEvents, NetClientState } from "./NetClient";
 import { AvatarSystemServer } from "../Avatar";
-import { SnapshotManager } from "../Snapshot";
+import { SnapshotManager, Snapshot } from "../Snapshot";
 
 interface Dependencies {
     avatar: AvatarSystemServer;
@@ -27,7 +27,8 @@ export class NetModuleClient {
 
     onMessage(data: Uint8Array) {
         // @HACK: Assume it's state
-        this.context.snapshot.receive(data);
+        const snap = Snapshot.deserialize(data); 
+        this.context.snapshot.setSnapshot(snap);
     }
     
     broadcast(data: Uint8Array) {
@@ -74,9 +75,6 @@ export class NetModuleServer {
         client.userCommands.receive(data);
     }
 
-    update() {
-    }
-    
     broadcast(data: Uint8Array) {
         for (const client of this.clients) {
             client.channel.send(data);
