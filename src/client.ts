@@ -11,7 +11,6 @@ import { CameraSystem } from './CameraSystem';
 import { Clock } from './Clock';
 import { Compositor } from './Compositor';
 import { DebugGrid } from './DebugGrid';
-import { Demo } from './Demo';
 import { GlobalUniforms } from './GlobalUniforms';
 import { InputManager } from './Input';
 import { NetModuleClient } from './net/NetModule';
@@ -42,7 +41,6 @@ export class Client {
     public compositor = new Compositor(this.canvas, this.gfxDevice);
     public debugGrid = new DebugGrid();
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
-    public demo = new Demo();
     public input = new InputManager();
     public net = new NetModuleClient();
     public resources = new ResourceManager();
@@ -76,7 +74,6 @@ export class Client {
         this.cameraSystem.initialize(this);
         this.compositor.initialize(this);
         this.globalUniforms.initialize();
-        // this.demo.initialize(this);
         this.avatar.initialize(this);
         this.debugGrid.initialize(this);
         this.snapshot.initialize(this);
@@ -133,13 +130,11 @@ export class Client {
         this.resources.update();
         this.avatar.update(this);
         this.cameraSystem.update(this);
-        // this.demo.update(this);
         this.state.update(this);
         this.globalUniforms.update();
     }
 
     private render() {
-        // this.demo.render(this);
         this.avatar.render(this);
         this.debugGrid.render(this);
         this.compositor.render();
