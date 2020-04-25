@@ -17,6 +17,9 @@ The logic above determines the state that the client renders EXCEPT for the loca
 
 As for rendering, in the scenario above, the client would render the state of the world (all the other avatars) as they were at their canonical positions as of frame 38.5 (the current render time). It renders its own local avatar as of frame 42 (the current client time). In the case of an attack on this frame, the client sends its attack command and its current render time (38.5, but this doesn't actually need to be transmitted, the server can compute it) as of frame 42. When the server processes frame 42 (assuming it didn't miss your input), it knows where you and everyone else are as of frame 42. It rewinds everyone else (not you!) to the render time of your client, 38.5. Now the server's state has your position as of frame 42, and everyone else's as 38.5, which is exactly what you saw on your client when you attacked. It evaluates the hit and responds to your client. You receive the response two frames later on frame 44. 
 
+##### Afternoon
+Woohoo! Got the clients syncing to server time. And AvatarSystem is detecting the client's avatar (so the camera follows correctly). There are still bugs/unimplemented features related to client time vs server time (some inputs seem to be getting lost), but those seem very understandable. Basic "multiplayer"! Now I'm going to try to deploy the signalling server somewhere public so I can test this across networks.
+
 ### 2020-04-24
 ##### Morning
 Avatar day. When the server detects that a new client has joined, it needs to activate a new Avatar and assign it a clientID that matches the new client. The client probably needs to send some kind of initial state so that we don't have to pop the avatar, but maybe this is not necessary if we also change maps. I'm having a hard time planning out how adding a new Avatar will work, so I'm just going to get in there and see what happens.
