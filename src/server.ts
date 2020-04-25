@@ -65,15 +65,10 @@ export class Server {
     private updateFixed() {
         while ((this.clock.realTime - this.clock.simTime) >= this.clock.simDt) {
             this.clock.updateFixed();
-            this.avatar.updateFixed(this);
-
-            // Generate a snapshot
+            // this.avatar.updateFixed(this);
             const snap = this.snapshot.createSnapshot(this);
-         
-            // Send it to the clients
-            const data = new Uint8Array(1024);
-            const length = Snapshot.serialize(data, snap);
-            this.net.broadcast(data.subarray(0, length));
+            this.snapshot.setSnapshot(snap);
+            this.net.transmitToClients(snap);
         }
     }
 

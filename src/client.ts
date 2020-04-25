@@ -16,9 +16,10 @@ import { InputManager } from './Input';
 import { NetModuleClient } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { StateManager } from './SaveState';
-import { SnapshotManager, Snapshot } from './Snapshot';
 import { UserCommandBuffer } from './UserCommand';
 import { SignalSocket } from './net/SignalSocket';
+import { Snapshot } from './Snapshot';
+import { NetClientState } from './net/NetClient';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -45,7 +46,6 @@ export class Client {
     public input = new InputManager();
     public net = new NetModuleClient();
     public resources = new ResourceManager();
-    public snapshot = new SnapshotManager();
     public state = new StateManager();
     public userCommands = new UserCommandBuffer();
     
@@ -124,8 +124,13 @@ export class Client {
 
     private update() {
         // Interpolate the latest world state for rendering
-        const snapTime = this.clock.renderTime / this.clock.simDt;
-        this.snapshot.lerpSnapshot(snapTime, this.displaySnapshot);
+        if (this.net.client.state === NetClientState.Connected) {
+            let displaySnapshotTime = this.clock.renderTime / this.clock.simDt;
+            const valid = this.net.client.snapshot.lerpSnapshot(displaySnapshotTime, this.displaySnapshot);
+        } else {
+            // @HACK
+            // this.displaySnapshot = baselineSnapshot;
+        }
 
         this.input.update();
         this.resources.update();

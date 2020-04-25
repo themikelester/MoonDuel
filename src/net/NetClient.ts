@@ -4,6 +4,8 @@ import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
+import { SnapshotManager, Snapshot } from "../Snapshot";
+import { kPacketMaxPayloadSize } from "./NetPacket";
 
 export enum NetClientState {
     Free,
@@ -34,7 +36,10 @@ export class NetClient extends EventDispatcher {
 
     channel: NetChannel;
 
+    snapshot: SnapshotManager = new SnapshotManager();
     userCommands: UserCommandBuffer = new UserCommandBuffer();
+
+    private msgBuffer = new Uint8Array(kPacketMaxPayloadSize);
 
     private initialize(socket: WebUdpSocket) {
         assert(this.state === NetClientState.Free);
@@ -79,9 +84,41 @@ export class NetClient extends EventDispatcher {
         this.initialize(socket);
     }
 
+    transmitClientFrame() {
+        this.msgBuffer[0] = 1; // Client frame
+
+        // Send all unacknowledged user commands that are still buffered
+    }
+
+    transmitServerFrame(snap: Snapshot) {
+        this.msgBuffer[0] = 0; // Server frame
+
+        // Buffer the state so that we can delta-compare later
+        this.snapshot.setSnapshot(snap);
+
+        // Send the latest state
+        const snapSize = Snapshot.serialize(this.msgBuffer.subarray(1), snap);
+
+        this.channel.send(this.msgBuffer.subarray(0, snapSize + 1));
+    }
+
+    receiveServerFrame(msg: Uint8Array) {
+        if (msg.byteLength > 1) {
+            const snap = Snapshot.deserialize(msg.subarray(1));
+            this.snapshot.setSnapshot(snap);
+        }
+    }
+
+    receiveClientFrame(msg: Uint8Array) {
+
+    }
+
     onMessage(msg: Uint8Array) {
         this.ping = this.channel.averageRtt;
         
+        if (msg[0] === 0) this.receiveServerFrame(msg);
+        else this.receiveClientFrame(msg);
+
         this.fire(NetClientEvents.Message, msg);
     }
 }

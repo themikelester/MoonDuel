@@ -1,18 +1,16 @@
-import { NetChannel, NetChannelEvent } from "./NetChannel";
 import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
 import { NetClient, NetClientEvents, NetClientState } from "./NetClient";
 import { AvatarSystemServer } from "../Avatar";
-import { SnapshotManager, Snapshot } from "../Snapshot";
+import { Snapshot } from "../Snapshot";
 
 interface Dependencies {
     avatar: AvatarSystemServer;
-    snapshot: SnapshotManager;
 }
 
 export class NetModuleClient {
     context: Dependencies;
-    client: NetClient;
+    client: NetClient = new NetClient();
 
     initialize(context: Dependencies) {
         this.context = context;
@@ -20,15 +18,7 @@ export class NetModuleClient {
 
     onConnect(serverId: ClientId) {
         // Establish a WebUDP connection with the server
-        this.client = new NetClient();
         this.client.connect(serverId);
-        this.client.on(NetClientEvents.Message, this.onMessage.bind(this));
-    }
-
-    onMessage(data: Uint8Array) {
-        // @HACK: Assume it's state
-        const snap = Snapshot.deserialize(data); 
-        this.context.snapshot.setSnapshot(snap);
     }
     
     broadcast(data: Uint8Array) {
@@ -75,9 +65,9 @@ export class NetModuleServer {
         client.userCommands.receive(data);
     }
 
-    broadcast(data: Uint8Array) {
+    transmitToClients(snap: Snapshot) {
         for (const client of this.clients) {
-            client.channel.send(data);
+            client.transmitServerFrame(snap);
         }
     }
 }
