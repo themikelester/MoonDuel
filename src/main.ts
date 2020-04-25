@@ -3,7 +3,7 @@ import { Server } from './server';
 import { SignalSocket } from './net/SignalSocket';
 
 const kPort = 8888;
-const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;
+const kServerAddress = '3.23.86.226:8888';
 
 // Google Analytics
 declare var gtag: (command: string, eventName: string, eventParameters: { [key: string]: string }) => void;

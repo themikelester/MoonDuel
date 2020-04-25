@@ -34,7 +34,7 @@ interface RoomMessage {
 }
 
 const kPort = 8888;
-const kServerAddress = window.location.protocol + "//" + window.location.hostname + ":" + kPort;
+const kServerAddress =  '3.23.86.226:8888';
 
 /**
  * Represents a persistent connection to the signalling server, via websocket. 
