@@ -6,16 +6,20 @@ import { Snapshot } from "../Snapshot";
 import { Clock } from "../Clock";
 import { assert, defined } from "../util";
 
-interface Dependencies {
+interface ClientDependencies {
+    clock: Clock;
+}
+
+interface ServerDependencies {
     avatar: AvatarSystemServer;
     clock: Clock;
 }
 
 export class NetModuleClient {
-    context: Dependencies;
+    context: ClientDependencies;
     client: NetClient = new NetClient();
 
-    initialize(context: Dependencies) {
+    initialize(context: ClientDependencies) {
         this.context = context;
     }
 
@@ -38,11 +42,11 @@ export class NetModuleClient {
 }
 
 export class NetModuleServer {
-    context: Dependencies;
+    context: ServerDependencies;
     signalSocket: SignalSocket;
     clients: NetClient[] = [];
 
-    initialize(deps: Dependencies) {
+    initialize(deps: ServerDependencies) {
         this.context = deps;
     }
 

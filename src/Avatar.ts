@@ -30,7 +30,6 @@ interface ClientDependencies {
     debugMenu: DebugMenu;
     resources: ResourceManager;
     clock: Clock;
-    snapshot: SnapshotManager;
 
     gfxDevice: Renderer;
     camera: Camera;
