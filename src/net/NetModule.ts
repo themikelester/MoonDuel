@@ -20,12 +20,6 @@ export class NetModuleClient {
         // Establish a WebUDP connection with the server
         this.client.connect(serverId);
     }
-    
-    broadcast(data: Uint8Array) {
-        if (this.client && this.client.state === NetClientState.Connected) {
-            this.client.channel.send(data);
-        }
-    }
 }
 
 export class NetModuleServer {
