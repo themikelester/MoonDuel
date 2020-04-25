@@ -19,6 +19,7 @@ const vec3Up = vec3.fromValues(0, 1, 0);
 interface Dependencies {
     avatar: AvatarSystemClient;
     debugMenu: DebugMenu;
+    globalUniforms: GlobalUniforms;
 }
 
 export class CameraSystem {
@@ -41,13 +42,13 @@ export class CameraSystem {
         this.camera.setPerspective(this.camera.fov, aspect, this.camera.near, this.camera.far);
     }
 
-    update({ globalUniforms, input, clock }: { globalUniforms: GlobalUniforms, input: InputManager, clock: Clock }) {
-        this.controller.update(input, clock.realDt);
+    update(deps: Dependencies) {
+        this.controller.update(deps);
 
         const camPos = this.camera.getPos(this.camPos);
-        globalUniforms.buffer.setVec3('g_camPos', camPos);
-        globalUniforms.buffer.setMat4('g_proj', this.camera.projectionMatrix);
-        globalUniforms.buffer.setMat4('g_viewProj', this.camera.viewProjMatrix);
+        deps.globalUniforms.buffer.setVec3('g_camPos', camPos);
+        deps.globalUniforms.buffer.setMat4('g_proj', this.camera.projectionMatrix);
+        deps.globalUniforms.buffer.setMat4('g_viewProj', this.camera.viewProjMatrix);
     }
 
     toJSON(): string {
@@ -63,7 +64,7 @@ export interface CameraController {
     camera: Camera;
 
     initialize(deps: Dependencies): void;
-    update(inputManager: InputManager, dt: number): boolean;
+    update(deps: Dependencies): boolean;
     
     toJSON(): string;
     fromJSON(data: any): void;
@@ -81,9 +82,6 @@ export class FollowCameraController implements CameraController {
     private maxDistance = 800;
 
     initialize(deps: Dependencies) {
-        // Follow the local avatar by default
-        this.follow = deps.avatar.localAvatar;
-
         // Set up a valid initial state
         const followPos = scratchVector3A.buffer;
         const eyePos = vec3.add(scratchVec3A, followPos, vec3.set(scratchVec3A, 1000, 700, 0));
@@ -101,8 +99,11 @@ export class FollowCameraController implements CameraController {
         folder.add(this, 'maxDistance', 500, 3000, 100);
     }
 
-    public update(inputManager: InputManager, dt: number): boolean {
+    public update(deps: Dependencies): boolean {
         const kFollowHeightBias = 250;
+
+        // Follow the local avatar by default
+        this.follow = deps.avatar.localAvatar;
 
         this.follow.getWorldPosition(scratchVector3A);
         const followPos = vec3.add(scratchVector3A.buffer, scratchVector3A.buffer, vec3.set(scratchVec3B, 0, kFollowHeightBias, 0));

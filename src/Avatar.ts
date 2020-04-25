@@ -15,6 +15,7 @@ import { SnapshotManager, Snapshot } from "./Snapshot";
 import { UserCommandBuffer } from "./UserCommand";
 import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
+import { NetClientState } from "./net/NetClient";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -63,6 +64,7 @@ export class AvatarState {
     }
 
     static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
+        result.clientId = b.clientId;
         vec3.lerp(result.pos, a.pos, b.pos, t);
         vec3.lerp(result.velocity, a.velocity, b.velocity, t);
         vec3.lerp(result.orientation, a.orientation, b.orientation, t);
@@ -70,6 +72,7 @@ export class AvatarState {
     }
 
     static copy(result: AvatarState, a: AvatarState) {
+        result.clientId = a.clientId;
         vec3.copy(result.pos, a.pos);
         vec3.copy(result.velocity, a.velocity);
         vec3.copy(result.orientation, a.orientation);
@@ -80,7 +83,7 @@ export class AvatarState {
 const kGltfFilename = 'data/Tn.glb';
 
 export class AvatarSystemClient {
-    private localAvatar: Avatar;
+    public localAvatar: Avatar; // @HACK:
 
     private avatars: Avatar[] = [];
     private controllers: AvatarController[] = [];
@@ -146,6 +149,13 @@ export class AvatarSystemClient {
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
             const avatar = this.avatars[i];
             const state = states[i];
+
+            // @HACK: If we're connected, update the localAvatar to point at the one this client controls
+            if (window.client.net.client.state === NetClientState.Connected) {
+                if (state.clientId === window.client.net.client.id) {
+                    this.localAvatar = avatar;
+                }
+            }
 
             avatar.active = !!(state.flags & AvatarFlags.IsActive);
 
