@@ -6,6 +6,10 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-27
+##### Morning
+Excited to work on some networking debugging features today. I'm going to render out a timeline graph for the server and each client that has the missing/received state for each packet. That should illustrate when the server is missing input packets and when the clients are missing state. Then I can start doing some network shaping (e.g. 5% packet loss, higher ping) to see what needs work. The client will definitely need the ability to contract time so that it can get farther ahead of the server to avoid dropping input. I'll work on that if everything else goes well.
+
 ### 2020-04-25
 ##### Morning
 When a client joins, the server needs to to include the current time/frame so that the clocks can synchronize. From the client's perspective, the current server time is time that it received in the message, plus half round-trip-time. Then the client can render X ms behind the server state (interpolation time) and stay X ms ahead of the server so that it doesn't starve for input. 
