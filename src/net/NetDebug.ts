@@ -9,7 +9,7 @@ export enum NetGraphPacketStatus {
 
 export interface NetGraphPanel {
     setPacketStatus(frame: number, status: NetGraphPacketStatus): void;
-    update(serverTime: number, renderTime?: number, clientTime?: number): void;
+    update(ping: number | undefined, serverTime: number, renderTime?: number, clientTime?: number): void;
 }
 
 export interface NetGraphPanelSet {
@@ -114,7 +114,7 @@ export class NetGraph {
                 ctx.strokeRect(x, kGraphY, kFrameWidth, kGraphHeight);
             },
 
-            update(serverTime: number, renderTime: number, clientTime: number): void {
+            update(ping: number | undefined, serverTime: number, renderTime: number, clientTime: number): void {
                 const serverFrame = Math.floor(serverTime / kFrameLengthMs);
                 const renderFrame = defined(renderTime) ? renderTime / kFrameLengthMs : undefined;
 
@@ -127,6 +127,15 @@ export class NetGraph {
                 // Clear the time marker area
                 ctx.fillStyle = bg;
                 ctx.fillRect(markerX, kTextY, kWidth - markerX, kTimeMarkerHeight);
+
+                // Write the current ping to the top right
+                if (defined(ping)) {
+                    const pingStr = ping.toFixed(1).padStart(5);
+
+                    ctx.fillStyle = fg;
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`Ping: ${pingStr}`, kWidth - kTextX, kTextY);
+                }
 
                 // Draw the server time
                 ctx.fillStyle = 'red';

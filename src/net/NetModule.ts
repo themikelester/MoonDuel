@@ -57,8 +57,11 @@ export class NetModuleClient {
         const panelSet = this.graph.panelSets[this.client.id];
 
         if (defined(panelSet)) {
-            panelSet.client.update(clock.realTime, clock.renderTime, clock.simTime);
-            if (panelSet.server) panelSet.server.update(window.server.clock.realTime);
+            panelSet.client.update(this.client.ping, clock.realTime, clock.renderTime, clock.simTime);
+            if (panelSet.server) {
+                const remoteClient = window.server.net.clients.find((c: NetClient) => c.id === this.client.id);
+                if (remoteClient) { panelSet.server.update(remoteClient.ping, window.server.clock.realTime); }
+            }
         }
     }
 }
