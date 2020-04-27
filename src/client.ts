@@ -20,6 +20,7 @@ import { UserCommandBuffer } from './UserCommand';
 import { SignalSocket } from './net/SignalSocket';
 import { Snapshot } from './Snapshot';
 import { NetClientState } from './net/NetClient';
+import { assertDefined } from './util';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -121,7 +122,7 @@ export class Client {
             // @TODO: Avatar prediction
 
             if (this.net.client.state === NetClientState.Connected) {
-                const cmd = this.userCommands.getUserCommand();
+                const cmd = assertDefined(this.userCommands.getUserCommand());
                 this.net.client.transmitClientFrame(this.clock.simFrame, cmd);
             }
         }
@@ -131,7 +132,7 @@ export class Client {
         // Interpolate the latest world state for rendering
         if (this.net.client.state === NetClientState.Connected) {
             let displaySnapshotTime = this.clock.renderTime / this.clock.simDt;
-            const valid = this.net.client.snapshot.lerpSnapshot(displaySnapshotTime, this.displaySnapshot);
+            const valid = this.net.client.getSnapshot(displaySnapshotTime, this.displaySnapshot);
         } else {
             // @HACK
             // this.displaySnapshot = baselineSnapshot;

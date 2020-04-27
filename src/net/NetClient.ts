@@ -36,7 +36,7 @@ export class NetClient extends EventDispatcher {
 
     channel: NetChannel;
 
-    snapshot: SnapshotManager = new SnapshotManager();
+    private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
     private lastRequestedFrame: number = -1;
 
@@ -147,9 +147,14 @@ export class NetClient extends EventDispatcher {
         }
     }
 
+    getSnapshot(frame: number, dst: Snapshot) {
+        this.lastRequestedFrame = Math.ceil(frame);
+        return this.snapshot.lerpSnapshot(frame, dst);
+    }
+
     getUserCommand(frame: number) {
-        let cmd = this.userCommands.getUserCommand(frame);
         this.lastRequestedFrame = frame;
+        let cmd = this.userCommands.getUserCommand(frame);
 
         // If we have not yet received an input for this frame, complain, and use the most recent
         if (!defined(cmd)) {
