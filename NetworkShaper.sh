@@ -3,6 +3,10 @@
 # Simulate poor network conditions (high latency, packet loss, bandwidth limits) locally for testing
 # NOTE: Network Link Conditioner (the built-in tool for OSX) does not seem to support UDP, so use dummynet and PF instead.
 # See https://spin.atomicobject.com/2016/01/05/simulating-poor-network-connectivity-mac-osx/
+
+readonly PACKET_LOSS=0.02 # Percentage of packets that will be dropped (0.01 means 1% will be dropped).
+readonly PACKET_DELAY=25 # In milliseconds. Artificially delay the one-way-time of a packet by this amount.
+
 helpFunction()
 {
    echo ""
@@ -14,7 +18,7 @@ helpFunction()
 
 start() 
 {
-    dnctl pipe 1 config delay 50 plr 0.02
+    dnctl pipe 1 config delay $PACKET_DELAY plr $PACKET_LOSS
     echo "dummynet in proto udp from any to any pipe 1" | pfctl -f -
     pfctl -e
 }
