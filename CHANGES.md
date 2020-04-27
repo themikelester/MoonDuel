@@ -11,6 +11,8 @@ Change Log
 Excited to work on some networking debugging features today. I'm going to render out a timeline graph for the server and each client that has the missing/received state for each packet. That should illustrate when the server is missing input packets and when the clients are missing state. Then I can start doing some network shaping (e.g. 5% packet loss, higher ping) to see what needs work. The client will definitely need the ability to contract time so that it can get farther ahead of the server to avoid dropping input. I'll work on that if everything else goes well.
 
 ##### Evening
+![Daily Screenshot](/screenshots//2020-04-27.png?raw=true)
+
 Good day. Got a very solid feeling net debug graph implemented. See the Screenshots/2020-04-27.png. Fixed a bad bug in NetClient that was causing old UserCommands to be read. I think this was what was causing the "no input for several seconds after connecting" bug. Also added a shell script for OSX to do some network shaping. Currently sets packet loss to 2% and adds 100ms of RTT. This exposes a huge batch of issues when we drop frames, and that's the work for tomorrow.
 
 ### 2020-04-25
