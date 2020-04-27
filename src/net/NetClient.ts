@@ -167,8 +167,7 @@ export class NetClient extends EventDispatcher {
             cmd = this.userCommands.getUserCommand();
         }
 
-        assertDefined(cmd);
-        return cmd;
+        return assertDefined(cmd);
     }
 
     onMessage(msg: Uint8Array) {
