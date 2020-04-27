@@ -13,7 +13,7 @@ Excited to work on some networking debugging features today. I'm going to render
 ##### Evening
 ![Daily Screenshot](/screenshots//2020-04-27.png?raw=true)
 
-Good day. Got a very solid feeling net debug graph implemented. See the Screenshots/2020-04-27.png. Fixed a bad bug in NetClient that was causing old UserCommands to be read. I think this was what was causing the "no input for several seconds after connecting" bug. Also added a shell script for OSX to do some network shaping. Currently sets packet loss to 2% and adds 100ms of RTT. This exposes a huge batch of issues when we drop frames, and that's the work for tomorrow.
+Good day. Got a very solid feeling net debug graph implemented. Fixed a bad bug in NetClient that was causing old UserCommands to be read. I think this was what was causing the "no input for several seconds after connecting" bug. Also added a shell script for OSX to do some network shaping. Currently sets packet loss to 2% and adds 100ms of RTT. This exposes a huge batch of issues when we drop frames, and that's the work for tomorrow.
 
 ### 2020-04-25
 ##### Morning
