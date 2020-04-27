@@ -53,16 +53,18 @@ export class NetModuleClient {
         }
     }
 
-    update({ clock }: { clock: Clock }) {
-        const panelSet = this.graph.panelSets[this.client.id];
+    update({}) {
+        this.updateNetGraph();
+    }
 
+    private updateNetGraph() {
+        const panelSet = this.graph.panelSets[this.client.id];
         if (defined(panelSet)) {
+            const clock = this.context.clock;
             panelSet.client.update(this.client.ping, clock.realTime, clock.renderTime, clock.simTime);
-            if (panelSet.server) {
-                const remoteClient = window.server.net.clients.find((c: NetClient) => c.id === this.client.id);
-                if (remoteClient) { panelSet.server.update(remoteClient.ping, window.server.clock.realTime); }
-            }
         }
+
+        if (window.server) window.server.net.updateNetGraph();
     }
 }
 
@@ -109,6 +111,15 @@ export class NetModuleServer {
     transmitToClients(snap: Snapshot) {
         for (const client of this.clients) {
             client.transmitServerFrame(snap);
+        }
+    }
+
+    private updateNetGraph() {
+        if (this.graph) {
+            for (const client of this.clients) {
+                const panel = this.graph.panelSets[client.id];
+                panel?.server?.update(client.ping, this.context.clock.realTime);
+            }
         }
     }
 }
