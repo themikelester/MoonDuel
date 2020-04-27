@@ -273,7 +273,7 @@ export class AvatarSystemServer {
             const client = game.net.clients.find(c => c.id === state.clientId);
             if (client) {
                 // @HACK: For now just use the last received command
-                const inputCmd = client.userCommands.getUserCommand();
+                const inputCmd = client.getUserCommand(game.clock.simFrame);
                 const dtSec = game.clock.simDt / 1000.0;
         
                 this.states[i] = this.controllers[i].update(state, dtSec, inputCmd);

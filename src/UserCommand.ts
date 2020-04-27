@@ -46,8 +46,7 @@ export class UserCommandBuffer {
 
     getUserCommand(frame: number = Math.max(0, this.lastFrame)) {
         if (frame <= this.lastFrame - this.bufferSize || frame > this.lastFrame) {
-            console.warn('Requested UserCommand outside of buffer');
-            return kEmptyCommand;
+            return undefined;
         }
 
         return this.buffer[frame % this.bufferSize];

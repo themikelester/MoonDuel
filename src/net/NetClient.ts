@@ -1,5 +1,5 @@
 import { NetChannel, NetChannelEvent } from "./NetChannel";
-import { assert } from "../util";
+import { assert, defined } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer, UserCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
@@ -37,7 +37,7 @@ export class NetClient extends EventDispatcher {
     channel: NetChannel;
 
     snapshot: SnapshotManager = new SnapshotManager();
-    userCommands: UserCommandBuffer = new UserCommandBuffer();
+    private userCommands: UserCommandBuffer = new UserCommandBuffer();
 
     private msgBuffer = new Uint8Array(kPacketMaxPayloadSize);
     private msgView = new DataView(this.msgBuffer.buffer);
@@ -138,6 +138,18 @@ export class NetClient extends EventDispatcher {
 
             if (this.graphPanel) { this.graphPanel.setPacketStatus(snap.frame, NetGraphPacketStatus.Received); }
         }
+    }
+
+    getUserCommand(frame: number) {
+        let cmd = this.userCommands.getUserCommand(frame);
+
+        // If we have not yet received an input for this frame, complain, and use the most recent
+        if (!defined(cmd)) {
+            console.warn(`Client ${this.id} missing input for frame ${frame}`);
+            cmd = this.userCommands.getUserCommand();
+        }
+
+        return cmd;
     }
 
     onMessage(msg: Uint8Array) {
