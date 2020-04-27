@@ -6,6 +6,7 @@ import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
 import { kPacketMaxPayloadSize } from "./NetPacket";
+import { NetGraph, NetGraphPacketStatus } from "./NetDebug";
 
 export enum NetClientState {
     Free,
@@ -40,6 +41,9 @@ export class NetClient extends EventDispatcher {
 
     private msgBuffer = new Uint8Array(kPacketMaxPayloadSize);
     private msgView = new DataView(this.msgBuffer.buffer);
+    
+    // Debugging
+    private graph?: NetGraph;
 
     private initialize(socket: WebUdpSocket) {
         assert(this.state === NetClientState.Free);
@@ -84,6 +88,10 @@ export class NetClient extends EventDispatcher {
         this.initialize(socket);
     }
 
+    setNetGraph(graph: NetGraph) {
+        this.graph = graph;
+    }
+
     transmitClientFrame(frame: number, cmd: UserCommand) {
         // Buffer this frame's command so that we can retransmit if it is dropped
         this.userCommands.setUserCommand(frame, cmd);
@@ -99,11 +107,18 @@ export class NetClient extends EventDispatcher {
     }
 
     receiveClientFrame(msg: Uint8Array) {
-        if (msg.byteLength > 5) {
-            const view = new DataView(msg.buffer);
-            const frame = view.getUint32(1, true);
-            const cmd = UserCommand.deserialize(msg.subarray(5));
-            this.userCommands.setUserCommand(frame, cmd);
+        if (msg.byteLength <= 5) {
+            return;
+        }
+
+        const view = new DataView(msg.buffer);
+        const frame = view.getUint32(1, true);
+        const cmd = UserCommand.deserialize(msg.subarray(5));
+        this.userCommands.setUserCommand(frame, cmd);
+
+        if (this.graph) {
+            const panel = this.graph.panels[this.id];
+            panel.setPacketStatus(frame, NetGraphPacketStatus.Received);
         }
     }
 
@@ -123,6 +138,10 @@ export class NetClient extends EventDispatcher {
         if (msg.byteLength > 1) {
             const snap = Snapshot.deserialize(msg.subarray(1));
             this.snapshot.setSnapshot(snap);
+
+            if (this.graph) {
+                this.graph.panelSets[this.id].client.setPacketStatus(snap.frame, NetGraphPacketStatus.Received);
+            }
         }
     }
 

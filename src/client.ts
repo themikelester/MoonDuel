@@ -138,6 +138,7 @@ export class Client {
         }
 
         this.input.update();
+        this.net.update(this);
         this.resources.update();
         this.avatar.update(this);
         this.cameraSystem.update(this);
