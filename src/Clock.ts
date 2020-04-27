@@ -43,6 +43,7 @@ export class Clock {
         this.realTime = serverTime;
         this.simTime = serverTime + ping * 0.5 + this.simDt * 2.0; // @TODO: Need to set this somehow
         this.simFrame = this.simTime / this.simDt;
+        this.renderTimeDelay = ping * 0.5 + this.simDt * 2.0;
     }
 
     tick(platformTime: number) {
