@@ -61,6 +61,7 @@ export class NetGraph {
         const fg = '#EEE';
         const missing = 'blue';
         const received = 'green';
+        const toolate = 'purple';
 
         const canvas = document.createElement('canvas');
         canvas.height = kHeight;
@@ -83,6 +84,7 @@ export class NetGraph {
         this.dom.appendChild(canvas);
 
         let lastServerFrame = 0;
+        let lastRenderFrame = 0;
 
         return {
             setPacketStatus(frame: number, status: NetGraphPacketStatus) {
@@ -92,7 +94,19 @@ export class NetGraph {
 
                 const x = kGraphX + (frame - lastServerFrame + kTimeRangeFrames/2) * kFrameWidth;
 
-                ctx.fillStyle = status === NetGraphPacketStatus.Received ? received : missing;
+                // Determine color based on status and other factors
+                if (status === NetGraphPacketStatus.Received) {
+                    if (frame <= Math.ceil(lastRenderFrame)) {
+                        // This frame came too late
+                        ctx.fillStyle = toolate;
+                    } else {
+                        // The frame came in time
+                        ctx.fillStyle = received;
+                    }
+                } else {
+                    ctx.fillStyle = missing;
+                }
+
                 ctx.fillRect(x, kGraphY, kFrameWidth, kGraphHeight);
 
                 ctx.strokeStyle = 'white';
@@ -124,6 +138,7 @@ export class NetGraph {
                 ctx.fillRect(renderX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
 
                 lastServerFrame = serverFrame;
+                lastRenderFrame = renderFrame;
 
                 // ... and draw the latest information which is dx pixels wide
                 ctx.fillStyle = missing;
