@@ -39,9 +39,9 @@ export class Clock {
         this.simFrame = 0;
     }
 
-    syncToServerTime(serverTime: number) {
+    syncToServerTime(serverTime: number, ping: number) {
         this.realTime = serverTime;
-        this.simTime = serverTime + 50.0; // @TODO: Need to set this somehow
+        this.simTime = serverTime + ping * 0.5 + this.simDt * 2.0; // @TODO: Need to set this somehow
         this.simFrame = this.simTime / this.simDt;
     }
 

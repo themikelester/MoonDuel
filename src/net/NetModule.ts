@@ -47,7 +47,7 @@ export class NetModuleClient {
             const latestFrame = this.client.lastReceivedFrame;
             const latestTime = latestFrame * this.context.clock.simDt;
             const serverTime = latestTime + (0.5 * this.client.ping);
-            this.context.clock.syncToServerTime(serverTime);
+            this.context.clock.syncToServerTime(serverTime, this.client.ping);
             this.synced = true;
         }
     }
