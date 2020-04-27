@@ -98,7 +98,7 @@ export class NetClient extends EventDispatcher {
 
         // Construct the message
         this.msgBuffer[0] = 1; // Client frame
-        this.msgView.setUint32(1, frame, true); // Frame number
+        this.msgView.setUint32(1, frame); // Frame number
         const size = UserCommand.serialize(this.msgBuffer.subarray(5), cmd);
 
         this.channel.send(this.msgBuffer.subarray(0, size + 5));
@@ -111,14 +111,14 @@ export class NetClient extends EventDispatcher {
             return;
         }
 
-        const view = new DataView(msg.buffer);
-        const frame = view.getUint32(1, true);
+        const view = new DataView(msg.buffer, msg.byteOffset, msg.byteLength);
+        const frame = view.getUint32(1);
         const cmd = UserCommand.deserialize(msg.subarray(5));
         this.userCommands.setUserCommand(frame, cmd);
 
         if (this.graph) {
-            const panel = this.graph.panels[this.id];
-            panel.setPacketStatus(frame, NetGraphPacketStatus.Received);
+            const panel = this.graph.panelSets[this.id].server;
+            panel?.setPacketStatus(frame, NetGraphPacketStatus.Received);
         }
     }
 
