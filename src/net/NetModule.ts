@@ -58,7 +58,7 @@ export class NetModuleClient {
 
         if (defined(panelSet)) {
             panelSet.client.update(clock.realTime, clock.renderTime, clock.simTime);
-            if (panelSet.server) panelSet.server.update(window.server.clock.time);
+            if (panelSet.server) panelSet.server.update(window.server.clock.realTime);
         }
     }
 }
@@ -91,7 +91,8 @@ export class NetModuleServer {
         console.log('Client connected:', client);
         this.context.avatar.addAvatar(client.id);
 
-        if (this.graph) this.graph.addServer(this.signalSocket.serverId);
+        if (this.graph) client.setNetGraph(this.graph);
+        if (this.graph) this.graph.addServer(client.id);
     }
 
     onClientDisconnected(client: NetClient) {

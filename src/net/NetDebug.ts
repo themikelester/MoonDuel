@@ -1,5 +1,5 @@
 import { ClientId } from "./SignalSocket";
-import { assertDefined } from "../util";
+import { assertDefined, defined } from "../util";
 
 export enum NetGraphPacketStatus {
     Missing, // Not yet received
@@ -84,7 +84,7 @@ export class NetGraph {
         this.dom.appendChild(canvas);
 
         let lastServerFrame = 0;
-        let lastRenderFrame = 0;
+        let lastRenderFrame: number | undefined = undefined;
 
         return {
             setPacketStatus(frame: number, status: NetGraphPacketStatus) {
@@ -96,7 +96,7 @@ export class NetGraph {
 
                 // Determine color based on status and other factors
                 if (status === NetGraphPacketStatus.Received) {
-                    if (frame <= Math.ceil(lastRenderFrame)) {
+                    if (defined(lastRenderFrame) && frame <= Math.ceil(lastRenderFrame)) {
                         // This frame came too late
                         ctx.fillStyle = toolate;
                     } else {
@@ -115,7 +115,7 @@ export class NetGraph {
 
             update(serverTime: number, renderTime: number, clientTime: number): void {
                 const serverFrame = Math.floor(serverTime / kFrameLengthMs);
-                const renderFrame = renderTime / kFrameLengthMs;
+                const renderFrame = defined(renderTime) ? renderTime / kFrameLengthMs : undefined;
 
                 const df = serverFrame - lastServerFrame;
                 const dx = df * kFrameWidth;
@@ -132,10 +132,12 @@ export class NetGraph {
                 const serverX = kGraphX + (kTimeRangeFrames / 2) * kFrameWidth;
                 ctx.fillRect(serverX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
 
-                // Draw the render time
-                ctx.fillStyle = 'purple';
-                const renderX = kGraphX + (renderFrame - serverFrame + kTimeRangeFrames / 2) * kFrameWidth;
-                ctx.fillRect(renderX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
+                if (defined(renderFrame)) {
+                    // Draw the render time
+                    ctx.fillStyle = 'purple';
+                    const renderX = kGraphX + (renderFrame - serverFrame + kTimeRangeFrames / 2) * kFrameWidth;
+                    ctx.fillRect(renderX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
+                }
 
                 lastServerFrame = serverFrame;
                 lastRenderFrame = renderFrame;
