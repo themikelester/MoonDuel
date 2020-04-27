@@ -9,7 +9,7 @@ const decoder = new TextDecoder();
 export class Snapshot {
     frame: number;
 
-    static kAvatarCount = 3;
+    static kAvatarCount = 6;
     avatars: AvatarState[] = [];
 
     constructor() {
