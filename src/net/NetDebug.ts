@@ -20,7 +20,6 @@ export interface NetGraphPanelSet {
 
 export class NetGraph {
     dom: HTMLElement;
-    panelSets: Record<ClientId, NetGraphPanelSet> = {};
 
     constructor() {
         const container = document.createElement('div');
@@ -28,26 +27,11 @@ export class NetGraph {
         this.dom = container;
     }
 
-    addClient(id: ClientId) {
-        const panel = this.addPanel(`Client: ${id.toString()}`);
-        this.panelSets[id] =  { ...this.panelSets[id], client: panel };
-        return panel;
+    removePanel(panel: NetGraphPanel) {
+        this.dom.removeChild(panel.dom);
     }
 
-    addServer(id: ClientId): NetGraphPanel {
-        const panel = this.addPanel(`Server: ${id.toString()}`);
-        this.panelSets[id] = { ...this.panelSets[id], server: panel };
-        return panel;
-    }
-
-    removeClient(id: ClientId) {
-        const set = this.panelSets[id];
-        if (set.client) this.dom.removeChild(set.client.dom);
-        if (set.server) this.dom.removeChild(set.server.dom);
-        delete this.panelSets[id];
-    }
-
-    private addPanel(label: string): NetGraphPanel {
+    addPanel(label: string): NetGraphPanel {
         const kTimeRangeFrames = 64;
         const kFrameLengthMs = 16;
 

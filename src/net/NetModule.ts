@@ -37,8 +37,7 @@ export class NetModuleClient {
         this.client.connect(serverId);
 
         this.client.on(NetClientEvents.Connected, () => {
-            this.graph.addClient(this.client.id);
-            this.client.setNetGraph(this.graph);
+            if (this.graph) this.client.setNetGraphPanel(this.graph.addPanel(`Client: ${this.client.id}`));
         })
     }
 
@@ -53,16 +52,13 @@ export class NetModuleClient {
         }
     }
 
-    update({}) {
+    update({ }) {
         this.updateNetGraph();
     }
 
     private updateNetGraph() {
-        const panelSet = this.graph.panelSets[this.client.id];
-        if (defined(panelSet)) {
-            const clock = this.context.clock;
-            panelSet.client.update(this.client.ping, clock.realTime, clock.renderTime, clock.simTime);
-        }
+        const clock = this.context.clock;
+        this.client.graphPanel?.update(this.client.ping, clock.realTime, clock.renderTime, clock.simTime);
 
         if (window.server) window.server.net.updateNetGraph();
     }
@@ -96,13 +92,14 @@ export class NetModuleServer {
         console.log('Client connected:', client);
         this.context.avatar.addAvatar(client.id);
 
-        if (this.graph) client.setNetGraph(this.graph);
-        if (this.graph) this.graph.addServer(client.id);
+        if (this.graph) client.setNetGraphPanel(this.graph.addPanel(`Server: ${client.id}`));
     }
 
     onClientDisconnected(client: NetClient) {
         console.log('Client disconnected:', client);
         // this.context.avatar.removeAvatar(client.id);
+
+        if (client.graphPanel) { this.graph?.removePanel(client.graphPanel); }
     }
 
     onClientMessage(client: NetClient, data: Uint8Array) {
@@ -117,8 +114,7 @@ export class NetModuleServer {
     private updateNetGraph() {
         if (this.graph) {
             for (const client of this.clients) {
-                const panel = this.graph.panelSets[client.id];
-                panel?.server?.update(client.ping, this.context.clock.realTime);
+                client.graphPanel?.update(client.ping, this.context.clock.realTime);
             }
         }
     }
