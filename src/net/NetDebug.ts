@@ -39,10 +39,6 @@ export class NetGraph {
         return panel;
     }
 
-    update() {
-
-    }
-
     private addPanel(label: string): NetGraphPanel {
         const kTimeRangeFrames = 64;
         const kFrameLengthMs = 16;
@@ -74,9 +70,6 @@ export class NetGraph {
 
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, kWidth, kHeight);
-
-        ctx.fillStyle = fg;
-        // ctx.fillRect(kPad, kPad, kWidth - 2 * kPad, kHeight - 2 * kPad);
 
         ctx.fillStyle = fg;
         ctx.fillText(label, kTextX, kTextY);
