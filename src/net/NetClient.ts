@@ -1,5 +1,5 @@
 import { NetChannel, NetChannelEvent } from "./NetChannel";
-import { assert, defined } from "../util";
+import { assert, defined, assertDefined } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer, UserCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
@@ -33,13 +33,14 @@ export class NetClient extends EventDispatcher {
     state: NetClientState = NetClientState.Free;
 
     ping?: number = -1;
+    lastRequestedFrame: number = -1;
+    lastReceivedFrame: number = -1;
 
     channel: NetChannel;
 
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
-    private lastRequestedFrame: number = -1;
-
+    
     private msgBuffer = new Uint8Array(kPacketMaxPayloadSize);
     private msgView = new DataView(this.msgBuffer.buffer);
     
@@ -117,6 +118,8 @@ export class NetClient extends EventDispatcher {
         const cmd = UserCommand.deserialize(msg.subarray(5));
         this.userCommands.setUserCommand(frame, cmd);
 
+        this.lastReceivedFrame = frame;
+
         if (this.graphPanel) { 
             const status = (frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
             this.graphPanel.setPacketStatus(frame, status); 
@@ -140,6 +143,8 @@ export class NetClient extends EventDispatcher {
             const snap = Snapshot.deserialize(msg.subarray(1));
             this.snapshot.setSnapshot(snap);
 
+            this.lastReceivedFrame = snap.frame;
+
             if (this.graphPanel) { 
                 const status = (snap.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
                 this.graphPanel.setPacketStatus(snap.frame, status); 
@@ -162,6 +167,7 @@ export class NetClient extends EventDispatcher {
             cmd = this.userCommands.getUserCommand();
         }
 
+        assertDefined(cmd);
         return cmd;
     }
 

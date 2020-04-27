@@ -44,7 +44,7 @@ export class NetModuleClient {
     onMessage(data: Uint8Array) {
         // Once our ping is calculated, sync our simulation time to that of the server
         if (!this.synced && defined(this.client.ping)) {
-            const latestFrame = this.client.snapshot.getSnapshot().frame;
+            const latestFrame = this.client.lastReceivedFrame;
             const latestTime = latestFrame * this.context.clock.simDt;
             const serverTime = latestTime + (0.5 * this.client.ping);
             this.context.clock.syncToServerTime(serverTime);
