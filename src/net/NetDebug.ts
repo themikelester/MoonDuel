@@ -80,6 +80,7 @@ export class NetGraph {
 
         ctx.fillStyle = fg;
         ctx.fillText(label, kTextX, kTextY);
+        const markerX = kTextX + ctx.measureText(label).width;
 
         this.dom.appendChild(canvas);
 
@@ -125,7 +126,7 @@ export class NetGraph {
 
                 // Clear the time marker area
                 ctx.fillStyle = bg;
-                ctx.fillRect(200, kTextY, kWidth - 200, kTimeMarkerHeight);
+                ctx.fillRect(markerX, kTextY, kWidth - markerX, kTimeMarkerHeight);
 
                 // Draw the server time
                 ctx.fillStyle = 'red';
