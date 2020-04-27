@@ -8,6 +8,7 @@ export enum NetGraphPacketStatus {
 }
 
 export interface NetGraphPanel {
+    dom: HTMLElement;
     setPacketStatus(frame: number, status: NetGraphPacketStatus): void;
     update(ping: number | undefined, serverTime: number, renderTime?: number, clientTime?: number): void;
 }
@@ -37,6 +38,13 @@ export class NetGraph {
         const panel = this.addPanel(`Server: ${id.toString()}`);
         this.panelSets[id] = { ...this.panelSets[id], server: panel };
         return panel;
+    }
+
+    removeClient(id: ClientId) {
+        const set = this.panelSets[id];
+        if (set.client) this.dom.removeChild(set.client.dom);
+        if (set.server) this.dom.removeChild(set.server.dom);
+        delete this.panelSets[id];
     }
 
     private addPanel(label: string): NetGraphPanel {
@@ -81,6 +89,8 @@ export class NetGraph {
         let lastRenderFrame: number | undefined = undefined;
 
         return {
+            dom: canvas,
+
             setPacketStatus(frame: number, status: NetGraphPacketStatus) {
                 if (frame < lastServerFrame - kTimeRangeFrames/2 || frame >= lastServerFrame + kTimeRangeFrames/2) {
                     return;

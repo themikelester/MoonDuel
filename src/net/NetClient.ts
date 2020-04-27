@@ -58,6 +58,7 @@ export class NetClient extends EventDispatcher {
         socket.on(WebUdpEvent.Close, () => {
             console.debug(`NetClient: ${this.id} disconnected`);
             this.state = NetClientState.Disconnected;
+            if (this.graph) { this.graph.removeClient(this.id); }
             this.fire(NetClientEvents.Disconnected);
         });
         
