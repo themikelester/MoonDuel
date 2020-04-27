@@ -5,6 +5,7 @@ export enum NetGraphPacketStatus {
     Missing, // Not yet received
     Received, // This packet was received
     Filled, // A subsequent packet containing this data was received
+    Late, // This packet arrived, but not before it was required
 }
 
 export interface NetGraphPanel {
@@ -83,16 +84,12 @@ export class NetGraph {
                 const x = kGraphX + (frame - lastServerFrame + kTimeRangeFrames/2) * kFrameWidth;
 
                 // Determine color based on status and other factors
-                if (status === NetGraphPacketStatus.Received) {
-                    if (defined(lastRenderFrame) && frame <= Math.ceil(lastRenderFrame)) {
-                        // This frame came too late
-                        ctx.fillStyle = toolate;
-                    } else {
-                        // The frame came in time
-                        ctx.fillStyle = received;
-                    }
-                } else {
-                    ctx.fillStyle = missing;
+                switch(status) {
+                    case NetGraphPacketStatus.Missing: ctx.fillStyle = missing; break;
+                    case NetGraphPacketStatus.Received: ctx.fillStyle = received; break;
+                    case NetGraphPacketStatus.Filled: ctx.fillStyle = 'red'; break;
+                    case NetGraphPacketStatus.Late: ctx.fillStyle = toolate; break;
+                    default: ctx.fillStyle = 'red';
                 }
 
                 ctx.fillRect(x, kGraphY, kFrameWidth, kGraphHeight);

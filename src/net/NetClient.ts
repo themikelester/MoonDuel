@@ -38,6 +38,7 @@ export class NetClient extends EventDispatcher {
 
     snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
+    private lastRequestedFrame: number = -1;
 
     private msgBuffer = new Uint8Array(kPacketMaxPayloadSize);
     private msgView = new DataView(this.msgBuffer.buffer);
@@ -116,7 +117,10 @@ export class NetClient extends EventDispatcher {
         const cmd = UserCommand.deserialize(msg.subarray(5));
         this.userCommands.setUserCommand(frame, cmd);
 
-        if (this.graphPanel) { this.graphPanel.setPacketStatus(frame, NetGraphPacketStatus.Received); }
+        if (this.graphPanel) { 
+            const status = (frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
+            this.graphPanel.setPacketStatus(frame, status); 
+        }
     }
 
     transmitServerFrame(snap: Snapshot) {
@@ -136,12 +140,16 @@ export class NetClient extends EventDispatcher {
             const snap = Snapshot.deserialize(msg.subarray(1));
             this.snapshot.setSnapshot(snap);
 
-            if (this.graphPanel) { this.graphPanel.setPacketStatus(snap.frame, NetGraphPacketStatus.Received); }
+            if (this.graphPanel) { 
+                const status = (snap.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
+                this.graphPanel.setPacketStatus(snap.frame, status); 
+            }
         }
     }
 
     getUserCommand(frame: number) {
         let cmd = this.userCommands.getUserCommand(frame);
+        this.lastRequestedFrame = frame;
 
         // If we have not yet received an input for this frame, complain, and use the most recent
         if (!defined(cmd)) {
