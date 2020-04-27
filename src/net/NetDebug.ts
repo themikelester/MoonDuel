@@ -104,6 +104,7 @@ export class NetGraph {
             update(ping: number | undefined, serverTime: number, renderTime: number, clientTime: number): void {
                 const serverFrame = Math.floor(serverTime / kFrameLengthMs);
                 const renderFrame = defined(renderTime) ? renderTime / kFrameLengthMs : undefined;
+                const clientFrame = defined(clientTime) ? clientTime / kFrameLengthMs : undefined;
 
                 const df = serverFrame - lastServerFrame;
                 const dx = df * kFrameWidth;
@@ -133,6 +134,13 @@ export class NetGraph {
                     // Draw the render time
                     ctx.fillStyle = 'purple';
                     const renderX = kGraphX + (renderFrame - serverFrame + kTimeRangeFrames / 2) * kFrameWidth;
+                    ctx.fillRect(renderX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
+                }
+
+                if (defined(clientFrame)) {
+                    // Draw the render time
+                    ctx.fillStyle = 'yellow';
+                    const renderX = kGraphX + (clientFrame - serverFrame + kTimeRangeFrames / 2) * kFrameWidth;
                     ctx.fillRect(renderX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
                 }
 
