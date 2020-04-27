@@ -18,6 +18,7 @@ interface ServerDependencies {
 export class NetModuleClient {
     context: ClientDependencies;
     client: NetClient = new NetClient();
+    synced: boolean = false;
 
     initialize(context: ClientDependencies) {
         this.context = context;
@@ -31,11 +32,12 @@ export class NetModuleClient {
 
     onMessage(data: Uint8Array) {
         // Once our ping is calculated, sync our simulation time to that of the server
-        if (this.context.clock.serverTime === -1 && defined(this.client.ping)) {
+        if (!this.synced && defined(this.client.ping)) {
             const latestFrame = this.client.snapshot.getSnapshot().frame;
             const latestTime = latestFrame * this.context.clock.simDt;
             const serverTime = latestTime + (0.5 * this.client.ping);
             this.context.clock.syncToServerTime(serverTime);
+            this.synced = true;
         }
     }
 

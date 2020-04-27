@@ -4,13 +4,11 @@ const kDefaultStepDuration = 1000.0 / 60.0;
 
 export class Clock {
     // All times are in milliseconds (ms)
-    public realTime: number = 0; // The real CPU time for the current display frame
-    public simTime: number = 0; // The time for the current simulation frame, which is always behind real time
+    public realTime: number = 0; // The real CPU time for the current display frame. May be synced with the server.
+    public simTime: number = 0; // The time for the current simulation frame. This should always be ahead of renderTime.
     public renderTime: number = 0; // The display time, which is when the the simulation state will be sampled and rendered. 
-                                   // @NOTE: This can be behind or ahead of the sim time due to dilation/contraction
 
-    // @TODO: Should this be the same as realTime?                                   
-    public serverTime: number = -1; // The estimated simulation time on the server. (If we are the server, same as simTime).
+    public simAccum: number = 0;
 
     public realDt: number = 0;
     public renderDt: number = 0;
@@ -42,7 +40,7 @@ export class Clock {
     }
 
     syncToServerTime(serverTime: number) {
-        this.serverTime = serverTime;
+        this.realTime = serverTime;
         this.simTime = serverTime + 50.0; // @TODO: Need to set this somehow
         this.simFrame = this.simTime / this.simDt;
     }
@@ -53,19 +51,17 @@ export class Clock {
 
         this.realDt = platformDt;
         this.realTime += this.realDt;
-
-        // Keep server time in sync if it has been set
-        if (this.serverTime !== -1) {
-            this.serverTime += platformDt;
-        }
         
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
-        this.renderTime = (this.serverTime !== -1 ? this.serverTime : this.realTime) - this.renderTimeDelay;
+        this.renderTime = this.realTime - this.renderTimeDelay;
+
+        this.simAccum += platformDt;
 
         this.stepDt = 0.0
     }
 
     updateFixed() {
+        this.simAccum -= this.simDt;
         this.simTime += this.simDt;
         this.simFrame += 1;
     }
