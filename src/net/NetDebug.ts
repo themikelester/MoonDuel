@@ -23,7 +23,7 @@ export class NetGraph {
 
     constructor() {
         const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;top:0;left:0;opacity:0.9;z-index:10000';
+        container.style.cssText = 'position:fixed;top:0;left:0;opacity:0.9;z-index:10000;pointer-events:none';
         this.dom = container;
     }
 
