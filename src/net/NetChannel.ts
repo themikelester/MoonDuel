@@ -124,7 +124,7 @@ export class NetChannel extends EventDispatcher {
         const bytes = packet.toBuffer();
         this.socket.send(bytes);
 
-        this.localSequence += 1;
+        this.localSequence = sequenceNumberWrap(this.localSequence + 1);
     }
 
     get isOpen() {
