@@ -6,6 +6,12 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-28
+##### Morning
+Today I'm going to work on improving the user command -> server pipeline. I spent the morning reading https://leanpub.com/development-and-deployment-of-multiplayer-online-games-vol1, which didn't contain as much useful information as I was hoping. But I did rediscover https://developer.valvesoftware.com/wiki/Latency_Compensating_Methods_in_Client/Server_In-game_Protocol_Design_and_Optimization, which showed me that Source does not include timestamps/tickstamps on their user command packets sent from client to server. The server just processes them as soon as it can. This approach seems easier, but it makes less sense and seems less desirable to me than the Overwatch approach (where the server expects input for each tick, and uses most recent only if it is late or missing). So today I'll implement command duplication, which means sending all non-acknowledged commands in each packet. Afterwards I may start on time dilation/contraction, which would be necessary for the Overwatch approach. 
+
+Time manipulation would also allow me to implement something that I want to do for this game, which is hit stun. That's the effect where time appears to pause for a quick moment when you land a hit on an enemy. The render time would pause while the simulation time continues normally, then we would render sim frames faster than usual so that render time can catch back up to its normal time (interpolation delay ms behind the sim time). 
+
 ### 2020-04-27
 ##### Morning
 Excited to work on some networking debugging features today. I'm going to render out a timeline graph for the server and each client that has the missing/received state for each packet. That should illustrate when the server is missing input packets and when the clients are missing state. Then I can start doing some network shaping (e.g. 5% packet loss, higher ping) to see what needs work. The client will definitely need the ability to contract time so that it can get farther ahead of the server to avoid dropping input. I'll work on that if everything else goes well.
