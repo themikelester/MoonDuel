@@ -44,7 +44,7 @@ export class UserCommandBuffer {
         this.lastFrame = frame;
     }
 
-    getUserCommand(frame: number = Math.max(0, this.lastFrame)) {
+    getUserCommand(frame: number = this.lastFrame) {
         // If the latest frame is requested, and no command has ever been set, use the empty command
         if (frame === -1) return kEmptyCommand;
 
