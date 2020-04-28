@@ -3,6 +3,7 @@ import { assert, defined } from "../util";
 export type SequenceNumber = number;
 
 const kPacketHeaderSize = 8;
+export const kSequenceNumberDomain = 2^16;
 export const kPacketMaxPayloadSize = 1024;
 
 interface PacketHeader {

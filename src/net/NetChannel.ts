@@ -1,9 +1,9 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
-import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize } from './NetPacket';
+import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize, kSequenceNumberDomain } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
 import { defined, assert } from '../util';
-import { lerp } from '../MathHelpers';
+import { lerp, wrappedDistance } from '../MathHelpers';
 
 export enum NetChannelEvent {
     Receive = "receive",
@@ -65,7 +65,7 @@ export class NetChannel extends EventDispatcher {
         const sequence = view.getUint16(0, true);
 
         // If this packet is older than our buffer allows, throw it away
-        if (sequence <= this.remoteSequence - kPacketHistoryLength) {
+        if (wrappedDistance(this.remoteSequence, sequence, kSequenceNumberDomain) >= kPacketHistoryLength) {
             return;
         }
 
