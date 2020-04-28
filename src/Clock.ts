@@ -47,14 +47,14 @@ export class Clock {
         this.clientTime = serverTime - this.clientDelay;
         this.renderTime = serverTime - this.renderDelay;
 
-        this.simFrame = this.clientTime / this.simDt;
+        this.simFrame = Math.floor(this.clientTime / this.simDt);
     }
 
     setClientDelay(delayMs: number) {
         assert(delayMs <= 0, 'ClientDelay is expected to be negative');
         this.clientDelay = delayMs;
         this.clientTime = this.serverTime - delayMs;
-        this.simFrame = this.clientTime / this.simDt; // @HACK: We'll need to dilate time
+        this.simFrame = Math.floor(this.clientTime / this.simDt); // @HACK: We'll need to dilate time
     }
 
     setRenderDelay(delayMs: number) {
