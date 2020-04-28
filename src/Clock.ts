@@ -54,6 +54,7 @@ export class Clock {
 
         this.realDt = platformDt;
         this.serverTime += this.realDt;
+        this.clientTime += this.realDt;
         
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
         this.renderTime = this.serverTime - this.renderTimeDelay;
@@ -65,7 +66,6 @@ export class Clock {
 
     updateFixed() {
         this.simAccum -= this.simDt;
-        this.clientTime += this.simDt;
         this.simFrame += 1;
     }
     
