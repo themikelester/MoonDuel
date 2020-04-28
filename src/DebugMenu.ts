@@ -9,12 +9,18 @@
 
 import { defined, assert } from './util';
 
+type ICallback = (value?: any) => void;
+
+export interface IGUIController {
+    onChange(fnc: ICallback): void;
+}
+
 export interface IDebugMenu {
-    add(target: Object, propName:string, min?: number, max?: number, step?: number): any;
-    add(target: Object, propName:string, status: boolean): any;
-    add(target: Object, propName:string, items:string[]): any;
-    add(target: Object, propName:string, items:number[]): any;
-    add(target: Object, propName:string, items:Object): any;
+    add(target: Object, propName:string, min?: number, max?: number, step?: number): IGUIController;
+    add(target: Object, propName:string, status: boolean): IGUIController;
+    add(target: Object, propName:string, items:string[]): IGUIController;
+    add(target: Object, propName:string, items:number[]): IGUIController;
+    add(target: Object, propName:string, items:Object): IGUIController;
 
     addFolder(propName:string): IDebugMenu;
 
@@ -24,17 +30,29 @@ export interface IDebugMenu {
     update(): void;
 }
 
+interface DebugAdd {
+    args: IArguments;
+    onChange?: ICallback;
+}
+
 export class DebugMenu implements IDebugMenu {
     private _gui: any;
-    private _add: IArguments[] = [];
+    private _add: DebugAdd[] = [];
+    private _addOnChange: ICallback[] = [];
     private _folders: { [name: string]: DebugMenu } = {};
     private _saveObject: any;
 
     constructor() {
     }
 
-    add(target: Object, propName:string, min?: number | boolean | string[] | Object, max?: number, step?: number): void { 
-        this._add.push(arguments); 
+    add(target: Object, propName:string, min?: number | boolean | string[] | Object, max?: number, step?: number): IGUIController { 
+        const debugAdd: DebugAdd = { args: arguments };
+        this._add.push(debugAdd);
+        return {
+            onChange: (fnc: ICallback) => { 
+                debugAdd.onChange = fnc; 
+            }
+        }
     }
 
     addFolder(propName:string): IDebugMenu {
@@ -53,9 +71,10 @@ export class DebugMenu implements IDebugMenu {
         if (this._saveObject?.closed) { this._gui.close(); }
 
         // Call all buffered shim functions (recursively for folders)
-        for (const args of this._add) {
-            this._gui.getRoot().remember(args[0]); 
-            this._gui.add.apply(this._gui, args); 
+        for (const debugAdd of this._add) {
+            this._gui.getRoot().remember(debugAdd.args[0]); 
+            const controller = this._gui.add.apply(this._gui, debugAdd.args); 
+            if (debugAdd.onChange) { controller.onChange(debugAdd.onChange); }
         }
 
         for (const folderName in this._folders) { 
