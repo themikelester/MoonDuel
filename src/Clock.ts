@@ -10,20 +10,20 @@ export class Clock {
     
     // Frame numbers are updated each simulation frame 
     public simFrame: number = 0; // The integer frame number of the current simulation frame
+
+    // Time deltas are updated each display frame
+    public realDt: number = 0;   // The actual CPU-time delta since last display frame
+    public renderDt: number = 0; // The delta for renderTime, which is a modulated form of realDt (can be paused, slowed, sped up).
     private _simDt: number = 16; // The fixed time step of the simulation
 
     public simAccum: number = 0;
-
-    public realDt: number = 0;
-    public renderDt: number = 0;
-
-    private renderTimeDelay: number = 100; // The initial delay between renderTime and serverTime
 
     public paused = false;
     public speed = 1.0;
 
     private platformTime = 0.0;
     private stepDt = 0.0;
+    private renderTimeDelay: number = 100; // The initial delay between renderTime and serverTime
 
     initialize({ debugMenu }: { debugMenu: DebugMenu }) {
         debugMenu.add(this, 'paused');
