@@ -114,7 +114,8 @@ export class NetModuleServer {
     private updateNetGraph() {
         if (this.graph) {
             for (const client of this.clients) {
-                client.graphPanel?.update(client.ping, this.context.clock.serverTime);
+                const clientServerTime = window.client.clock.serverTime;
+                client.graphPanel?.update(client.ping, clientServerTime, undefined, this.context.clock.serverTime);
             }
         }
     }
