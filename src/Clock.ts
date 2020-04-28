@@ -3,18 +3,19 @@ import { DebugMenu } from "./DebugMenu";
 const kDefaultStepDuration = 1000.0 / 60.0;
 
 export class Clock {
-    // All times are in milliseconds (ms)
-    public serverTime: number = 0; // The real CPU time for the current display frame. May be synced with the server.
-    public simTime: number = 0; // The time for the current simulation frame. This should always be ahead of renderTime.
+    // All times are in milliseconds (ms) and are updated each display frame
     public renderTime: number = 0; // The display time, which is when the the simulation state will be sampled and rendered. 
+    public serverTime: number = 0; // The (best guess) simulation time of the server. This is always ahead of renderTime.
+    public clientTime: number = 0; // The simulation time of the client.
+    
+    // Frame numbers are updated each simulation frame 
+    public simFrame: number = 0; // The integer frame number of the current simulation frame
+    private _simDt: number = 16; // The fixed time step of the simulation
 
     public simAccum: number = 0;
 
     public realDt: number = 0;
     public renderDt: number = 0;
-
-    public simFrame: number = 0; // The integer frame number of the current simulation frame
-    private _simDt: number = 16; // The fixed time step of the simulation
 
     private renderTimeDelay: number = 100; // The initial delay between renderTime and serverTime
 
@@ -36,14 +37,14 @@ export class Clock {
     zero() {
         this.renderTimeDelay = Math.max(this.renderTimeDelay, this.simDt);
         this.serverTime = 0;
-        this.simTime = 0;
+        this.clientTime = 0;
         this.simFrame = 0;
     }
 
     syncToServerTime(serverTime: number, ping: number) {
         this.serverTime = serverTime;
-        this.simTime = serverTime + ping * 0.5 + this.simDt * 2.0; // @TODO: Need to set this somehow
-        this.simFrame = this.simTime / this.simDt;
+        this.clientTime = serverTime + ping * 0.5 + this.simDt * 2.0; // @TODO: Need to set this somehow
+        this.simFrame = this.clientTime / this.simDt;
         this.renderTimeDelay = ping * 0.5 + this.simDt * 2.0;
     }
 
@@ -64,7 +65,7 @@ export class Clock {
 
     updateFixed() {
         this.simAccum -= this.simDt;
-        this.simTime += this.simDt;
+        this.clientTime += this.simDt;
         this.simFrame += 1;
     }
     
