@@ -1,4 +1,5 @@
 import { DebugMenu } from "./DebugMenu";
+import { assert } from "./util";
 
 const kDefaultStepDuration = 1000.0 / 60.0;
 
@@ -23,29 +24,43 @@ export class Clock {
 
     private platformTime = 0.0;
     private stepDt = 0.0;
-    private renderTimeDelay: number = 100; // The initial delay between renderTime and serverTime
+    private clientDelay = 0.0;
+    private renderDelay = 0.0;
 
     initialize({ debugMenu }: { debugMenu: DebugMenu }) {
         debugMenu.add(this, 'paused');
         debugMenu.add(this, 'speed', 0.05, 2.0, 0.05);
         debugMenu.add(this, 'simDt', 8, 512, 8);
         debugMenu.add(this, 'step');
-        debugMenu.add(this, 'renderTimeDelay', 0, 240, 8);
         this.zero();
     }
 
     zero() {
-        this.renderTimeDelay = Math.max(this.renderTimeDelay, this.simDt);
         this.serverTime = 0;
         this.clientTime = 0;
+        this.renderTime = 0;
         this.simFrame = 0;
     }
 
-    syncToServerTime(serverTime: number, ping: number) {
+    syncToServerTime(serverTime: number) {
         this.serverTime = serverTime;
-        this.clientTime = serverTime + ping * 0.5 + this.simDt * 2.0; // @TODO: Need to set this somehow
+        this.clientTime = serverTime - this.clientDelay;
+        this.renderTime = serverTime - this.renderDelay;
+
         this.simFrame = this.clientTime / this.simDt;
-        this.renderTimeDelay = ping * 0.5 + this.simDt * 2.0;
+    }
+
+    setClientDelay(delayMs: number) {
+        assert(delayMs <= 0, 'ClientDelay is expected to be negative');
+        this.clientDelay = delayMs;
+        this.clientTime = this.serverTime - delayMs;
+        this.simFrame = this.clientTime / this.simDt; // @HACK: We'll need to dilate time
+    }
+
+    setRenderDelay(delayMs: number) {
+        assert(delayMs >= 0, 'RenderDelay is expected to be positive');
+        this.renderDelay = delayMs;
+        this.renderTime = this.serverTime - delayMs;
     }
 
     tick(platformTime: number) {
@@ -57,7 +72,7 @@ export class Clock {
         this.clientTime += this.realDt;
         
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
-        this.renderTime = this.serverTime - this.renderTimeDelay;
+        this.renderTime += this.renderDt;
 
         this.simAccum += platformDt;
 
