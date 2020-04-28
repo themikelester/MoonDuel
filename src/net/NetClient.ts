@@ -35,6 +35,7 @@ export class NetClient extends EventDispatcher {
     ping?: number = -1;
     lastRequestedFrame: number = -1;
     lastReceivedFrame: number = -1;
+    lastAcknowedgedFrame: number = -1;
 
     channel: NetChannel;
 
@@ -104,7 +105,7 @@ export class NetClient extends EventDispatcher {
         this.msgView.setUint32(1, frame); // Frame number
         const size = UserCommand.serialize(this.msgBuffer.subarray(5), cmd);
 
-        this.channel.send(this.msgBuffer.subarray(0, size + 5));
+        this.channel.send(this.msgBuffer.subarray(0, size + 5), frame);
 
         // @TODO: Send all unacknowledged user commands that are still buffered
     }
@@ -136,7 +137,7 @@ export class NetClient extends EventDispatcher {
         // Send the latest state
         const snapSize = Snapshot.serialize(this.msgBuffer.subarray(1), snap);
 
-        this.channel.send(this.msgBuffer.subarray(0, snapSize + 1));
+        this.channel.send(this.msgBuffer.subarray(0, snapSize + 1), snap.frame);
     }
 
     receiveServerFrame(msg: Uint8Array) {
@@ -171,8 +172,12 @@ export class NetClient extends EventDispatcher {
         return assertDefined(cmd);
     }
 
-    onMessage(msg: Uint8Array) {
+    onMessage(msg: Uint8Array, lastAcknowledgedFrame: number | undefined) {
         this.ping = this.channel.ping;
+        
+        if (defined(lastAcknowledgedFrame)) {
+            this.lastAcknowedgedFrame = lastAcknowledgedFrame;
+        }
         
         if (msg[0] === 0) this.receiveServerFrame(msg);
         else this.receiveClientFrame(msg);
