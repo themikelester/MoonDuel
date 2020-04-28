@@ -3,7 +3,8 @@ import { assert, defined } from "../util";
 export type SequenceNumber = number;
 
 const kPacketHeaderSize = 8;
-export const kSequenceNumberDomain = 2^16;
+export const kSequenceNumberDomain = 2**16;
+export const kSequenceNumberDomainHalf = kSequenceNumberDomain / 2;
 export const kPacketMaxPayloadSize = 1024;
 
 interface PacketHeader {
@@ -90,10 +91,10 @@ export class PacketBuffer {
 }
 
 export function sequenceNumberGreaterThan(a: SequenceNumber, b: SequenceNumber) {
-    return ((a > b) && (a - b <= 32768)) ||
-        ((a < b) && (b - a > 32768));
+    return ((a > b) && (a - b <= kSequenceNumberDomainHalf)) ||
+        ((a < b) && (b - a > kSequenceNumberDomainHalf));
 }
 
 export function sequenceNumberWrap(a: SequenceNumber) {
-    return a % 65536;
+    return a % kSequenceNumberDomain;
 }
