@@ -4,7 +4,7 @@ const kDefaultStepDuration = 1000.0 / 60.0;
 
 export class Clock {
     // All times are in milliseconds (ms)
-    public realTime: number = 0; // The real CPU time for the current display frame. May be synced with the server.
+    public serverTime: number = 0; // The real CPU time for the current display frame. May be synced with the server.
     public simTime: number = 0; // The time for the current simulation frame. This should always be ahead of renderTime.
     public renderTime: number = 0; // The display time, which is when the the simulation state will be sampled and rendered. 
 
@@ -15,7 +15,8 @@ export class Clock {
 
     public simFrame: number = 0; // The integer frame number of the current simulation frame
     private _simDt: number = 16; // The fixed time step of the simulation
-    private renderTimeDelay: number = 100; // The initial delay between renderTime and realTime
+
+    private renderTimeDelay: number = 100; // The initial delay between renderTime and serverTime
 
     public paused = false;
     public speed = 1.0;
@@ -34,13 +35,13 @@ export class Clock {
 
     zero() {
         this.renderTimeDelay = Math.max(this.renderTimeDelay, this.simDt);
-        this.realTime = 0;
+        this.serverTime = 0;
         this.simTime = 0;
         this.simFrame = 0;
     }
 
     syncToServerTime(serverTime: number, ping: number) {
-        this.realTime = serverTime;
+        this.serverTime = serverTime;
         this.simTime = serverTime + ping * 0.5 + this.simDt * 2.0; // @TODO: Need to set this somehow
         this.simFrame = this.simTime / this.simDt;
         this.renderTimeDelay = ping * 0.5 + this.simDt * 2.0;
@@ -51,10 +52,10 @@ export class Clock {
         this.platformTime = platformTime;
 
         this.realDt = platformDt;
-        this.realTime += this.realDt;
+        this.serverTime += this.realDt;
         
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
-        this.renderTime = this.realTime - this.renderTimeDelay;
+        this.renderTime = this.serverTime - this.renderTimeDelay;
 
         this.simAccum += platformDt;
 

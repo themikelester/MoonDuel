@@ -58,7 +58,7 @@ export class NetModuleClient {
 
     private updateNetGraph() {
         const clock = this.context.clock;
-        this.client.graphPanel?.update(this.client.ping, clock.realTime, clock.renderTime, clock.simTime);
+        this.client.graphPanel?.update(this.client.ping, clock.serverTime, clock.renderTime, clock.simTime);
 
         if (window.server) window.server.net.updateNetGraph();
     }
@@ -114,7 +114,7 @@ export class NetModuleServer {
     private updateNetGraph() {
         if (this.graph) {
             for (const client of this.clients) {
-                client.graphPanel?.update(client.ping, this.context.clock.realTime);
+                client.graphPanel?.update(client.ping, this.context.clock.serverTime);
             }
         }
     }
