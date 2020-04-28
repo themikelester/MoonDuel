@@ -2,7 +2,7 @@
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize, kSequenceNumberDomain } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined, assert } from '../util';
+import { defined, assert, defaultValue } from '../util';
 import { lerp, wrappedDistance } from '../MathHelpers';
 
 export enum NetChannelEvent {
@@ -27,6 +27,8 @@ export class NetChannel extends EventDispatcher {
     private localSequence = 0;
     private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
     private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
+
+    private latestAck?: Packet;
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
@@ -92,7 +94,7 @@ export class NetChannel extends EventDispatcher {
                 }
             }
 
-            this.fire(NetChannelEvent.Receive, packet.payload);
+            this.fire(NetChannelEvent.Receive, packet.payload, this.latestAck?.tag);
         } else {
             // Ignore the packet
         }
@@ -102,8 +104,9 @@ export class NetChannel extends EventDispatcher {
      * Construct a packet with the specified payload and send it to the server
      * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
      * @param payload The payload to include in the packet
+     * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
      */
-    send(payload: Uint8Array) {
+    send(payload: Uint8Array, tag?: number) {
         if (payload.length > kPacketMaxPayloadSize) {
             console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
             return;
@@ -116,6 +119,7 @@ export class NetChannel extends EventDispatcher {
         packet.header.ack = this.remoteSequence;
         packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
         packet.payload = payload;
+        packet.tag = defaultValue(tag, this.localSequence);
 
         const bytes = packet.toBuffer();
         this.socket.send(bytes);
@@ -131,19 +135,16 @@ export class NetChannel extends EventDispatcher {
         return (this.ackCount < kPingMinAcks) ? undefined : this.averageRtt;
     }
 
-    isAcknowledged(sequence: number) {
-        if (sequence <= this.remoteSequence - kPacketHistoryLength) {
-            return false;
-        }
-
-        return this.localHistory[sequence % kPacketHistoryLength].acknowledged;
-    }
-
     private acknowledge(packet: Packet) {
         const packetRtt = packet.acknowledge();
 
         this.ackCount += 1;
         assert(this.ackCount <= this.localSequence);
+
+        // Track the latest acknowledged packet
+        if (!defined(this.latestAck) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.header.sequence)) { 
+            this.latestAck = packet; 
+        }
         
         // Compute ping using an exponential moving average, but not until we have enough valid samples.
         // Sum initial samples so that they can be averaged as the first sample point for the moving average. 

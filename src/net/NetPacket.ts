@@ -15,6 +15,7 @@ interface PacketHeader {
 export class Packet {
     header: PacketHeader;
     payload: Uint8Array;
+    tag: number;
 
     get acknowledged() { return defined(this.ackTime); }
 
