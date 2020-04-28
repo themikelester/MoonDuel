@@ -86,7 +86,7 @@ export class NetChannel extends EventDispatcher {
             const bitfield = packet.header.ackBitfield;
             for (let i = 0; i < 32; i++) {
                 if (bitfield & 1 << i) {
-                    const sequence = packet.header.ack - i; 
+                    const sequence = sequenceNumberWrap(packet.header.ack - i); 
                     const p = this.localHistory[sequence % kPacketHistoryLength];
                     if (p.header.sequence === sequence && !p.acknowledged) {
                         this.acknowledge(p);
@@ -139,7 +139,6 @@ export class NetChannel extends EventDispatcher {
         const packetRtt = packet.acknowledge();
 
         this.ackCount += 1;
-        assert(this.ackCount <= this.localSequence);
 
         // Track the latest acknowledged packet
         if (!defined(this.latestAck) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.header.sequence)) { 

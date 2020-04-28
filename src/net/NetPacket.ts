@@ -96,5 +96,5 @@ export function sequenceNumberGreaterThan(a: SequenceNumber, b: SequenceNumber) 
 }
 
 export function sequenceNumberWrap(a: SequenceNumber) {
-    return a % kSequenceNumberDomain;
+    return ((a % kSequenceNumberDomain) + kSequenceNumberDomain) % kSequenceNumberDomain;
 }
