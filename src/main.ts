@@ -2,9 +2,6 @@ import { Client } from './client';
 import { Server } from './server';
 import { SignalSocket } from './net/SignalSocket';
 
-const kPort = 8888;
-const kServerAddress = '3.23.86.226:8888';
-
 // Google Analytics
 declare var gtag: (command: string, eventName: string, eventParameters: { [key: string]: string }) => void;
 
@@ -14,7 +11,13 @@ declare global {
         client: any;
         server: any;
         debug: any;
+        config: any;
     }
+}
+
+// @HACK
+window.config = {
+    kSignalServerAddress: '3.23.86.226:8888',
 }
 
 async function Main() {
@@ -27,7 +30,7 @@ async function Main() {
     // If we're the first ones in there, start up a server instance and assign it this socket
     // Then create a new socket and establish a new connection as a client
     const signalSocket = new SignalSocket();
-    await signalSocket.connect(kServerAddress);
+    await signalSocket.connect(window.config.kSignalServerAddress);
 
     const isServer = signalSocket.serverId === signalSocket.clientId;
     

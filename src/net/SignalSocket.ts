@@ -33,9 +33,6 @@ interface RoomMessage {
     data: any,
 }
 
-const kPort = 8888;
-const kServerAddress =  '3.23.86.226:8888';
-
 /**
  * Represents a persistent connection to the signalling server, via websocket. 
  * WebUDP connections are established (via WebRTC) by talking to peers through this server.
@@ -50,7 +47,7 @@ export class SignalSocket extends EventDispatcher {
      * @param address URL of the server
      * @param roomName Room to join
      */
-    connect(address: string = kServerAddress) {
+    connect(address: string = window.config.kSignalServerAddress) {
         assert(!this.connected);
         return new Promise(resolve => {
             this.socket = socketio.connect(address);
