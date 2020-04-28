@@ -1,6 +1,7 @@
 import { Client } from './client';
 import { Server } from './server';
 import { SignalSocket } from './net/SignalSocket';
+import { IS_DEVELOPMENT } from './version';
 
 // Google Analytics
 declare var gtag: (command: string, eventName: string, eventParameters: { [key: string]: string }) => void;
@@ -17,7 +18,7 @@ declare global {
 
 // @HACK
 window.config = {
-    kSignalServerAddress: '3.23.86.226:8888',
+    kSignalServerAddress: IS_DEVELOPMENT ? 'localhost:8888' : '3.23.86.226:8888',
 }
 
 async function Main() {
