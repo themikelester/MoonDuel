@@ -79,21 +79,23 @@ export class NetChannel extends EventDispatcher {
         // If this packet is newer than the latest packet we've received, update
         if (sequenceNumberGreaterThan(packet.header.sequence, this.remoteSequence)) {
             this.remoteSequence = packet.header.sequence;
-        }
-
-        // Update the acknowledged state of all of the recently sent packets
-        const bitfield = packet.header.ackBitfield;
-        for (let i = 0; i < 32; i++) {
-            if (bitfield & 1 << i) {
-                const sequence = packet.header.ack - i; 
-                const p = this.localHistory[sequence % kPacketHistoryLength];
-                if (p.header.sequence === sequence && !p.acknowledged) {
-                    this.acknowledge(p);
+            
+            // Update the acknowledged state of all of the recently sent packets
+            const bitfield = packet.header.ackBitfield;
+            for (let i = 0; i < 32; i++) {
+                if (bitfield & 1 << i) {
+                    const sequence = packet.header.ack - i; 
+                    const p = this.localHistory[sequence % kPacketHistoryLength];
+                    if (p.header.sequence === sequence && !p.acknowledged) {
+                        this.acknowledge(p);
+                    }
                 }
             }
-        }
 
-        this.fire(NetChannelEvent.Receive, packet.payload);
+            this.fire(NetChannelEvent.Receive, packet.payload);
+        } else {
+            // Ignore the packet
+        }
     }
 
     /**
