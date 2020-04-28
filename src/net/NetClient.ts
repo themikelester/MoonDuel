@@ -102,11 +102,26 @@ export class NetClient extends EventDispatcher {
         this.userCommands.setUserCommand(cmd);
 
         // Construct the message
+        let size = 5;
         this.msgBuffer[0] = 1; // Client frame
         this.msgView.setUint32(1, frame); // Frame number
-        const size = UserCommand.serialize(this.msgBuffer.subarray(5), cmd);
 
-        this.channel.send(this.msgBuffer.subarray(0, size + 5), frame);
+        // Send all unacknowledged user commands 
+        // @TODO: This could be smarter, we really only need to send the user commands that the server can still use
+        const oldestCmdFrame = Math.max(this.lastAcknowedgedFrame, frame - 5, 0);
+        for (let i = frame; i >= oldestCmdFrame; i--) {
+            const cmd = this.userCommands.getUserCommand(i);
+            if (!defined(cmd)) break;
+
+            assert(cmd.frame === i);
+            
+            const byteLength = UserCommand.serialize(this.msgBuffer.subarray(size + 1), cmd);
+            assert(byteLength < 256);
+            this.msgBuffer[size] = byteLength; // The serialized length precedes the data
+            size += 1 + byteLength;
+        }
+
+        this.channel.send(this.msgBuffer.subarray(0, size), frame);
         this.lastTransmittedFrame = frame;
 
         // @TODO: Send all unacknowledged user commands that are still buffered
@@ -119,15 +134,28 @@ export class NetClient extends EventDispatcher {
 
         const view = new DataView(msg.buffer, msg.byteOffset, msg.byteLength);
         const frame = view.getUint32(1);
-        const cmd = UserCommand.deserialize(msg.subarray(5));
-        this.userCommands.setUserCommand(cmd);
+
+        for (let offset = 5; offset < msg.byteLength;) {
+            const size = view.getUint8(offset);
+            offset += 1;
+
+            const cmd = {} as UserCommand;
+            const read = UserCommand.deserialize(cmd, msg.subarray(offset, offset + size));
+            offset += read;
+            
+            // If we haven't already received this command, buffer it
+            const newlySet = this.userCommands.setUserCommand(cmd);
+
+            if (newlySet) {
+                if (this.graphPanel) { 
+                    const received = (frame === cmd.frame) ? NetGraphPacketStatus.Received : NetGraphPacketStatus.Filled;
+                    const status = (frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : received;
+                    this.graphPanel.setPacketStatus(cmd.frame, status); 
+                }
+            }
+        }
 
         this.lastReceivedFrame = frame;
-
-        if (this.graphPanel) { 
-            const status = (frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
-            this.graphPanel.setPacketStatus(frame, status); 
-        }
     }
 
     transmitServerFrame(snap: Snapshot) {

@@ -18,9 +18,10 @@ export class UserCommand {
         return buf.byteLength;
     }
     
-    static deserialize(data: Uint8Array): UserCommand {
+    static deserialize(dst: UserCommand, data: Uint8Array): number {
         const str = decoder.decode(data);
-        return JSON.parse(str);
+        Object.assign(dst, JSON.parse(str));
+        return data.byteLength;
     }
 }
 
@@ -44,8 +45,15 @@ export class UserCommandBuffer {
     setUserCommand(cmd: UserCommand) {
         assert(Number.isInteger(cmd.frame));
         
+        // Return false if a command has already been buffered for this frame
+        const existingCmd = this.buffer[cmd.frame % this.bufferSize];
+        if (defined(existingCmd) && existingCmd.frame === cmd.frame) {
+            return false;
+        }
+
         this.buffer[cmd.frame % this.bufferSize] = cmd;
         this.lastFrame = cmd.frame;
+        return true;
     }
 
     getUserCommand(frame: number = this.lastFrame) {

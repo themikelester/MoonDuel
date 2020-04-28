@@ -50,6 +50,7 @@ export class NetGraph {
         const fg = '#EEE';
         const missing = 'blue';
         const received = 'green';
+        const filled = 'yellow';
         const toolate = 'purple';
 
         const canvas = document.createElement('canvas');
@@ -87,7 +88,7 @@ export class NetGraph {
                 switch(status) {
                     case NetGraphPacketStatus.Missing: ctx.fillStyle = missing; break;
                     case NetGraphPacketStatus.Received: ctx.fillStyle = received; break;
-                    case NetGraphPacketStatus.Filled: ctx.fillStyle = 'red'; break;
+                    case NetGraphPacketStatus.Filled: ctx.fillStyle = filled; break;
                     case NetGraphPacketStatus.Late: ctx.fillStyle = toolate; break;
                     default: ctx.fillStyle = 'red';
                 }
