@@ -7,10 +7,12 @@ import { Clock } from "../Clock";
 import { assert, defined } from "../util";
 
 import { NetGraph } from './NetDebug';
+import { DebugMenu } from "../DebugMenu";
 
 interface ClientDependencies {
     clock: Clock;
     toplevel: HTMLElement;
+    debugMenu: DebugMenu;
 }
 
 interface ServerDependencies {
@@ -24,8 +26,16 @@ export class NetModuleClient {
     synced: boolean = false;
     graph = new NetGraph();
 
+    private clientAhead: number = 0;
+    private renderDelay: number = 0;
+
     initialize(context: ClientDependencies) {
         this.context = context;
+        const clock = this.context.clock;
+
+        const debugMenu = this.context.debugMenu.addFolder('Net');
+        debugMenu.add(this, 'clientAhead', 0, 1000, 16).onChange(() => clock.setClientDelay(-this.clientAhead));
+        debugMenu.add(this, 'renderDelay', 0, 1000, 16).onChange(() => clock.setRenderDelay(this.renderDelay));
 
         // @HACK:
         this.context.toplevel.appendChild(this.graph.dom);
@@ -48,10 +58,11 @@ export class NetModuleClient {
             const latestTime = latestFrame * this.context.clock.simDt;
             const serverTime = latestTime + (0.5 * this.client.ping);
 
-            const clientAhead = this.client.ping * 0.5 + this.context.clock.simDt * 1;
-            const renderDelay = this.client.ping * 0.5 + this.context.clock.simDt * 3;
-            this.context.clock.setClientDelay(-clientAhead);
-            this.context.clock.setRenderDelay(renderDelay);
+            this.clientAhead = this.client.ping * 0.5 + this.context.clock.simDt * 1;
+            this.renderDelay = this.client.ping * 0.5 + this.context.clock.simDt * 3;
+
+            this.context.clock.setClientDelay(-this.clientAhead);
+            this.context.clock.setRenderDelay(this.renderDelay);
             this.context.clock.syncToServerTime(serverTime);
 
             this.synced = true;
