@@ -23,7 +23,7 @@ export class NetChannel extends EventDispatcher {
 
     private socket: WebUdpSocket;
 
-    private remoteSequence = 0;
+    private remoteSequence = -1;
     private localSequence = 0;
     private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
     private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
@@ -66,21 +66,16 @@ export class NetChannel extends EventDispatcher {
         const view = new DataView(data);
         const sequence = view.getUint16(0, true);
 
-        // If this packet is older than our buffer allows, throw it away
-        if (wrappedDistance(this.remoteSequence, sequence, kSequenceNumberDomain) >= kPacketHistoryLength) {
-            return;
-        }
-
-        // Parse and buffer the packet 
-        const packet = this.remoteHistory[sequence % kPacketHistoryLength].fromBuffer(data);
-        if (!defined(packet)) {
-            console.warn('NetChannel: Received packet that was too large for buffer. Ignoring.');
-            return;
-        }
-
         // If this packet is newer than the latest packet we've received, update
-        if (sequenceNumberGreaterThan(packet.header.sequence, this.remoteSequence)) {
-            this.remoteSequence = packet.header.sequence;
+        if (sequenceNumberGreaterThan(sequence, this.remoteSequence)) {
+            this.remoteSequence = sequence;
+
+            // Parse and buffer the packet 
+            const packet = this.remoteHistory[sequence % kPacketHistoryLength].fromBuffer(data);
+            if (!defined(packet)) {
+                console.warn('NetChannel: Received packet that was too large for buffer. Ignoring.');
+                return;
+            }
             
             // Update the acknowledged state of all of the recently sent packets
             const bitfield = packet.header.ackBitfield;
@@ -97,6 +92,7 @@ export class NetChannel extends EventDispatcher {
             this.fire(NetChannelEvent.Receive, packet.payload, this.latestAck?.tag);
         } else {
             // Ignore the packet
+            console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);
         }
     }
 
