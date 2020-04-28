@@ -92,6 +92,7 @@ export class InputManager {
 
         // Write a UserCommand into the input buffer
         const cmd: UserCommand = {
+            frame: clock.simFrame,
             headingX: camera.forward[0],
             headingZ: camera.forward[2],
             horizontalAxis: this.getAxis('Horizontal'),
@@ -99,7 +100,7 @@ export class InputManager {
             actions,
         }
 
-        userCommands.setUserCommand(clock.simFrame, cmd);
+        userCommands.setUserCommand(cmd);
     }
 
     afterFrame() {

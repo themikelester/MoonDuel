@@ -96,7 +96,8 @@ export class NetClient extends EventDispatcher {
 
     transmitClientFrame(frame: number, cmd: UserCommand) {
         // Buffer this frame's command so that we can retransmit if it is dropped
-        this.userCommands.setUserCommand(frame, cmd);
+        assert(frame === cmd.frame);
+        this.userCommands.setUserCommand(cmd);
 
         // Construct the message
         this.msgBuffer[0] = 1; // Client frame
@@ -116,7 +117,7 @@ export class NetClient extends EventDispatcher {
         const view = new DataView(msg.buffer, msg.byteOffset, msg.byteLength);
         const frame = view.getUint32(1);
         const cmd = UserCommand.deserialize(msg.subarray(5));
-        this.userCommands.setUserCommand(frame, cmd);
+        this.userCommands.setUserCommand(cmd);
 
         this.lastReceivedFrame = frame;
 

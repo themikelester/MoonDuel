@@ -1,7 +1,8 @@
 import { InputAction } from "./Input";
-import { NetModuleClient } from "./net/NetModule";
+import { defined, assert } from "./util";
 
 export class UserCommand {
+    frame: number;
     headingX: number;
     headingZ: number;
     verticalAxis: number;
@@ -24,6 +25,7 @@ export class UserCommand {
 }
 
 const kEmptyCommand: UserCommand = {
+    frame: -1,
     headingX: 0,
     headingZ: 1,
     verticalAxis: 0,
@@ -39,20 +41,26 @@ export class UserCommandBuffer {
     private bufferSize = 64; // @TODO: Choose a real length, perhaps based on simDt?
     private lastFrame = -1;
 
-    setUserCommand(frame: number, cmd: UserCommand) {
-        this.buffer[frame % this.bufferSize] = cmd;
-        this.lastFrame = frame;
+    setUserCommand(cmd: UserCommand) {
+        assert(Number.isInteger(cmd.frame));
+        
+        this.buffer[cmd.frame % this.bufferSize] = cmd;
+        this.lastFrame = cmd.frame;
     }
 
     getUserCommand(frame: number = this.lastFrame) {
+        assert(Number.isInteger(frame));
+
         // If the latest frame is requested, and no command has ever been set, use the empty command
-        if (frame === -1) return kEmptyCommand;
+        if (frame === -1) return { ...kEmptyCommand, frame };
 
-        // The requested frame has not been set
-        if (frame <= this.lastFrame - this.bufferSize || frame > this.lastFrame) {
-            return undefined;
+        const cmd = this.buffer[frame % this.bufferSize];
+
+        if (!defined(cmd) || cmd.frame !== frame) { 
+            // No command for this frame
+            return undefined
+        } else {
+            return cmd;
         }
-
-        return this.buffer[frame % this.bufferSize];
     }
 }
