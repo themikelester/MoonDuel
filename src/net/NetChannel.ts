@@ -102,7 +102,7 @@ export class NetChannel extends EventDispatcher {
                 }
             }
 
-            this.fire(NetChannelEvent.Receive, packet.payload, this.latestAck);
+            this.fire(NetChannelEvent.Receive, packet.payload, this.latestAck.info);
         } else {
             // Ignore the packet
             console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);
