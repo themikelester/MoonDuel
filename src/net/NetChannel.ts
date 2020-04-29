@@ -30,31 +30,44 @@ export class NetChannel extends EventDispatcher {
 
     private latestAck = {} as { sequence: number, info: AckInfo };
 
+    get isOpen() {
+        return this.socket.isOpen;
+    }
+
+    get ping() {
+        return (this.ackCount < kPingMinAcks) ? undefined : this.averageRtt;
+    }
+
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
         this.socket.on(WebUdpEvent.Message, this.onMessage.bind(this));
     }
 
-    private onMessage(evt: MessageEvent) {
-        const data = evt.data;
-        if (data instanceof ArrayBuffer) {
-            this.receive(data);
-        } else {
-            console.log("received:", data);
+    /**
+     * Construct a packet with the specified payload and send it to the server
+     * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
+     * @param payload The payload to include in the packet
+     * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
+     */
+    send(payload: Uint8Array, tag?: number) {
+        if (payload.length > kPacketMaxPayloadSize) {
+            console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
+            return;
         }
-    }
+        
+        // Allocate the packet
+        const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
 
-    private writeAckBitfield(history: Packet[]) {
-        let bitfield = 0;
-        for (const packet of history) {
-            if (packet.header.sequence !== -1) {
-                const bit = sequenceNumberWrap(this.remoteSequence - packet.header.sequence);
-                if (bit < 32) {
-                    bitfield |= 1 << bit;
-                }
-            }
-        }
-        return bitfield;
+        packet.header.sequence = this.localSequence;
+        packet.header.ack = this.remoteSequence;
+        packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
+        packet.payload = payload;
+        packet.tag = defaultValue(tag, this.localSequence);
+
+        const bytes = packet.toBuffer();
+        this.socket.send(bytes);
+
+        this.localSequence = sequenceNumberWrap(this.localSequence + 1);
     }
 
     /**
@@ -96,39 +109,13 @@ export class NetChannel extends EventDispatcher {
         }
     }
 
-    /**
-     * Construct a packet with the specified payload and send it to the server
-     * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
-     * @param payload The payload to include in the packet
-     * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
-     */
-    send(payload: Uint8Array, tag?: number) {
-        if (payload.length > kPacketMaxPayloadSize) {
-            console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
-            return;
+    private onMessage(evt: MessageEvent) {
+        const data = evt.data;
+        if (data instanceof ArrayBuffer) {
+            this.receive(data);
+        } else {
+            console.log("received:", data);
         }
-        
-        // Allocate the packet
-        const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
-
-        packet.header.sequence = this.localSequence;
-        packet.header.ack = this.remoteSequence;
-        packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
-        packet.payload = payload;
-        packet.tag = defaultValue(tag, this.localSequence);
-
-        const bytes = packet.toBuffer();
-        this.socket.send(bytes);
-
-        this.localSequence = sequenceNumberWrap(this.localSequence + 1);
-    }
-
-    get isOpen() {
-        return this.socket.isOpen;
-    }
-
-    get ping() {
-        return (this.ackCount < kPingMinAcks) ? undefined : this.averageRtt;
     }
 
     private acknowledge(packet: Packet) {
@@ -154,5 +141,18 @@ export class NetChannel extends EventDispatcher {
         } else {
             this.averageRtt = lerp(this.averageRtt, packetRtt, kPingMovingAveragePower);
         }
+    }
+
+    private writeAckBitfield(history: Packet[]) {
+        let bitfield = 0;
+        for (const packet of history) {
+            if (packet.header.sequence !== -1) {
+                const bit = sequenceNumberWrap(this.remoteSequence - packet.header.sequence);
+                if (bit < 32) {
+                    bitfield |= 1 << bit;
+                }
+            }
+        }
+        return bitfield;
     }
 }
