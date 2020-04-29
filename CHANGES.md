@@ -6,6 +6,10 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-30
+##### Morning
+Today I'm studying the NetGraphs and trying to improve the perceived performance of the netcode. I think this will mean supporting renderTime and clientTime contraction and dilation. I.e. the client misses a few frames from the server, or its ping changes, so it dilates time to increase the time difference between renderTime and serverTime. When conditions improve it can contract time to speed things up and return to the optimal time difference. The same goes for client time if the server says that an input arrived late.
+
 ### 2020-04-29
 ##### Evening
 Just worked for a few hours late in the day. Improved clock synchronization using a technique that I haven't seen anywhere. When the Client gets an ack, if it is the fastest round-trip-time so far we recompute server time as 'frame + rtt * 0.5'. This is making the assumption that the smaller the RTT, the less chance for non one-way transmission time to have crept in. E.g. assuming the packets take the same route and have essentially the same one-way time due to the network, you'd get an optimal RTT if the client's packet arrives on the server jussst before the server processes a tick and sends a client reply. In which case that packet would contain an RTT that is almost exactly twice the network one-way time with very little overhead. That is the case that this algorithm tries to detect.
