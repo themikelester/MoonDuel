@@ -3,6 +3,7 @@ import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
 import { defined, defaultValue } from '../util';
+import { clamp } from '../MathHelpers';
 
 export enum NetChannelEvent {
     Receive = "receive",
@@ -58,35 +59,53 @@ export class NetChannel extends EventDispatcher {
         let rttCount = 0;
         let rcvdSize = 0;
         let sentSize = 0;
-        let oldestTime = Infinity;
+        let oldestSentTime = Infinity;
+        let oldestRcvdTime = Infinity;
 
         // Compute all stats over a moving window equal to the length of the packet history
-        for (let i = 0; i < kPacketHistoryLength; i++) {
-            const sentPacket = this.localHistory[i];
-            const age = now - this.localHistory[i].sendTime;
+        for (let i = 0; i < Math.min(this.localSequence, kPacketHistoryLength); i++) {
+            const sequence = this.localSequence - i;
+            const packet = this.localHistory[sequence % kPacketHistoryLength];
+            const invalid = packet.header.sequence !== sequence; // Stale, an old packet from a previous sequence loop
+            if (invalid) continue; 
+
+            const age = now - packet.sendTime;
 
             // @TODO: Account for dropped packets by analyzing local/remote sequence and throwing out packets that don't belong
 
             // Packet loss
             if (age > kMaxRTT) {
-                if (sentPacket.acknowledged) { ackd += 1; }
+                if (packet.acknowledged) { ackd += 1; }
                 else { lost += 1; }
             } 
 
             // Average RTT
-            if (defined(sentPacket.ackTime)) {
-                rttAccum += sentPacket.ackTime - sentPacket.sendTime
+            if (defined(packet.ackTime)) {
+                rttAccum += packet.ackTime - packet.sendTime
                 rttCount += 1;
             }
 
             // Out bandwidth
-            sentSize += sentPacket.size;
-            oldestTime = Math.min(oldestTime, sentPacket.sendTime);
+            sentSize += packet.size;
+            oldestSentTime = Math.min(oldestSentTime, packet.sendTime);
+        }
+
+        // Compute all stats over a moving window equal to the length of the packet history
+        for (let i = 0; i < Math.min(this.remoteSequence, kPacketHistoryLength); i++) {
+            const sequence = this.remoteSequence - i;
+            const packet = this.remoteHistory[sequence % kPacketHistoryLength];
+            const invalid = packet.header.sequence !== sequence; // Stale, an old packet from a previous sequence loop
+            if (invalid) continue; 
+
+            // In bandwidth
+            rcvdSize += packet.size;
+            oldestRcvdTime = Math.min(oldestRcvdTime, packet.rcvdTime);
         }
 
         this.stats.packetLoss = (lost + ackd) > 0 ? lost / (lost + ackd) : 0;
         this.stats.averageRtt = rttCount > 0 ? rttAccum / rttCount : 0;
-        this.stats.outKbps = sentSize / (now - oldestTime) * 8;
+        this.stats.outKbps = sentSize / (now - oldestSentTime) * 8;
+        this.stats.inKbps = rcvdSize / (now - oldestRcvdTime) * 8;
 
         return this.stats;
     }

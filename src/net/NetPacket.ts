@@ -29,6 +29,7 @@ export class Packet {
 
     ackTime?: number;
     sendTime: number;
+    rcvdTime: number;
 
     constructor() {
         this.header = {
@@ -44,6 +45,9 @@ export class Packet {
         this.header.ackBitfield = dataView.getUint32(4, true);
 
         this.size = buffer.byteLength;
+
+        // Assume we just received this packet
+        this.rcvdTime = performance.now();
 
         return kPacketHeaderSize;
     }
