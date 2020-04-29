@@ -9,7 +9,6 @@ export enum NetChannelEvent {
 };
 
 const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
-const kPingMinAcks = 10; // The minimum number of ACKs that we need before computing the Ping/RTT
 const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered lost
 
 const scratchPacketBuffer = new Uint8Array(kPacketMaxPayloadSize + kPacketHeaderSize);
@@ -18,6 +17,8 @@ const scratchPacketDataView = new DataView(scratchPacketBuffer.buffer);
 export class NetChannelStats {
     averageRtt: number = 0; 
     packetLoss: number = 0;
+    inKbps: number = 0;
+    outKbps: number = 0;
 }
 
 /**
@@ -55,27 +56,37 @@ export class NetChannel extends EventDispatcher {
         let lost = 0;
         let rttAccum = 0;
         let rttCount = 0;
+        let rcvdSize = 0;
+        let sentSize = 0;
+        let oldestTime = Infinity;
 
         // Compute all stats over a moving window equal to the length of the packet history
         for (let i = 0; i < kPacketHistoryLength; i++) {
-            const packet = this.localHistory[i];
+            const sentPacket = this.localHistory[i];
             const age = now - this.localHistory[i].sendTime;
+
+            // @TODO: Account for dropped packets by analyzing local/remote sequence and throwing out packets that don't belong
 
             // Packet loss
             if (age > kMaxRTT) {
-                if (packet.acknowledged) { ackd += 1; }
+                if (sentPacket.acknowledged) { ackd += 1; }
                 else { lost += 1; }
             } 
 
             // Average RTT
-            if (defined(packet.ackTime)) {
-                rttAccum += packet.ackTime - packet.sendTime
+            if (defined(sentPacket.ackTime)) {
+                rttAccum += sentPacket.ackTime - sentPacket.sendTime
                 rttCount += 1;
             }
+
+            // Out bandwidth
+            sentSize += sentPacket.size;
+            oldestTime = Math.min(oldestTime, sentPacket.sendTime);
         }
 
         this.stats.packetLoss = (lost + ackd) > 0 ? lost / (lost + ackd) : 0;
         this.stats.averageRtt = rttCount > 0 ? rttAccum / rttCount : 0;
+        this.stats.outKbps = sentSize / (now - oldestTime) * 8;
 
         return this.stats;
     }
@@ -100,9 +111,7 @@ export class NetChannel extends EventDispatcher {
         packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
         packet.tag = defaultValue(tag, this.localSequence);
 
-        const payloadOffset = packet.toBuffer(scratchPacketDataView);
-        scratchPacketBuffer.set(payload, payloadOffset);
-        const bufferSize = payloadOffset + payload.byteLength;
+        const bufferSize = packet.toBuffer(scratchPacketBuffer, scratchPacketDataView, payload);
 
         this.socket.send(scratchPacketBuffer.subarray(0, bufferSize));
 
@@ -124,7 +133,7 @@ export class NetChannel extends EventDispatcher {
 
             // Parse and buffer the packet 
             const packet = this.remoteHistory[sequence % kPacketHistoryLength];
-            const payloadOffset = packet.fromBuffer(view);
+            const payloadOffset = packet.fromBuffer(data, view);
             const payload = new Uint8Array(data, payloadOffset);
 
             if (!defined(packet)) {
