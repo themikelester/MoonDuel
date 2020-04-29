@@ -1,6 +1,6 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
-import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize, kSequenceNumberDomain } from './NetPacket';
+import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize, kSequenceNumberDomain, AckInfo } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
 import { defined, assert, defaultValue } from '../util';
 import { lerp, wrappedDistance } from '../MathHelpers';
@@ -28,7 +28,8 @@ export class NetChannel extends EventDispatcher {
     private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
     private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
 
-    private latestAck?: Packet;
+    private latestAck?: AckInfo;
+    private latestAckSeq?: number;
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
@@ -89,7 +90,7 @@ export class NetChannel extends EventDispatcher {
                 }
             }
 
-            this.fire(NetChannelEvent.Receive, packet.payload, this.latestAck?.tag);
+            this.fire(NetChannelEvent.Receive, packet.payload, this.latestAck);
         } else {
             // Ignore the packet
             console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);
@@ -132,13 +133,15 @@ export class NetChannel extends EventDispatcher {
     }
 
     private acknowledge(packet: Packet) {
-        const packetRtt = packet.acknowledge();
+        const ackInfo = packet.acknowledge();
+        const packetRtt = ackInfo.rttTime;
 
         this.ackCount += 1;
 
         // Track the latest acknowledged packet
-        if (!defined(this.latestAck) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.header.sequence)) { 
-            this.latestAck = packet; 
+        if (!defined(this.latestAckSeq) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAckSeq)) { 
+            this.latestAck = ackInfo; 
+            this.latestAckSeq = packet.header.sequence;
         }
         
         // Compute ping using an exponential moving average, but not until we have enough valid samples.

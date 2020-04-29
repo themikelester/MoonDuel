@@ -5,7 +5,7 @@ import { UserCommandBuffer, UserCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
-import { kPacketMaxPayloadSize } from "./NetPacket";
+import { kPacketMaxPayloadSize, AckInfo } from "./NetPacket";
 import { NetGraph, NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
 
 export enum NetClientState {
@@ -33,10 +33,11 @@ export class NetClient extends EventDispatcher {
     state: NetClientState = NetClientState.Free;
 
     ping?: number = -1;
+
     lastRequestedFrame: number = -1;
     lastReceivedFrame: number = -1;
     lastTransmittedFrame: number = -1;
-    lastAcknowedgedFrame: number = -1;
+    lastAcknowledgedFrame: number = -1;
 
     channel: NetChannel;
 
@@ -108,7 +109,7 @@ export class NetClient extends EventDispatcher {
 
         // Send all unacknowledged user commands 
         // @TODO: This could be smarter, we really only need to send the user commands that the server can still use
-        const oldestCmdFrame = Math.max(this.lastAcknowedgedFrame, frame - 5, 0);
+        const oldestCmdFrame = Math.max(this.lastAcknowledgedFrame, frame - 5, 0);
         for (let i = frame; i >= oldestCmdFrame; i--) {
             const cmd = this.userCommands.getUserCommand(i);
             if (!defined(cmd)) break;
@@ -203,16 +204,16 @@ export class NetClient extends EventDispatcher {
         return assertDefined(cmd);
     }
 
-    onMessage(msg: Uint8Array, lastAcknowledgedFrame: number | undefined) {
+    onMessage(msg: Uint8Array, lastAcknowledged?: AckInfo) {
         this.ping = this.channel.ping;
         
-        if (defined(lastAcknowledgedFrame)) {
-            this.lastAcknowedgedFrame = lastAcknowledgedFrame;
+        if (defined(lastAcknowledged)) {
+            this.lastAcknowledgedFrame = lastAcknowledged.tag;
         }
         
         if (msg[0] === 0) this.receiveServerFrame(msg);
         else this.receiveClientFrame(msg);
 
-        this.fire(NetClientEvents.Message, msg);
+        this.fire(NetClientEvents.Message, msg, lastAcknowledged);
     }
 }

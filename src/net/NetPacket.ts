@@ -13,6 +13,13 @@ interface PacketHeader {
     ackBitfield: number;
 }
 
+export interface AckInfo {
+    tag: number;
+    rttTime: number;
+    sentTime: number;
+    ackTime: number;
+}
+
 export class Packet {
     header: PacketHeader;
     payload: Uint8Array;
@@ -66,9 +73,14 @@ export class Packet {
         return this.bytes.subarray(0, kPacketHeaderSize + this.payload.byteLength);
     }
 
-    acknowledge(): number {
+    acknowledge(): AckInfo {
         this.ackTime = performance.now();
-        return this.ackTime - this.sendTime;
+        return { 
+            tag: this.tag,
+            ackTime: this.ackTime,
+            sentTime: this.sendTime,
+            rttTime: this.ackTime - this.sendTime,
+        }
     }
 }
 

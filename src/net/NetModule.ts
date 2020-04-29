@@ -8,6 +8,7 @@ import { assert, defined } from "../util";
 
 import { NetGraph } from './NetDebug';
 import { DebugMenu } from "../DebugMenu";
+import { AckInfo } from "./NetPacket";
 
 interface ClientDependencies {
     clock: Clock;
@@ -28,6 +29,8 @@ export class NetModuleClient {
 
     private clientAhead: number = 0;
     private renderDelay: number = 0;
+
+    private fastestAck?: AckInfo;
 
     initialize(context: ClientDependencies) {
         this.context = context;
@@ -51,19 +54,24 @@ export class NetModuleClient {
         })
     }
 
-    onMessage(data: Uint8Array) {
-        // Once our ping is calculated, sync our simulation time to that of the server
-        if (!this.synced && defined(this.client.ping)) {
-            const latestFrame = this.client.lastReceivedFrame;
-            const latestTime = latestFrame * this.context.clock.simDt;
-            const serverTime = latestTime + (0.5 * this.client.ping);
+    onMessage(data: Uint8Array, lastAck?: AckInfo) {
+        if (defined(lastAck)) {
+            if (!this.fastestAck || lastAck.rttTime < this.fastestAck.rttTime) {
+                this.fastestAck = lastAck;
 
+                // Compute server time based on the packet with the lowest RTT, which should yield the most accurate result
+                const serverTime = this.client.lastReceivedFrame * this.context.clock.simDt + lastAck.rttTime * 0.5;
+                this.context.clock.syncToServerTime(serverTime);
+            }
+        }
+
+        // Once our ping is calculated, adjust client and render times
+        if (!this.synced && defined(this.client.ping)) {
             this.clientAhead = this.client.ping * 0.5 + this.context.clock.simDt * 1;
             this.renderDelay = this.client.ping * 0.5 + this.context.clock.simDt * 3;
 
             this.context.clock.setClientDelay(-this.clientAhead);
             this.context.clock.setRenderDelay(this.renderDelay);
-            this.context.clock.syncToServerTime(serverTime);
 
             this.synced = true;
         }
