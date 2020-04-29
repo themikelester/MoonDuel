@@ -20,6 +20,7 @@ const kPingMovingAveragePower = 1.0/10.0;
 export class NetChannel extends EventDispatcher {
     private averageRtt: number = 0; // Moving average of packet round-trip-time
     private ackCount: number = 0;
+    private lostCount: number = 0;
 
     private socket: WebUdpSocket;
 
@@ -28,15 +29,11 @@ export class NetChannel extends EventDispatcher {
     private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
     private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
 
-    private latestAck = {} as { sequence: number, info: AckInfo };
+    private latestAck = {} as { sequence?: number, info?: AckInfo };
 
-    get isOpen() {
-        return this.socket.isOpen;
-    }
-
-    get ping() {
-        return (this.ackCount < kPingMinAcks) ? undefined : this.averageRtt;
-    }
+    get isOpen() { return this.socket.isOpen; }
+    get ping() { return (this.ackCount < kPingMinAcks) ? undefined : this.averageRtt; }
+    get packetLoss() { return this.lostCount / (this.lostCount + this.ackCount); }
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
@@ -54,6 +51,9 @@ export class NetChannel extends EventDispatcher {
             console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
             return;
         }
+
+        const oldestPacket = this.localHistory[this.localSequence % kPacketHistoryLength];
+        if (!oldestPacket.acknowledged) this.lostCount += 1;
         
         // Allocate the packet
         const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
