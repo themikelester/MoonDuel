@@ -28,8 +28,7 @@ export class NetChannel extends EventDispatcher {
     private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
     private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
 
-    private latestAck?: AckInfo;
-    private latestAckSeq?: number;
+    private latestAck = {} as { sequence: number, info: AckInfo };
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
@@ -139,9 +138,9 @@ export class NetChannel extends EventDispatcher {
         this.ackCount += 1;
 
         // Track the latest acknowledged packet
-        if (!defined(this.latestAckSeq) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAckSeq)) { 
-            this.latestAck = ackInfo; 
-            this.latestAckSeq = packet.header.sequence;
+        if (!defined(this.latestAck.sequence) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.sequence)) { 
+            this.latestAck.info = ackInfo; 
+            this.latestAck.sequence = packet.header.sequence;
         }
         
         // Compute ping using an exponential moving average, but not until we have enough valid samples.
