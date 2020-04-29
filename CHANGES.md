@@ -6,6 +6,14 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-04-29
+##### Evening
+Just worked for a few hours late in the day. Improved clock synchronization using a technique that I haven't seen anywhere. When the Client gets an ack, if it is the fastest round-trip-time so far we recompute server time as 'frame + rtt * 0.5'. This is making the assumption that the smaller the RTT, the less chance for non one-way transmission time to have crept in. E.g. assuming the packets take the same route and have essentially the same one-way time due to the network, you'd get an optimal RTT if the client's packet arrives on the server jussst before the server processes a tick and sends a client reply. In which case that packet would contain an RTT that is almost exactly twice the network one-way time with very little overhead. That is the case that this algorithm tries to detect.
+
+I also added a bunch of new stat computation to NetChannel, which should be useful in the coming days. We keep an 8 second buffer (for 60hz messages) and compute all packets in a sliding window based on that history. So ping is computed as the average RTT of all packets received in the last 8 seconds. I also compute packet loss, and in/out bandwidth in similar fashion. 
+
+Found a few new good resources to read up on. The TRIBES networking model, which I've seen referenced in a few places: https://www.gamedevs.org/uploads/tribes-networking-model.pdf. And the slides from the Bungie Halo: Reach networking talk: http://downloads.bungie.net/presentations/David_Aldridge_Programming_Gameplay_Networking_Halo_final_pub_without_video.pptx
+
 ### 2020-04-28
 ##### Morning
 Today I'm going to work on improving the user command -> server pipeline. I spent the morning reading https://leanpub.com/development-and-deployment-of-multiplayer-online-games-vol1, which didn't contain as much useful information as I was hoping. But I did rediscover https://developer.valvesoftware.com/wiki/Latency_Compensating_Methods_in_Client/Server_In-game_Protocol_Design_and_Optimization, which showed me that Source does not include timestamps/tickstamps on their user command packets sent from client to server. The server just processes them as soon as it can. This approach seems easier, but it makes less sense and seems less desirable to me than the Overwatch approach (where the server expects input for each tick, and uses most recent only if it is late or missing). So today I'll implement command duplication, which means sending all non-acknowledged commands in each packet. Afterwards I may start on time dilation/contraction, which would be necessary for the Overwatch approach. 
