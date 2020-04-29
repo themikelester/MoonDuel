@@ -124,8 +124,8 @@ export class NetClient extends EventDispatcher {
 
         this.channel.send(this.msgBuffer.subarray(0, size), frame);
         this.lastTransmittedFrame = frame;
-
-        // @TODO: Send all unacknowledged user commands that are still buffered
+        
+        this.channel.computeStats();
     }
 
     receiveClientFrame(msg: Uint8Array) {
@@ -170,6 +170,8 @@ export class NetClient extends EventDispatcher {
 
         this.channel.send(this.msgBuffer.subarray(0, snapSize + 1), snap.frame);
         this.lastTransmittedFrame = snap.frame;
+        
+        this.channel.computeStats();
     }
 
     receiveServerFrame(msg: Uint8Array) {

@@ -3,7 +3,6 @@ import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
 import { defined, defaultValue } from '../util';
-import { lerp } from '../MathHelpers';
 
 export enum NetChannelEvent {
     Receive = "receive",
@@ -11,19 +10,22 @@ export enum NetChannelEvent {
 
 const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
 const kPingMinAcks = 10; // The minimum number of ACKs that we need before computing the Ping/RTT
-const kPingMovingAveragePower = 1.0/10.0;
 const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered lost
 
 const scratchPacketBuffer = new Uint8Array(kPacketMaxPayloadSize + kPacketHeaderSize);
 const scratchPacketDataView = new DataView(scratchPacketBuffer.buffer);
+
+export class NetChannelStats {
+    averageRtt: number = 0; 
+    packetLoss: number = 0;
+}
 
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
  * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
  */
 export class NetChannel extends EventDispatcher {
-    private averageRtt: number = 0; // Moving average of packet round-trip-time
-    private ackCount: number = 0;
+    public stats = new NetChannelStats();
 
     private socket: WebUdpSocket;
 
@@ -35,24 +37,7 @@ export class NetChannel extends EventDispatcher {
     private latestAck = {} as { sequence?: number, info?: AckInfo };
 
     get isOpen() { return this.socket.isOpen; }
-    get ping() { return (this.ackCount < kPingMinAcks) ? undefined : this.averageRtt; }
-
-    get packetLoss() {
-        const now = performance.now();
-        let sent = 0;
-        let lost = 0;
-
-        for (let i = 0; i < kPacketHistoryLength; i++) {
-            const packet = this.localHistory[i];
-            const age = now - this.localHistory[i].sendTime;
-            if (age > kMaxRTT) {
-                sent += 1;
-                if (!packet.acknowledged) { lost += 1; }
-            } 
-        }
-
-        return sent > 0 ? lost / sent : 0;
-    }
+    get ping() { return this.stats.averageRtt > 0 ? this.stats.averageRtt : undefined; }
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
@@ -62,6 +47,37 @@ export class NetChannel extends EventDispatcher {
             this.localHistory[i] = new Packet();
             this.remoteHistory[i] = new Packet();
         }
+    }
+
+    computeStats() {
+        const now = performance.now();
+        let ackd = 0;
+        let lost = 0;
+        let rttAccum = 0;
+        let rttCount = 0;
+
+        // Compute all stats over a moving window equal to the length of the packet history
+        for (let i = 0; i < kPacketHistoryLength; i++) {
+            const packet = this.localHistory[i];
+            const age = now - this.localHistory[i].sendTime;
+
+            // Packet loss
+            if (age > kMaxRTT) {
+                if (packet.acknowledged) { ackd += 1; }
+                else { lost += 1; }
+            } 
+
+            // Average RTT
+            if (defined(packet.ackTime)) {
+                rttAccum += packet.ackTime - packet.sendTime
+                rttCount += 1;
+            }
+        }
+
+        this.stats.packetLoss = (lost + ackd) > 0 ? lost / (lost + ackd) : 0;
+        this.stats.averageRtt = rttCount > 0 ? rttAccum / rttCount : 0;
+
+        return this.stats;
     }
 
     /**
@@ -146,26 +162,11 @@ export class NetChannel extends EventDispatcher {
 
     private acknowledge(packet: Packet) {
         const ackInfo = packet.acknowledge();
-        const packetRtt = ackInfo.rttTime;
-
-        this.ackCount += 1;
 
         // Track the latest acknowledged packet
         if (!defined(this.latestAck.sequence) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.sequence)) { 
             this.latestAck.info = ackInfo; 
             this.latestAck.sequence = packet.header.sequence;
-        }
-        
-        // Compute ping using an exponential moving average, but not until we have enough valid samples.
-        // Sum initial samples so that they can be averaged as the first sample point for the moving average. 
-        if (this.ackCount <= kPingMinAcks) {
-            this.averageRtt += packetRtt;
-
-            if (this.ackCount === kPingMinAcks) {
-                this.averageRtt /= kPingMinAcks;
-            }
-        } else {
-            this.averageRtt = lerp(this.averageRtt, packetRtt, kPingMovingAveragePower);
         }
     }
 
