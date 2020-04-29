@@ -9,9 +9,10 @@ export enum NetChannelEvent {
     Receive = "receive",
 };
 
-const kPacketHistoryLength = 37500; // Approximately 1 minute worth of packets at 60hz
+const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
 const kPingMinAcks = 10; // The minimum number of ACKs that we need before computing the Ping/RTT
 const kPingMovingAveragePower = 1.0/10.0;
+const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered lost
 
 const scratchPacketBuffer = new Uint8Array(kPacketMaxPayloadSize + kPacketHeaderSize);
 const scratchPacketDataView = new DataView(scratchPacketBuffer.buffer);
@@ -23,7 +24,6 @@ const scratchPacketDataView = new DataView(scratchPacketBuffer.buffer);
 export class NetChannel extends EventDispatcher {
     private averageRtt: number = 0; // Moving average of packet round-trip-time
     private ackCount: number = 0;
-    private lostCount: number = 0;
 
     private socket: WebUdpSocket;
 
@@ -36,7 +36,23 @@ export class NetChannel extends EventDispatcher {
 
     get isOpen() { return this.socket.isOpen; }
     get ping() { return (this.ackCount < kPingMinAcks) ? undefined : this.averageRtt; }
-    get packetLoss() { return this.lostCount / (this.lostCount + this.ackCount); }
+
+    get packetLoss() {
+        const now = performance.now();
+        let sent = 0;
+        let lost = 0;
+
+        for (let i = 0; i < kPacketHistoryLength; i++) {
+            const packet = this.localHistory[i];
+            const age = now - this.localHistory[i].sendTime;
+            if (age > kMaxRTT) {
+                sent += 1;
+                if (!packet.acknowledged) { lost += 1; }
+            } 
+        }
+
+        return sent > 0 ? lost / sent : 0;
+    }
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
@@ -59,9 +75,6 @@ export class NetChannel extends EventDispatcher {
             console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
             return;
         }
-
-        const oldestPacket = this.localHistory[this.localSequence % kPacketHistoryLength];
-        if (!oldestPacket.acknowledged) this.lostCount += 1;
         
         // Allocate the packet
         const packet = this.localHistory[this.localSequence % kPacketHistoryLength];

@@ -26,8 +26,8 @@ export class Packet {
 
     get acknowledged() { return defined(this.ackTime); }
 
-    private ackTime?: number;
-    private sendTime: number;
+    ackTime?: number;
+    sendTime: number;
 
     constructor() {
         this.header = {
