@@ -1,17 +1,20 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
-import { sequenceNumberGreaterThan, sequenceNumberWrap, PacketBuffer, Packet, kPacketMaxPayloadSize, kSequenceNumberDomain, AckInfo } from './NetPacket';
+import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined, assert, defaultValue } from '../util';
-import { lerp, wrappedDistance } from '../MathHelpers';
+import { defined, defaultValue } from '../util';
+import { lerp } from '../MathHelpers';
 
 export enum NetChannelEvent {
     Receive = "receive",
 };
 
-const kPacketHistoryLength = 32;
+const kPacketHistoryLength = 37500; // Approximately 1 minute worth of packets at 60hz
 const kPingMinAcks = 10; // The minimum number of ACKs that we need before computing the Ping/RTT
 const kPingMovingAveragePower = 1.0/10.0;
+
+const scratchPacketBuffer = new Uint8Array(kPacketMaxPayloadSize + kPacketHeaderSize);
+const scratchPacketDataView = new DataView(scratchPacketBuffer.buffer);
 
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
@@ -26,8 +29,8 @@ export class NetChannel extends EventDispatcher {
 
     private remoteSequence = -1;
     private localSequence = 0;
-    private localHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
-    private remoteHistory: Packet[] = new PacketBuffer(kPacketHistoryLength).packets;
+    private localHistory: Packet[] = [];
+    private remoteHistory: Packet[] = [];
 
     private latestAck = {} as { sequence?: number, info?: AckInfo };
 
@@ -38,6 +41,11 @@ export class NetChannel extends EventDispatcher {
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
         this.socket.on(WebUdpEvent.Message, this.onMessage.bind(this));
+
+        for (let i = 0; i < kPacketHistoryLength; i++) {
+            this.localHistory[i] = new Packet();
+            this.remoteHistory[i] = new Packet();
+        }
     }
 
     /**
@@ -61,11 +69,13 @@ export class NetChannel extends EventDispatcher {
         packet.header.sequence = this.localSequence;
         packet.header.ack = this.remoteSequence;
         packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
-        packet.payload = payload;
         packet.tag = defaultValue(tag, this.localSequence);
 
-        const bytes = packet.toBuffer();
-        this.socket.send(bytes);
+        const payloadOffset = packet.toBuffer(scratchPacketDataView);
+        scratchPacketBuffer.set(payload, payloadOffset);
+        const bufferSize = payloadOffset + payload.byteLength;
+
+        this.socket.send(scratchPacketBuffer.subarray(0, bufferSize));
 
         this.localSequence = sequenceNumberWrap(this.localSequence + 1);
     }
@@ -84,7 +94,10 @@ export class NetChannel extends EventDispatcher {
             this.remoteSequence = sequence;
 
             // Parse and buffer the packet 
-            const packet = this.remoteHistory[sequence % kPacketHistoryLength].fromBuffer(data);
+            const packet = this.remoteHistory[sequence % kPacketHistoryLength];
+            const payloadOffset = packet.fromBuffer(view);
+            const payload = new Uint8Array(data, payloadOffset);
+
             if (!defined(packet)) {
                 console.warn('NetChannel: Received packet that was too large for buffer. Ignoring.');
                 return;
@@ -102,7 +115,7 @@ export class NetChannel extends EventDispatcher {
                 }
             }
 
-            this.fire(NetChannelEvent.Receive, packet.payload, this.latestAck.info);
+            this.fire(NetChannelEvent.Receive, payload, this.latestAck.info);
         } else {
             // Ignore the packet
             console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);
