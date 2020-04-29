@@ -122,7 +122,7 @@ export class Client {
             // @TODO: Avatar prediction
 
             if (this.net.client.state === NetClientState.Connected) {
-                const cmd = assertDefined(this.userCommands.getUserCommand());
+                const cmd = assertDefined(this.userCommands.getUserCommand(this.clock.simFrame));
                 this.net.client.transmitClientFrame(this.clock.simFrame, cmd);
             }
         }
