@@ -70,86 +70,75 @@ export class NetGraph {
         const markerX = kTextX + ctx.measureText(label).width;
 
         this.dom.appendChild(canvas);
-
-        let lastServerFrame = 0;
-        let lastRenderFrame: number | undefined = undefined;
+    
+        const frameStatus = new Array(kTimeRangeFrames).fill(NetGraphPacketStatus.Missing);
+        let lastFrame = 0;
 
         return {
             dom: canvas,
 
             setPacketStatus(frame: number, status: NetGraphPacketStatus) {
-                if (frame < lastServerFrame - kTimeRangeFrames/2 || frame >= lastServerFrame + kTimeRangeFrames/2) {
-                    return;
-                }
-
-                const x = kGraphX + (frame - lastServerFrame + kTimeRangeFrames/2) * kFrameWidth;
-
-                // Determine color based on status and other factors
-                switch(status) {
-                    case NetGraphPacketStatus.Missing: ctx.fillStyle = missing; break;
-                    case NetGraphPacketStatus.Received: ctx.fillStyle = received; break;
-                    case NetGraphPacketStatus.Filled: ctx.fillStyle = filled; break;
-                    case NetGraphPacketStatus.Late: ctx.fillStyle = toolate; break;
-                    default: ctx.fillStyle = 'red';
-                }
-
-                ctx.fillRect(x, kGraphY, kFrameWidth, kGraphHeight);
-
-                ctx.strokeStyle = 'white';
-                ctx.strokeRect(x, kGraphY, kFrameWidth, kGraphHeight);
+                frameStatus[frame % kTimeRangeFrames] = status;
             },
 
             update(ping: number | undefined, serverTime: number, renderTime: number, clientTime: number): void {
-                const serverFrame = Math.floor(serverTime / kFrameLengthMs);
-                const renderFrame = defined(renderTime) ? renderTime / kFrameLengthMs : undefined;
-                const clientFrame = defined(clientTime) ? clientTime / kFrameLengthMs : undefined;
-
-                const df = serverFrame - lastServerFrame;
-                const dx = df * kFrameWidth;
-                
-                // Move the old graph dx pixels to the left
-                ctx.drawImage(canvas, kGraphX + dx, kGraphY, kGraphWidth - dx, kGraphHeight, kGraphX, kGraphY, kGraphWidth - dx, kGraphHeight);
-
-                // Clear the time marker area
                 ctx.fillStyle = bg;
-                ctx.fillRect(markerX, kTextY, kWidth - markerX, kTimeMarkerHeight);
+                ctx.fillRect(kGraphX, kGraphY, kGraphWidth, kGraphHeight);
 
-                // Write the current ping to the top right
-                if (defined(ping)) {
-                    const pingStr = ping.toFixed(1).padStart(5);
+                const startFrame = Math.floor(serverTime / kFrameLengthMs) - kTimeRangeFrames / 2;
+                const endFrame = startFrame + kTimeRangeFrames;
 
-                    ctx.fillStyle = fg;
-                    ctx.textAlign = 'right';
-                    ctx.fillText(`Ping: ${pingStr}`, kWidth - kTextX, kTextY);
+                let frame = startFrame;
+                while (frame <= endFrame) {
+                    const t = frame * kFrameLengthMs;
+                    const x = kGraphX + Math.round(((t - serverTime) / (kTimeRangeFrames * kFrameLengthMs) + 0.5) * kGraphWidth);
+
+                    // Reset the states of frames just now appearing on the graph
+                    if (frame > lastFrame) { this.setPacketStatus(frame, NetGraphPacketStatus.Missing); }
+
+                    ctx.fillStyle = 'grey';
+                    ctx.fillRect(x, kGraphY, 2, kGraphHeight);
+
+                    // Determine color based on status and other factors
+                    const status: NetGraphPacketStatus = frameStatus[frame % kTimeRangeFrames];
+                    switch(status) {
+                        case NetGraphPacketStatus.Missing: ctx.fillStyle = missing; break;
+                        case NetGraphPacketStatus.Received: ctx.fillStyle = received; break;
+                        case NetGraphPacketStatus.Filled: ctx.fillStyle = filled; break;
+                        case NetGraphPacketStatus.Late: ctx.fillStyle = toolate; break;
+                        default: ctx.fillStyle = 'red';
+                    }
+
+                    ctx.fillRect(x - 4, kGraphY + kGraphHeight * 0.25, 10, kGraphHeight * 0.5);
+
+                    frame += 1;
                 }
 
-                // Draw the server time
+                // Server time
                 ctx.fillStyle = 'red';
-                const serverX = kGraphX + (kTimeRangeFrames / 2) * kFrameWidth;
-                ctx.fillRect(serverX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
+                const serverX = kGraphX + 0.5 * kGraphWidth;
+                ctx.fillRect(serverX, kGraphY, 4, kGraphHeight);
 
-                if (defined(renderFrame)) {
-                    // Draw the render time
-                    ctx.fillStyle = 'purple';
-                    const renderX = kGraphX + (renderFrame - serverFrame + kTimeRangeFrames / 2) * kFrameWidth;
-                    ctx.fillRect(renderX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
-                }
+                // Client time
+                ctx.fillStyle = 'yellow';
+                const clientX = kGraphX + ((clientTime - serverTime) / (kTimeRangeFrames * kFrameLengthMs) + 0.5) * kGraphWidth;
+                ctx.fillRect(clientX, kGraphY, 4, kGraphHeight);
 
-                if (defined(clientFrame)) {
-                    // Draw the render time
-                    ctx.fillStyle = 'yellow';
-                    const renderX = kGraphX + (clientFrame - serverFrame + kTimeRangeFrames / 2) * kFrameWidth;
-                    ctx.fillRect(renderX, kTextY, kTimeMarkerWidth, kTimeMarkerHeight);
-                }
+                // Render time
+                ctx.fillStyle = 'purple';
+                const renderX = kGraphX + ((renderTime - serverTime) / (kTimeRangeFrames * kFrameLengthMs) + 0.5) * kGraphWidth;
+                ctx.fillRect(renderX, kGraphY, 4, kGraphHeight);
 
-                lastServerFrame = serverFrame;
-                lastRenderFrame = renderFrame;
+                lastFrame = endFrame;
+                
+                // // Write the current ping to the top right
+                // if (defined(ping)) {
+                //     const pingStr = ping.toFixed(1).padStart(5);
 
-                // ... and draw the latest information which is dx pixels wide
-                ctx.fillStyle = missing;
-                for (let i = 0; i < df; i++) {
-                    this.setPacketStatus(serverFrame + kTimeRangeFrames / 2 - 1 - i, NetGraphPacketStatus.Missing);
-                }
+                //     ctx.fillStyle = fg;
+                //     ctx.textAlign = 'right';
+                //     ctx.fillText(`Ping: ${pingStr}`, kWidth - kTextX, kTextY);
+                // }
             }
         };
     }
