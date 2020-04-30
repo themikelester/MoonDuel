@@ -6,11 +6,18 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-05-01
+##### Morning
+Today I'm going to spend (hopefully just a few minutes) fixing up NetGraph, then work on client side prediction. By the end of the day I'd like to have prediction working with instant reconciliation (in the case of a mispredict, we just immediately snap to the server's position, instead of interpolating). 
+
 ### 2020-04-30
 ##### Morning
 Today I'm studying the NetGraphs and trying to improve the perceived performance of the netcode. I think this will mean supporting renderTime and clientTime contraction and dilation. I.e. the client misses a few frames from the server, or its ping changes, so it dilates time to increase the time difference between renderTime and serverTime. When conditions improve it can contract time to speed things up and return to the optimal time difference. The same goes for client time if the server says that an input arrived late (as detailed in https://youtu.be/W3aieHjyNvw?t=1530).
 
 I think a good metric for success would be making it playable at 5% packet loss with 200ms ping (using the NetworkShaper.sh script). As of now, using both packet loss and delay in the shaper causes ping to skyrocket to around 1.5 seconds. I have no idea why this is happening, but it may be due to congestion (either real or artically induced by the shaper, not sure). So I may need to optimize packet size today.
+
+##### Next Morning
+Yesterday I added serialization functions (writeInt, writeByte, etc.) to NetPacket, and used these to implement proper serialization for UserCommand and Snapshot. The in/out bandwidth is now about 10/125 kbps, down from 200/325 kbps. The network shaping issues mentioned above don't seem to be a factor any longer. This must have been due to bandwidth limitations. I also improved NetGraph so that the serverTime/clientTime/renderTime are constant and the frames scroll by. This is going to make it easier to visualize when clientTime/renderTime are dilated/contracted. There are still some bugs that I need to fix up this morning, like re-drawing ping and resetting the state of frames that are no longer visible.
 
 ### 2020-04-29
 ##### Evening
