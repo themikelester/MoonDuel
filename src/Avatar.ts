@@ -16,6 +16,7 @@ import { UserCommandBuffer } from "./UserCommand";
 import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
+import { MsgBuf, Msg } from "./net/NetPacket";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -76,6 +77,43 @@ export class AvatarState {
         vec3.copy(result.velocity, a.velocity);
         vec3.copy(result.orientation, a.orientation);
         result.flags = a.flags;
+    }
+
+    static serialize(buf: MsgBuf, state: AvatarState) {
+        Msg.writeString(buf, state.clientId || '');
+
+        Msg.writeFloat(buf, state.pos[0]);
+        Msg.writeFloat(buf, state.pos[1]);
+        Msg.writeFloat(buf, state.pos[2]);
+        
+        Msg.writeFloat(buf, state.velocity[0]);
+        Msg.writeFloat(buf, state.velocity[1]);
+        Msg.writeFloat(buf, state.velocity[2]);
+
+        Msg.writeFloat(buf, state.orientation[0]);
+        Msg.writeFloat(buf, state.orientation[1]);
+        Msg.writeFloat(buf, state.orientation[2]);
+
+        Msg.writeByte(buf, state.flags);
+    }
+    
+    static deserialize(buf: MsgBuf, state: AvatarState) {
+        const clientId = Msg.readString(buf);
+        state.clientId = clientId === '' ? undefined : clientId;
+
+        state.pos[0] = Msg.readFloat(buf);
+        state.pos[1] = Msg.readFloat(buf);
+        state.pos[2] = Msg.readFloat(buf);
+        
+        state.velocity[0] = Msg.readFloat(buf);
+        state.velocity[1] = Msg.readFloat(buf);
+        state.velocity[2] = Msg.readFloat(buf);
+
+        state.orientation[0] = Msg.readFloat(buf);
+        state.orientation[1] = Msg.readFloat(buf);
+        state.orientation[2] = Msg.readFloat(buf);
+
+        state.flags = Msg.readByte(buf);
     }
 }
 

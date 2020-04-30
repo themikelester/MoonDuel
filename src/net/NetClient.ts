@@ -162,8 +162,7 @@ export class NetClient extends EventDispatcher {
         Msg.writeByte(buf, 0); // Server frame
 
         // Send the latest state
-        const snapSize = Snapshot.serialize(buf.data.subarray(1), snap);
-        Msg.skip(buf, snapSize);
+        Snapshot.serialize(buf, snap);
 
         this.channel.send(buf.data.subarray(0, buf.offset), snap.frame);
         this.lastTransmittedFrame = snap.frame;
@@ -173,7 +172,11 @@ export class NetClient extends EventDispatcher {
 
     receiveServerFrame(msg: Uint8Array) {
         if (msg.byteLength > 1) {
-            const snap = Snapshot.deserialize(msg.subarray(1));
+            const buf = MsgBuf.create(msg);
+            Msg.skip(buf, 1);
+
+            const snap = new Snapshot();
+            Snapshot.deserialize(buf, snap);
             this.snapshot.setSnapshot(snap);
 
             this.lastReceivedFrame = snap.frame;

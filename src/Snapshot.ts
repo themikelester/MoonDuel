@@ -2,6 +2,7 @@ import { Clock } from "./Clock";
 import { AvatarState, AvatarSystemServer } from "./Avatar";
 import { defined, assert } from "./util";
 import { delerp } from "./MathHelpers";
+import { MsgBuf, Msg } from "./net/NetPacket";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -32,18 +33,18 @@ export class Snapshot {
         return result;
     }
 
-    static serialize(dst: Uint8Array, snap: Snapshot): number {
-        // @HACK
-        const str = JSON.stringify(snap);
-        const buf = encoder.encode(str);
-        dst.set(buf);
-        return buf.byteLength;
+    static serialize(buf: MsgBuf, snap: Snapshot) {
+        Msg.writeInt(buf, snap.frame);
+        for (let i = 0; i < this.kAvatarCount; i++) {
+            AvatarState.serialize(buf, snap.avatars[i]);
+        }
     }
-    
-    static deserialize(data: Uint8Array): Snapshot {
-        // @HACK
-        const str = decoder.decode(data);
-        return JSON.parse(str);
+
+    static deserialize(buf: MsgBuf, snap: Snapshot) {
+        snap.frame = Msg.readInt(buf);
+        for (let i = 0; i < this.kAvatarCount; i++) {
+            AvatarState.deserialize(buf, snap.avatars[i]);
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-import { defined } from "../util";
+import { defined, assert } from "../util";
 
 export type SequenceNumber = number;
 
@@ -91,6 +91,9 @@ export interface MsgBuf {
     offset: number;
     allowOverflow: boolean;
     overflowed: boolean;
+
+    // @HACK:
+    dataView: DataView;
 }
 
 /**
@@ -104,6 +107,9 @@ export namespace MsgBuf {
             offset: 0,
             allowOverflow,
             overflowed: false,
+
+            // @HACK:
+            dataView: new DataView(buf.buffer, buf.byteOffset, buf.byteLength),
         }
     }
 
@@ -207,6 +213,21 @@ export namespace Msg {
         writeShort(buf, Math.round(angleRad * 65536/(Math.PI * 2)))
     }
 
+    // @HACK
+    export function writeFloat(buf: MsgBuf, f: number) {
+        const offset = MsgBuf.alloc(buf, 4);
+        buf.dataView.setFloat32(offset, f, true);
+    }
+
+    // @HACK
+    export function writeString(buf: MsgBuf, str: string) {
+        assert(str.length < 256);
+        Msg.writeByte(buf, str.length);
+        for (let i = 0; i < str.length; i++) {
+            Msg.writeByte(buf, str.charCodeAt(i));
+        }
+    }
+
     export function skip(buf: MsgBuf, c: number) {
         MsgBuf.alloc(buf, c);
     }
@@ -239,5 +260,19 @@ export namespace Msg {
 
     export function readAngle16(buf: MsgBuf) {
         return readShort(buf) * (Math.PI * 2) / 65536;
+    }
+
+    // @HACK
+    export function readFloat(buf: MsgBuf) {
+        const offset = MsgBuf.alloc(buf, 4);
+        return buf.dataView.getFloat32(offset, true);
+    }
+
+    // @HACK
+    export function readString(buf: MsgBuf) {
+        const strLen = Msg.readByte(buf);
+        const str = String.fromCharCode.apply(null, buf.data.subarray(buf.offset, strLen));
+        Msg.skip(buf, strLen);
+        return str;
     }
 }
