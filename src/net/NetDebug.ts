@@ -88,14 +88,19 @@ export class NetGraph {
                 let frame = startFrame;
                 while (frame <= endFrame) {
                     const t = frame * kFrameLengthMs;
-                    const x = kGraphX + Math.round(((t - serverTime) / (kTimeRangeFrames * kFrameLengthMs) + 0.5) * kGraphWidth);
+                    const gx = Math.round(((t - serverTime) / (kTimeRangeFrames * kFrameLengthMs) + 0.5) * kGraphWidth);
+                    const x = kGraphX + gx;
                     frame += 1;
+
+                    if (gx <= 0 || gx >= kGraphWidth) {
+                        continue;
+                    }
 
                     // Reset the states of frames just now appearing on the graph
                     if (frame > lastFrame) { this.setPacketStatus(frame, NetGraphPacketStatus.Missing); }
 
                     ctx.fillStyle = 'grey';
-                    ctx.fillRect(x, kGraphY, 2, kGraphHeight);
+                    ctx.fillRect(x - 1, kGraphY, 2, kGraphHeight);
 
                     // Determine color based on status and other factors
                     const status: NetGraphPacketStatus = frameStatus[frame % kTimeRangeFrames];
@@ -107,7 +112,9 @@ export class NetGraph {
                         default: ctx.fillStyle = 'red';
                     }
 
-                    ctx.fillRect(x - 4, kGraphY + kGraphHeight * 0.25, 10, kGraphHeight * 0.5);
+                    const radius = 4;
+                    const left = Math.min(radius, x - kGraphX)
+                    ctx.fillRect(x - left, kGraphY + kGraphHeight * 0.25, left + radius, kGraphHeight * 0.5);
                 }
 
                 // Server time
