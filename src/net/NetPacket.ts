@@ -129,6 +129,7 @@ export namespace SizeBuf {
     export function clear(buf: SizeBuf) {
         buf.offset = 0;
         buf.overflowed = false;
+        return buf;
     }
 }
 
@@ -138,9 +139,6 @@ export namespace Msg {
 
     const kMaxShort = 2**15 - 1;
     const kMinShort = -(2**15);
-
-    const kMaxUint = 2**32 - 1;
-    const kMaxUshort = 2**16 - 1;
 
     export function writeChar(buf: SizeBuf, c: number) {
         // @TODO: Typescript declarations for an ENV struct, which would replace version.ts
@@ -152,6 +150,20 @@ export namespace Msg {
                 throw new Error('Msg.writeInt: type error');
 
             if (c < -128 || c > 127) 
+                throw new Error('Msg.writeChar: range error');
+        }
+
+        const offset = SizeBuf.alloc(buf, 1);
+        buf.data[offset] = c;
+    }
+
+    export function writeByte(buf: SizeBuf, c: number) {
+        //@ts-ignore
+        if (ENV.PARANOID) {
+            if (!Number.isInteger(c)) 
+                throw new Error('Msg.writeInt: type error');
+
+            if (c < 0 || c > 255) 
                 throw new Error('Msg.writeChar: range error');
         }
 
@@ -191,6 +203,10 @@ export namespace Msg {
         buf.data[offset + 3] = (c >> 24) & 0xFF;
     }
 
+    export function writeAngle16(buf: SizeBuf, angleRad: number) {
+        writeShort(buf, Math.round(angleRad * 65536/(Math.PI * 2)))
+    }
+
     export function skip(buf: SizeBuf, c: number) {
         SizeBuf.alloc(buf, c);
     }
@@ -219,5 +235,9 @@ export namespace Msg {
               + (buf.data[offset + 2] << 16)
               + (buf.data[offset + 3] << 24);
         return c;
+    }
+
+    export function readAngle16(buf: SizeBuf) {
+        return readShort(buf) * (Math.PI * 2) / 65536;
     }
 }

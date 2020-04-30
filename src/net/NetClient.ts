@@ -14,15 +14,15 @@ export enum NetClientState {
     Disconnected,
 
     // The Quake 3 Arena states:
-	// CS_FREE,		// can be reused for a new connection
-	// CS_ZOMBIE,		// client has been disconnected, but don't reuse
-	// 				// connection for a couple seconds
-	// CS_CONNECTED,	// has been assigned to a client_t, but no gamestate yet
-	// CS_PRIMED,		// gamestate has been sent, but client hasn't sent a usercmd
-	// CS_ACTIVE		// client is fully in game
+    // CS_FREE,		// can be reused for a new connection
+    // CS_ZOMBIE,		// client has been disconnected, but don't reuse
+    // 				// connection for a couple seconds
+    // CS_CONNECTED,	// has been assigned to a client_t, but no gamestate yet
+    // CS_PRIMED,		// gamestate has been sent, but client hasn't sent a usercmd
+    // CS_ACTIVE		// client is fully in game
 }
 
-export enum NetClientEvents { 
+export enum NetClientEvents {
     Connected = 'connected',
     Disconnected = 'disconnected',
     Message = 'message',
@@ -43,10 +43,10 @@ export class NetClient extends EventDispatcher {
 
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
-    
+
     private msgBuffer = new Uint8Array(kPacketMaxPayloadSize);
     private msgView = new DataView(this.msgBuffer.buffer);
-    
+
     // Debugging
     graphPanel?: NetGraphPanel;
 
@@ -65,7 +65,7 @@ export class NetClient extends EventDispatcher {
             this.state = NetClientState.Disconnected;
             this.fire(NetClientEvents.Disconnected);
         });
-        
+
         this.channel = new NetChannel();
 
         this.channel.on(NetChannelEvent.Receive, this.onMessage.bind(this));
@@ -77,7 +77,7 @@ export class NetClient extends EventDispatcher {
      */
     async connect(serverId: ClientId) {
         const socket = new WebUdpSocket();
-        
+
         // Wait for the WebUdp socket to be assigned a ClientID by the signalling server
         await socket.connect(serverId);
         this.id = socket.clientId;
@@ -103,7 +103,6 @@ export class NetClient extends EventDispatcher {
         this.userCommands.setUserCommand(cmd);
 
         // Construct the message
-        let size = 5;
         const buf = SizeBuf.create(this.msgBuffer);
         Msg.writeChar(buf, 1);
         Msg.writeInt(buf, frame); // Frame number
@@ -116,16 +115,13 @@ export class NetClient extends EventDispatcher {
             if (!defined(cmd)) break;
 
             assert(cmd.frame === i);
-            
-            const byteLength = UserCommand.serialize(this.msgBuffer.subarray(size + 1), cmd);
-            assert(byteLength < 256);
-            this.msgBuffer[size] = byteLength; // The serialized length precedes the data
-            size += 1 + byteLength;
+
+            UserCommand.serialize(buf, cmd);
         }
 
-        this.channel.send(this.msgBuffer.subarray(0, size), frame);
+        this.channel.send(buf.data.subarray(0, buf.offset), frame);
         this.lastTransmittedFrame = frame;
-        
+
         this.channel.computeStats();
     }
 
@@ -138,21 +134,20 @@ export class NetClient extends EventDispatcher {
         Msg.skip(buf, 1);
         const frame = Msg.readInt(buf);
 
-        while (buf.offset < buf.data.byteLength) {
-            const size = Msg.readChar(buf);
-
+        for (let i = 0; buf.offset < buf.data.byteLength; i++) {
             const cmd = {} as UserCommand;
-            const read = UserCommand.deserialize(cmd, msg.subarray(buf.offset, buf.offset + size));
-            Msg.skip(buf, read);
-            
+            UserCommand.deserialize(cmd, buf);
+
+            cmd.frame = frame - i;
+
             // If we haven't already received this command, buffer it
             const newlySet = this.userCommands.setUserCommand(cmd);
 
             if (newlySet) {
-                if (this.graphPanel) { 
+                if (this.graphPanel) {
                     const received = (frame === cmd.frame) ? NetGraphPacketStatus.Received : NetGraphPacketStatus.Filled;
                     const status = (frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : received;
-                    this.graphPanel.setPacketStatus(cmd.frame, status); 
+                    this.graphPanel.setPacketStatus(cmd.frame, status);
                 }
             }
         }
@@ -171,7 +166,7 @@ export class NetClient extends EventDispatcher {
 
         this.channel.send(this.msgBuffer.subarray(0, snapSize + 1), snap.frame);
         this.lastTransmittedFrame = snap.frame;
-        
+
         this.channel.computeStats();
     }
 
@@ -182,9 +177,9 @@ export class NetClient extends EventDispatcher {
 
             this.lastReceivedFrame = snap.frame;
 
-            if (this.graphPanel) { 
+            if (this.graphPanel) {
                 const status = (snap.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
-                this.graphPanel.setPacketStatus(snap.frame, status); 
+                this.graphPanel.setPacketStatus(snap.frame, status);
             }
         }
     }
@@ -209,11 +204,11 @@ export class NetClient extends EventDispatcher {
 
     onMessage(msg: Uint8Array, lastAcknowledged?: AckInfo) {
         this.ping = this.channel.ping;
-        
+
         if (defined(lastAcknowledged)) {
             this.lastAcknowledgedFrame = lastAcknowledged.tag;
         }
-        
+
         if (msg[0] === 0) this.receiveServerFrame(msg);
         else this.receiveClientFrame(msg);
 
