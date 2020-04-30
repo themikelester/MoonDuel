@@ -40,8 +40,6 @@ export class NetGraph {
         const kFrameWidth = 10 * kPixelRatio
         const kGraphX = 3 * kPixelRatio; const kGraphY = 15 * kPixelRatio;
         const kTextX = 3 * kPixelRatio; const kTextY = 2 * kPixelRatio;
-        const kTimeMarkerHeight = 10 * kPixelRatio;
-        const kTimeMarkerWidth = 1 * kPixelRatio;
 
         const kGraphWidth = kFrameWidth * kTimeRangeFrames; const kGraphHeight = 30 * kPixelRatio;
         const kWidth = kGraphX * 2 + kGraphWidth; const kHeight = 48 * kPixelRatio;
@@ -67,7 +65,6 @@ export class NetGraph {
 
         ctx.fillStyle = fg;
         ctx.fillText(label, kTextX, kTextY);
-        const markerX = kTextX + ctx.measureText(label).width;
 
         this.dom.appendChild(canvas);
     
@@ -130,14 +127,17 @@ export class NetGraph {
 
                 lastFrame = endFrame;
                 
-                // // Write the current ping to the top right
-                // if (defined(ping)) {
-                //     const pingStr = ping.toFixed(1).padStart(5);
+                // Write the current ping to the top right
+                if (defined(ping)) {
+                    const pingStr = ping.toFixed(1).padStart(5);
 
-                //     ctx.fillStyle = fg;
-                //     ctx.textAlign = 'right';
-                //     ctx.fillText(`Ping: ${pingStr}`, kWidth - kTextX, kTextY);
-                // }
+                    ctx.fillStyle = bg;
+                    ctx.fillRect(kTextX + kWidth * 0.5, kTextY, kWidth * 0.5, kGraphY)
+
+                    ctx.fillStyle = fg;
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`Ping: ${pingStr}`, kWidth - kTextX, kTextY);
+                }
             }
         };
     }
