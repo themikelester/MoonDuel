@@ -86,7 +86,7 @@ export function sequenceNumberWrap(a: SequenceNumber) {
     return ((a % kSequenceNumberDomain) + kSequenceNumberDomain) % kSequenceNumberDomain;
 }
 
-export interface SizeBuf {
+export interface MsgBuf {
     data: Uint8Array;
     offset: number;
     allowOverflow: boolean;
@@ -97,8 +97,8 @@ export interface SizeBuf {
  * Helper functions to ease serialization/deserialization. Based on the MSG structure from QuakeWorld. 
  * @see https://github.com/id-Software/Quake/blob/bf4ac424ce754894ac8f1dae6a3981954bc9852d/QW/client/common.c
  */
-export namespace SizeBuf {
-    export function create(buf: Uint8Array, allowOverflow: boolean = false): SizeBuf {
+export namespace MsgBuf {
+    export function create(buf: Uint8Array, allowOverflow: boolean = false): MsgBuf {
         return {
             data: buf,
             offset: 0,
@@ -107,17 +107,17 @@ export namespace SizeBuf {
         }
     }
 
-    export function alloc(buf: SizeBuf, byteLength: number): number {
+    export function alloc(buf: MsgBuf, byteLength: number): number {
         const offset = buf.offset;
 
         if ((buf.offset + byteLength) > buf.data.byteLength) {
             if (!buf.allowOverflow)
-                throw new Error(`SizeBuf.alloc: Overflow without allowflow set (${buf.data.byteLength})`);
+                throw new Error(`MsgBuf.alloc: Overflow without allowflow set (${buf.data.byteLength})`);
 
             if (byteLength > buf.data.byteLength)
-                throw new Error(`SizeBuf.alloc: ${byteLength} > full buffer size`);
+                throw new Error(`MsgBuf.alloc: ${byteLength} > full buffer size`);
 
-            console.warn('SizeBuf.alloc: Overflow');
+            console.warn('MsgBuf.alloc: Overflow');
             clear(buf);
             buf.overflowed = true;
         }
@@ -126,7 +126,7 @@ export namespace SizeBuf {
         return offset;
     }
 
-    export function clear(buf: SizeBuf) {
+    export function clear(buf: MsgBuf) {
         buf.offset = 0;
         buf.overflowed = false;
         return buf;
@@ -140,7 +140,7 @@ export namespace Msg {
     const kMaxShort = 2**15 - 1;
     const kMinShort = -(2**15);
 
-    export function writeChar(buf: SizeBuf, c: number) {
+    export function writeChar(buf: MsgBuf, c: number) {
         // @TODO: Typescript declarations for an ENV struct, which would replace version.ts
         // @TODO: Separate ENV definitions for dev and prod
         // @NOTE: ENV variable are evaluated at compile time and will be excluded if false
@@ -153,11 +153,11 @@ export namespace Msg {
                 throw new Error('Msg.writeChar: range error');
         }
 
-        const offset = SizeBuf.alloc(buf, 1);
+        const offset = MsgBuf.alloc(buf, 1);
         buf.data[offset] = c;
     }
 
-    export function writeByte(buf: SizeBuf, c: number) {
+    export function writeByte(buf: MsgBuf, c: number) {
         //@ts-ignore
         if (ENV.PARANOID) {
             if (!Number.isInteger(c)) 
@@ -167,11 +167,11 @@ export namespace Msg {
                 throw new Error('Msg.writeChar: range error');
         }
 
-        const offset = SizeBuf.alloc(buf, 1);
+        const offset = MsgBuf.alloc(buf, 1);
         buf.data[offset] = c;
     }
 
-    export function writeShort(buf: SizeBuf, c: number) {
+    export function writeShort(buf: MsgBuf, c: number) {
         //@ts-ignore
         if (ENV.PARANOID) {
             if (!Number.isInteger(c)) 
@@ -181,12 +181,12 @@ export namespace Msg {
                 throw new Error('Msg.writeInt: range error');
         }
 
-        const offset = SizeBuf.alloc(buf, 2);
+        const offset = MsgBuf.alloc(buf, 2);
         buf.data[offset + 0] = (c >> 0) & 0xFF;
         buf.data[offset + 1] = (c >> 8) & 0xFF;
     }
 
-    export function writeInt(buf: SizeBuf, c: number) {
+    export function writeInt(buf: MsgBuf, c: number) {
         //@ts-ignore
         if (ENV.PARANOID) {
             if (!Number.isInteger(c)) 
@@ -196,40 +196,40 @@ export namespace Msg {
                 throw new Error('Msg.writeInt: range error');
         }
 
-        const offset = SizeBuf.alloc(buf, 4);
+        const offset = MsgBuf.alloc(buf, 4);
         buf.data[offset + 0] = (c >>  0) & 0xFF;
         buf.data[offset + 1] = (c >>  8) & 0xFF;
         buf.data[offset + 2] = (c >> 16) & 0xFF;
         buf.data[offset + 3] = (c >> 24) & 0xFF;
     }
 
-    export function writeAngle16(buf: SizeBuf, angleRad: number) {
+    export function writeAngle16(buf: MsgBuf, angleRad: number) {
         writeShort(buf, Math.round(angleRad * 65536/(Math.PI * 2)))
     }
 
-    export function skip(buf: SizeBuf, c: number) {
-        SizeBuf.alloc(buf, c);
+    export function skip(buf: MsgBuf, c: number) {
+        MsgBuf.alloc(buf, c);
     }
 
-    export function readChar(buf: SizeBuf) {
-        const offset = SizeBuf.alloc(buf, 1);
+    export function readChar(buf: MsgBuf) {
+        const offset = MsgBuf.alloc(buf, 1);
         const c = buf.data[offset];
         return (c >> 7) ? 0xFFFFFF00 | c : c;
     }
 
-    export function readByte(buf: SizeBuf) {
-        const offset = SizeBuf.alloc(buf, 1);
+    export function readByte(buf: MsgBuf) {
+        const offset = MsgBuf.alloc(buf, 1);
         return buf.data[offset];
     }
 
-    export function readShort(buf: SizeBuf) {
-        const offset = SizeBuf.alloc(buf, 2);
+    export function readShort(buf: MsgBuf) {
+        const offset = MsgBuf.alloc(buf, 2);
         const c = buf.data[offset] + (buf.data[offset + 1] << 8);
         return (c >> 15) ? 0xFFFF0000 | c : c;
     }
 
-    export function readInt(buf: SizeBuf) {
-        const offset = SizeBuf.alloc(buf, 4);
+    export function readInt(buf: MsgBuf) {
+        const offset = MsgBuf.alloc(buf, 4);
         let c = (buf.data[offset + 0])
               + (buf.data[offset + 1] << 8)
               + (buf.data[offset + 2] << 16)
@@ -237,7 +237,7 @@ export namespace Msg {
         return c;
     }
 
-    export function readAngle16(buf: SizeBuf) {
+    export function readAngle16(buf: MsgBuf) {
         return readShort(buf) * (Math.PI * 2) / 65536;
     }
 }

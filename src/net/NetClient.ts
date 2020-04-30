@@ -5,7 +5,7 @@ import { UserCommandBuffer, UserCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
-import { kPacketMaxPayloadSize, AckInfo, Msg, SizeBuf } from "./NetPacket";
+import { kPacketMaxPayloadSize, AckInfo, Msg, MsgBuf } from "./NetPacket";
 import { NetGraph, NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
 
 export enum NetClientState {
@@ -44,8 +44,7 @@ export class NetClient extends EventDispatcher {
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
 
-    private msgBuffer = new Uint8Array(kPacketMaxPayloadSize);
-    private msgView = new DataView(this.msgBuffer.buffer);
+    private msgBuf = MsgBuf.create(new Uint8Array(kPacketMaxPayloadSize));
 
     // Debugging
     graphPanel?: NetGraphPanel;
@@ -103,8 +102,8 @@ export class NetClient extends EventDispatcher {
         this.userCommands.setUserCommand(cmd);
 
         // Construct the message
-        const buf = SizeBuf.create(this.msgBuffer);
-        Msg.writeChar(buf, 1);
+        const buf = MsgBuf.clear(this.msgBuf);
+        Msg.writeChar(buf, 1); // Client frame
         Msg.writeInt(buf, frame); // Frame number
 
         // Send all unacknowledged user commands 
@@ -130,7 +129,7 @@ export class NetClient extends EventDispatcher {
             return;
         }
 
-        const buf = SizeBuf.create(msg);
+        const buf = MsgBuf.create(msg);
         Msg.skip(buf, 1);
         const frame = Msg.readInt(buf);
 
@@ -156,15 +155,17 @@ export class NetClient extends EventDispatcher {
     }
 
     transmitServerFrame(snap: Snapshot) {
-        this.msgBuffer[0] = 0; // Server frame
-
         // Buffer the state so that we can delta-compare later
         this.snapshot.setSnapshot(snap);
 
-        // Send the latest state
-        const snapSize = Snapshot.serialize(this.msgBuffer.subarray(1), snap);
+        const buf = MsgBuf.clear(this.msgBuf);
+        Msg.writeByte(buf, 0); // Server frame
 
-        this.channel.send(this.msgBuffer.subarray(0, snapSize + 1), snap.frame);
+        // Send the latest state
+        const snapSize = Snapshot.serialize(buf.data.subarray(1), snap);
+        Msg.skip(buf, snapSize);
+
+        this.channel.send(buf.data.subarray(0, buf.offset), snap.frame);
         this.lastTransmittedFrame = snap.frame;
 
         this.channel.computeStats();

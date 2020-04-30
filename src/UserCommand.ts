@@ -1,6 +1,6 @@
 import { InputAction } from "./Input";
 import { defined, assert } from "./util";
-import { SizeBuf, Msg } from "./net/NetPacket";
+import { MsgBuf, Msg } from "./net/NetPacket";
 
 export class UserCommand {
     frame: number; // Not transmitted 
@@ -10,7 +10,7 @@ export class UserCommand {
     horizontalAxis: number; // 2 bits (1, 0, -1)
     actions: InputAction; // X bits
 
-    static serialize(buf: SizeBuf, cmd: UserCommand): number {
+    static serialize(buf: MsgBuf, cmd: UserCommand): number {
         // @TODO: Quantize on setUserCommand. Any prediction happening on the client should use a cmd that is equivalent to the one returned by serialize() and then deserialize()
         const heading = Math.atan2(cmd.headingZ, cmd.headingX);
         Msg.writeAngle16(buf, heading);
@@ -24,7 +24,7 @@ export class UserCommand {
         return 3;
     }
     
-    static deserialize(dst: UserCommand, buf: SizeBuf): number {
+    static deserialize(dst: UserCommand, buf: MsgBuf): number {
         const heading = Msg.readAngle16(buf);
         dst.headingX = Math.cos(heading);
         dst.headingZ = Math.sin(heading);
