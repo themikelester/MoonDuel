@@ -14,7 +14,7 @@ const GITHUB_URL = 'https://github.com/themikelester/MoonDuel';
 const GTAG_ID = 'Some Google Analytics ID';
 const APP_NAME = 'Moon Duel';
 const APP_NAME_SHORT = 'Moon Duel';
-const APP_DESCRIPTION = ''
+const APP_DESCRIPTION = 'A multiplayer hack-n-slash melee game for the web';
 
 module.exports = {
   entry: {
@@ -107,7 +107,9 @@ module.exports = {
       chunks: ['main'],
       filename: 'index.html',
       template: './src/index.html',
-      gtagId: GTAG_ID
+      gtagId: GTAG_ID,
+      appName: APP_NAME,
+      appDesc: APP_DESCRIPTION,
     }),
     new HtmlWebpackPlugin({
       chunks: ['server'],
