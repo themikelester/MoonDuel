@@ -182,6 +182,12 @@ export class NetClient extends EventDispatcher {
             this.lastReceivedFrame = snap.frame;
 
             if (this.graphPanel) {
+                // Mark non-received frames between the last requested and now as filled
+                // @NOTE: If they come later (but before they're requested) they can still mark themselves as received
+                for (let i = this.lastRequestedFrame + 1; i < snap.frame; i++) {
+                    if (!this.snapshot.hasSnapshot(i)) this.graphPanel.setPacketStatus(i, NetGraphPacketStatus.Filled);
+                }
+
                 const status = (snap.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
                 this.graphPanel.setPacketStatus(snap.frame, status);
             }

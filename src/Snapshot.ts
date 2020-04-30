@@ -65,6 +65,11 @@ export class SnapshotManager {
         return this.buffer[simFrame % this.bufferFrameCount];
     }
 
+    hasSnapshot(simFrame: number = this.latestFrame) {
+        const snap = this.buffer[simFrame % this.bufferFrameCount];
+        return defined(snap) && snap.frame === simFrame;
+    }
+
     lerpSnapshot(simTime: number, result: Snapshot): boolean {
         const oldestFrame = Math.max(0, this.latestFrame - this.bufferFrameCount - 1);
         if (simTime < oldestFrame) {
