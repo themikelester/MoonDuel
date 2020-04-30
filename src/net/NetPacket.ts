@@ -271,7 +271,7 @@ export namespace Msg {
     // @HACK
     export function readString(buf: MsgBuf) {
         const strLen = Msg.readByte(buf);
-        const str = String.fromCharCode.apply(null, buf.data.subarray(buf.offset, strLen));
+        const str = String.fromCharCode.apply(null, buf.data.subarray(buf.offset, buf.offset + strLen));
         Msg.skip(buf, strLen);
         return str;
     }
