@@ -5,7 +5,7 @@ import { UserCommandBuffer, UserCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
-import { kPacketMaxPayloadSize, AckInfo } from "./NetPacket";
+import { kPacketMaxPayloadSize, AckInfo, Msg, SizeBuf } from "./NetPacket";
 import { NetGraph, NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
 
 export enum NetClientState {
@@ -104,8 +104,9 @@ export class NetClient extends EventDispatcher {
 
         // Construct the message
         let size = 5;
-        this.msgBuffer[0] = 1; // Client frame
-        this.msgView.setUint32(1, frame); // Frame number
+        const buf = SizeBuf.create(this.msgBuffer);
+        Msg.writeChar(buf, 1);
+        Msg.writeInt(buf, frame); // Frame number
 
         // Send all unacknowledged user commands 
         // @TODO: This could be smarter, we really only need to send the user commands that the server can still use
@@ -133,16 +134,16 @@ export class NetClient extends EventDispatcher {
             return;
         }
 
-        const view = new DataView(msg.buffer, msg.byteOffset, msg.byteLength);
-        const frame = view.getUint32(1);
+        const buf = SizeBuf.create(msg);
+        Msg.skip(buf, 1);
+        const frame = Msg.readInt(buf);
 
-        for (let offset = 5; offset < msg.byteLength;) {
-            const size = view.getUint8(offset);
-            offset += 1;
+        while (buf.offset < buf.data.byteLength) {
+            const size = Msg.readChar(buf);
 
             const cmd = {} as UserCommand;
-            const read = UserCommand.deserialize(cmd, msg.subarray(offset, offset + size));
-            offset += read;
+            const read = UserCommand.deserialize(cmd, msg.subarray(buf.offset, buf.offset + size));
+            Msg.skip(buf, read);
             
             // If we haven't already received this command, buffer it
             const newlySet = this.userCommands.setUserCommand(cmd);

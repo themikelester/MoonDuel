@@ -84,7 +84,8 @@ module.exports = {
   plugins: [
     new webpack.DefinePlugin({
       '__COMMIT_HASH': JSON.stringify(COMMIT_HASH),
-      '__GITHUB_URL': JSON.stringify(GITHUB_URL)
+      '__GITHUB_URL': JSON.stringify(GITHUB_URL),
+      'ENV.PARANOID': JSON.stringify(true),
     }),
     new webpack.IgnorePlugin({
       // Workaround for broken libraries
