@@ -92,6 +92,7 @@ export class NetGraph {
                 while (frame <= endFrame) {
                     const t = frame * kFrameLengthMs;
                     const x = kGraphX + Math.round(((t - serverTime) / (kTimeRangeFrames * kFrameLengthMs) + 0.5) * kGraphWidth);
+                    frame += 1;
 
                     // Reset the states of frames just now appearing on the graph
                     if (frame > lastFrame) { this.setPacketStatus(frame, NetGraphPacketStatus.Missing); }
@@ -102,7 +103,7 @@ export class NetGraph {
                     // Determine color based on status and other factors
                     const status: NetGraphPacketStatus = frameStatus[frame % kTimeRangeFrames];
                     switch(status) {
-                        case NetGraphPacketStatus.Missing: ctx.fillStyle = missing; break;
+                        case NetGraphPacketStatus.Missing: continue;
                         case NetGraphPacketStatus.Received: ctx.fillStyle = received; break;
                         case NetGraphPacketStatus.Filled: ctx.fillStyle = filled; break;
                         case NetGraphPacketStatus.Late: ctx.fillStyle = toolate; break;
@@ -110,8 +111,6 @@ export class NetGraph {
                     }
 
                     ctx.fillRect(x - 4, kGraphY + kGraphHeight * 0.25, 10, kGraphHeight * 0.5);
-
-                    frame += 1;
                 }
 
                 // Server time
