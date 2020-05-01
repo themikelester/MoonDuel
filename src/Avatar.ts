@@ -16,7 +16,7 @@ import { UserCommandBuffer } from "./UserCommand";
 import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
-import { MsgBuf, Msg } from "./net/NetPacket";
+import { Buf } from "./Buf";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -79,41 +79,41 @@ export class AvatarState {
         result.flags = a.flags;
     }
 
-    static serialize(buf: MsgBuf, state: AvatarState) {
-        Msg.writeString(buf, state.clientId || '');
+    static serialize(buf: Buf, state: AvatarState) {
+        Buf.writeString(buf, state.clientId || '');
 
-        Msg.writeFloat(buf, state.pos[0]);
-        Msg.writeFloat(buf, state.pos[1]);
-        Msg.writeFloat(buf, state.pos[2]);
+        Buf.writeFloat(buf, state.pos[0]);
+        Buf.writeFloat(buf, state.pos[1]);
+        Buf.writeFloat(buf, state.pos[2]);
         
-        Msg.writeFloat(buf, state.velocity[0]);
-        Msg.writeFloat(buf, state.velocity[1]);
-        Msg.writeFloat(buf, state.velocity[2]);
+        Buf.writeFloat(buf, state.velocity[0]);
+        Buf.writeFloat(buf, state.velocity[1]);
+        Buf.writeFloat(buf, state.velocity[2]);
 
-        Msg.writeFloat(buf, state.orientation[0]);
-        Msg.writeFloat(buf, state.orientation[1]);
-        Msg.writeFloat(buf, state.orientation[2]);
+        Buf.writeFloat(buf, state.orientation[0]);
+        Buf.writeFloat(buf, state.orientation[1]);
+        Buf.writeFloat(buf, state.orientation[2]);
 
-        Msg.writeByte(buf, state.flags);
+        Buf.writeByte(buf, state.flags);
     }
     
-    static deserialize(buf: MsgBuf, state: AvatarState) {
-        const clientId = Msg.readString(buf);
+    static deserialize(buf: Buf, state: AvatarState) {
+        const clientId = Buf.readString(buf);
         state.clientId = clientId === '' ? undefined : clientId;
 
-        state.pos[0] = Msg.readFloat(buf);
-        state.pos[1] = Msg.readFloat(buf);
-        state.pos[2] = Msg.readFloat(buf);
+        state.pos[0] = Buf.readFloat(buf);
+        state.pos[1] = Buf.readFloat(buf);
+        state.pos[2] = Buf.readFloat(buf);
         
-        state.velocity[0] = Msg.readFloat(buf);
-        state.velocity[1] = Msg.readFloat(buf);
-        state.velocity[2] = Msg.readFloat(buf);
+        state.velocity[0] = Buf.readFloat(buf);
+        state.velocity[1] = Buf.readFloat(buf);
+        state.velocity[2] = Buf.readFloat(buf);
 
-        state.orientation[0] = Msg.readFloat(buf);
-        state.orientation[1] = Msg.readFloat(buf);
-        state.orientation[2] = Msg.readFloat(buf);
+        state.orientation[0] = Buf.readFloat(buf);
+        state.orientation[1] = Buf.readFloat(buf);
+        state.orientation[2] = Buf.readFloat(buf);
 
-        state.flags = Msg.readByte(buf);
+        state.flags = Buf.readByte(buf);
     }
 }
 

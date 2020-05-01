@@ -6,8 +6,8 @@ import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
 import { kPacketMaxPayloadSize, AckInfo} from "./NetChannel";
-import { NetGraph, NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
-import { MsgBuf, Msg } from "./NetPacket";
+import { NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
+import { Buf } from "../Buf";
 
 export enum NetClientState {
     Free,
@@ -57,7 +57,7 @@ export class NetClient extends EventDispatcher {
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
 
-    private msgBuf = MsgBuf.create(new Uint8Array(kPacketMaxPayloadSize));
+    private msgBuf = new Buf(new Uint8Array(kPacketMaxPayloadSize));
 
     // Debugging
     graphPanel?: NetGraphPanel;
@@ -115,12 +115,12 @@ export class NetClient extends EventDispatcher {
         this.userCommands.setUserCommand(cmd);
 
         // Construct the message
-        const buf = MsgBuf.clear(this.msgBuf);
+        const buf = this.msgBuf.clear();
         let idByte = MsgId.ClientFrame;
         let cmdCount = 0;
 
-        Msg.writeChar(buf, idByte); // Client frame
-        Msg.writeInt(buf, frame); // Frame number
+        Buf.writeChar(buf, idByte); // Client frame
+        Buf.writeInt(buf, frame); // Frame number
 
         // Send all unacknowledged user commands 
         // @TODO: This could be smarter, we really only need to send the user commands that the server can still use
@@ -145,9 +145,9 @@ export class NetClient extends EventDispatcher {
         this.channel.computeStats();
     }
 
-    receiveClientFrame(msg: MsgBuf) {
-        const count = Msg.readByte(msg) >> 4;
-        const frame = Msg.readInt(msg);
+    receiveClientFrame(msg: Buf) {
+        const count = Buf.readByte(msg) >> 4;
+        const frame = Buf.readInt(msg);
 
         for (let i = 0; i < count; i++) {
             const cmd = {} as UserCommand;
@@ -174,8 +174,8 @@ export class NetClient extends EventDispatcher {
         // Buffer the state so that we can delta-compare later
         this.snapshot.setSnapshot(snap);
 
-        const buf = MsgBuf.clear(this.msgBuf);
-        Msg.writeByte(buf, 0); // Server frame
+        const buf = this.msgBuf.clear();
+        Buf.writeByte(buf, 0); // Server frame
 
         // Send the latest state
         Snapshot.serialize(buf, snap);
@@ -186,8 +186,8 @@ export class NetClient extends EventDispatcher {
         this.channel.computeStats();
     }
 
-    receiveServerFrame(msg: MsgBuf) {
-        Msg.skip(msg, 1);
+    receiveServerFrame(msg: Buf) {
+        Buf.skip(msg, 1);
 
         const snap = new Snapshot();
         Snapshot.deserialize(msg, snap);
@@ -213,12 +213,12 @@ export class NetClient extends EventDispatcher {
         // bits |= MsgId.VisChange & kMsgIdMask;
         
         // const buf = MsgBuf.clear(this.msgBuf);
-        // Msg.writeByte(buf, bits);
+        // Buf.writeByte(buf, bits);
         // this.channel.sendReliable(buf.data.subarray(0, 1));
     }
 
-    receiveVisibilityChange(msg: MsgBuf) {
-        const visible = (Msg.readByte(msg) & ~kMsgIdMask) > 0;
+    receiveVisibilityChange(msg: Buf) {
+        const visible = (Buf.readByte(msg) & ~kMsgIdMask) > 0;
         console.log(`[Client ${this.id}] Received new visibility status: ${visible ? 'visible' : 'hidden' }`);
     }
 
@@ -247,10 +247,10 @@ export class NetClient extends EventDispatcher {
             this.lastAcknowledgedFrame = lastAcknowledged.tag;
         }
 
-        const msg = MsgBuf.create(buf);
+        const msg = new Buf(buf);
 
         while (msg.offset < msg.data.byteLength) {
-            const msgId = Msg.peekByte(msg) & kMsgIdMask;
+            const msgId = Buf.peekByte(msg) & kMsgIdMask;
             switch(msgId) {
                 case MsgId.ServerFrame: this.receiveServerFrame(msg); break;
                 case MsgId.ClientFrame: this.receiveClientFrame(msg); break;
