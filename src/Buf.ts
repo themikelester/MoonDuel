@@ -124,7 +124,7 @@ export namespace Buf {
     }
 
     export function writeAngle16(buf: Buf, angleRad: number) {
-        return writeShort(buf, Math.round(angleRad * 65536 / (Math.PI * 2)));
+        return writeShort(buf, Math.floor(angleRad * 65536 / (Math.PI * 2)));
     }
 
     // @HACK
