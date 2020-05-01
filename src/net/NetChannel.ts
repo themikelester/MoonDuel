@@ -3,7 +3,6 @@ import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize, kPacketMaxReliablePayloadSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
 import { defined, defaultValue, assert, assertDefined } from '../util';
-import { clamp } from '../MathHelpers';
 
 export enum NetChannelEvent {
     Receive = "receive",
@@ -162,7 +161,7 @@ export class NetChannel extends EventDispatcher {
         // Transmit the data
         packet.writeHeader(scratchPacketDataView);
         scratchPacketBuffer.set(payload, kPacketHeaderSize);
-        if (withReliable) scratchPacketBuffer.set(payload, kPacketHeaderSize + payload.byteLength);
+        if (withReliable) scratchPacketBuffer.set(reliable.payload, kPacketHeaderSize + payload.byteLength);
         this.socket.send(scratchPacketBuffer.subarray(0, packet.size));
 
         this.localSequence = sequenceNumberWrap(this.localSequence + 1);
@@ -223,7 +222,7 @@ export class NetChannel extends EventDispatcher {
         };
         
         // If this packet contained a reliable payload that we haven't yet ack'd, remove it from the queue
-        if (packet.reliableId && packet.reliableId === this.reliableBuf[0].id) {
+        if (defined(packet.reliableId) && packet.reliableId === this.reliableBuf[0].id) {
             const reliable = assertDefined(this.reliableBuf.shift());
             this.fire(NetChannelEvent.AckReliable, reliable.tag);
         }

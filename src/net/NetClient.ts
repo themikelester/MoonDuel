@@ -115,7 +115,10 @@ export class NetClient extends EventDispatcher {
 
         // Construct the message
         const buf = MsgBuf.clear(this.msgBuf);
-        Msg.writeChar(buf, 1); // Client frame
+        let idByte = MsgId.ClientFrame;
+        let cmdCount = 0;
+
+        Msg.writeChar(buf, idByte); // Client frame
         Msg.writeInt(buf, frame); // Frame number
 
         // Send all unacknowledged user commands 
@@ -127,8 +130,13 @@ export class NetClient extends EventDispatcher {
 
             assert(cmd.frame === i);
 
+            cmdCount += 1;
             UserCommand.serialize(buf, cmd);
         }
+
+        // Use the upper nibble of the ID byte to store the command count
+        idByte |= cmdCount << 4;
+        buf.data[0] = idByte;
 
         this.channel.send(buf.data.subarray(0, buf.offset), frame);
         this.lastTransmittedFrame = frame;
@@ -137,10 +145,10 @@ export class NetClient extends EventDispatcher {
     }
 
     receiveClientFrame(msg: MsgBuf) {
-        Msg.skip(msg, 1);
+        const count = Msg.readByte(msg) >> 4;
         const frame = Msg.readInt(msg);
 
-        for (let i = 0; msg.offset < msg.data.byteLength; i++) {
+        for (let i = 0; i < count; i++) {
             const cmd = {} as UserCommand;
             UserCommand.deserialize(cmd, msg);
 
@@ -205,7 +213,7 @@ export class NetClient extends EventDispatcher {
         
         const buf = MsgBuf.clear(this.msgBuf);
         Msg.writeByte(buf, bits);
-        this.channel.send(buf.data.subarray(0, 1));
+        this.channel.sendReliable(buf.data.subarray(0, 1));
     }
 
     receiveVisibilityChange(msg: MsgBuf) {
