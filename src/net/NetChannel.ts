@@ -52,7 +52,7 @@ export class NetChannel extends EventDispatcher {
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
-        this.socket.on(WebUdpEvent.Message, this.onMessage.bind(this));
+        this.socket.on(WebUdpEvent.Message, (evt) => this.receive(evt.data));
 
         for (let i = 0; i < kPacketHistoryLength; i++) {
             this.localHistory[i] = new Packet();
@@ -208,15 +208,6 @@ export class NetChannel extends EventDispatcher {
         } else {
             // Ignore the packet
             console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);
-        }
-    }
-
-    private onMessage(evt: MessageEvent) {
-        const data = evt.data;
-        if (data instanceof ArrayBuffer) {
-            this.receive(data);
-        } else {
-            console.log("received:", data);
         }
     }
 
