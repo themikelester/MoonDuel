@@ -14,7 +14,7 @@ interface PacketHeader {
 }
 
 export interface AckInfo {
-    tags: number[];
+    tag: number;
     rttTime: number;
     sentTime: number;
     ackTime: number;
@@ -22,7 +22,7 @@ export interface AckInfo {
 
 export class Packet {
     header: PacketHeader;
-    tags: number[] = [];
+    tag: number;
     size: number;
 
     get acknowledged() { return defined(this.ackTime); }
@@ -52,25 +52,24 @@ export class Packet {
         return kPacketHeaderSize;
     }
 
-    toBuffer(buf: MsgBuf): number {
-        buf.dataView.setUint16(0, this.header.sequence, true);
-        buf.dataView.setUint16(2, this.header.ack, true);
-        buf.dataView.setUint32(4, this.header.ackBitfield, true);
+    toBuffer(buffer: Uint8Array, dataView: DataView, payload: Uint8Array): number {
+        dataView.setUint16(0, this.header.sequence, true);
+        dataView.setUint16(2, this.header.ack, true);
+        dataView.setUint32(4, this.header.ackBitfield, true);
+        buffer.set(payload, kPacketHeaderSize);
 
         // Assume we are transmitting the packet immediately, so mark it as unacknowledged
         this.sendTime = performance.now();
         this.ackTime = undefined;
 
-        this.size = buf.offset;
-        assert(this.size < (kPacketHeaderSize + kPacketMaxPayloadSize));
-
+        this.size = payload.byteLength + kPacketHeaderSize;
         return this.size;
     }
 
     acknowledge(): AckInfo {
         this.ackTime = performance.now();
         return {
-            tags: this.tags,
+            tag: this.tag,
             ackTime: this.ackTime,
             sentTime: this.sendTime,
             rttTime: this.ackTime - this.sendTime,
@@ -91,6 +90,7 @@ export interface MsgBuf {
     data: Uint8Array;
     offset: number;
     allowOverflow: boolean;
+    overflowed: boolean;
 
     // @HACK:
     dataView: DataView;
@@ -106,6 +106,7 @@ export namespace MsgBuf {
             data: buf,
             offset: 0,
             allowOverflow,
+            overflowed: false,
 
             // @HACK:
             dataView: new DataView(buf.buffer, buf.byteOffset, buf.byteLength),
@@ -122,7 +123,9 @@ export namespace MsgBuf {
             if (byteLength > buf.data.byteLength)
                 throw new Error(`MsgBuf.alloc: ${byteLength} > full buffer size`);
 
-            return -1;
+            console.warn('MsgBuf.alloc: Overflow');
+            clear(buf);
+            buf.overflowed = true;
         }
 
         buf.offset += byteLength;
@@ -131,6 +134,7 @@ export namespace MsgBuf {
 
     export function clear(buf: MsgBuf) {
         buf.offset = 0;
+        buf.overflowed = false;
         return buf;
     }
 }

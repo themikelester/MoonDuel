@@ -1,8 +1,9 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
-import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize, MsgBuf, Msg } from './NetPacket';
+import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined, defaultValue, assert } from '../util';
+import { defined, defaultValue } from '../util';
+import { clamp } from '../MathHelpers';
 
 export enum NetChannelEvent {
     Receive = "receive",
@@ -10,6 +11,9 @@ export enum NetChannelEvent {
 
 const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
 const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered lost
+
+const scratchPacketBuffer = new Uint8Array(kPacketMaxPayloadSize + kPacketHeaderSize);
+const scratchPacketDataView = new DataView(scratchPacketBuffer.buffer);
 
 export class NetChannelStats {
     averageRtt: number = 0; 
@@ -19,7 +23,8 @@ export class NetChannelStats {
 }
 
 /**
- * Net stack level above WebUdpSocket and below NetClient. Handles packet reliability, acknowledgement, and stat gathering.
+ * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
+ * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
  */
 export class NetChannel extends EventDispatcher {
     public stats = new NetChannelStats();
@@ -30,9 +35,6 @@ export class NetChannel extends EventDispatcher {
     private localSequence = 0;
     private localHistory: Packet[] = [];
     private remoteHistory: Packet[] = [];
-
-    private outPacket: Packet;
-    private outBuffer = MsgBuf.create(new Uint8Array(kPacketMaxPayloadSize + kPacketHeaderSize), true);
 
     private latestAck = {} as { sequence?: number, info?: AckInfo };
 
@@ -47,8 +49,6 @@ export class NetChannel extends EventDispatcher {
             this.localHistory[i] = new Packet();
             this.remoteHistory[i] = new Packet();
         }
-
-        this.outPacket = this.localHistory[this.localSequence % kPacketHistoryLength];
     }
 
     computeStats() {
@@ -113,46 +113,28 @@ export class NetChannel extends EventDispatcher {
     /**
      * Construct a packet with the specified payload and send it to the server
      * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
-     * @param payload The payload to send
-     * @param tag A numeric identifier which will be passed to a future Receive event once this payload is acknowledged
+     * @param payload The payload to include in the packet
+     * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
      */
-    send(payload: Uint8Array, tag?: number): boolean {
+    send(payload: Uint8Array, tag?: number) {
         if (payload.length > kPacketMaxPayloadSize) {
-            console.warn('NetChannel: Attempted to send payload that was too large for buffer. Ignoring.');
-            return false;
+            console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
+            return;
         }
+        
+        // Allocate the packet
+        const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
 
-        const offset = MsgBuf.alloc(this.outBuffer, payload.byteLength);
-        if (offset < 0) {
-            // Overflow
-            return false;
-        }
+        packet.header.sequence = this.localSequence;
+        packet.header.ack = this.remoteSequence;
+        packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
+        packet.tag = defaultValue(tag, this.localSequence);
 
-        // Copy payload into the outgoing packet
-        this.outBuffer.data.set(payload, offset);
+        const bufferSize = packet.toBuffer(scratchPacketBuffer, scratchPacketDataView, payload);
 
-        // Add payload tag to outgoing packet
-        if (defined(tag)) this.outPacket.tags.push(tag);
+        this.socket.send(scratchPacketBuffer.subarray(0, bufferSize));
 
-        return true;
-    }
-
-    transmit() {
-        // Update the outgoing packet with the latest ack data
-        this.outPacket.header.ack = this.remoteSequence;
-        this.outPacket.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
-        this.outPacket.toBuffer(this.outBuffer);
-
-        // Send the outgoing packet
-        this.socket.send(this.outBuffer.data.subarray(0, this.outBuffer.offset));
-
-        // .. and allocate the next outgoing packet
         this.localSequence = sequenceNumberWrap(this.localSequence + 1);
-        this.outPacket = this.localHistory[this.localSequence % kPacketHistoryLength];
-        this.outPacket.header.sequence = this.localSequence;
-        this.outPacket.tags.length = 0;
-        MsgBuf.clear(this.outBuffer);
-        MsgBuf.alloc(this.outBuffer, kPacketHeaderSize);
     }
 
     /**
