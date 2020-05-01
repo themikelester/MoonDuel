@@ -22,6 +22,11 @@ export class NetChannelStats {
     outKbps: number = 0;
 }
 
+interface ReliablePayload {
+    payload: Uint8Array;
+    tag?: number
+}
+
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
  * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
@@ -35,6 +40,8 @@ export class NetChannel extends EventDispatcher {
     private localSequence = 0;
     private localHistory: Packet[] = [];
     private remoteHistory: Packet[] = [];
+
+    private reliableBuf: ReliablePayload[] = [];
 
     private latestAck = {} as { sequence?: number, info?: AckInfo };
 
@@ -111,6 +118,17 @@ export class NetChannel extends EventDispatcher {
     }
 
     /**
+     * Send a payload that will be resent until it is acknowledged. It will be transmitted with the next call to send().
+     * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
+     * @param payload The payload to include in the packet
+     * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
+     */
+    sendReliable(payload: Uint8Array, tag?: number): boolean {
+        this.reliableBuf.push({ payload, tag });
+        return true;
+    }
+
+    /**
      * Construct a packet with the specified payload and send it to the server
      * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
      * @param payload The payload to include in the packet
@@ -124,15 +142,20 @@ export class NetChannel extends EventDispatcher {
         
         // Allocate the packet
         const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
-
         packet.header.sequence = this.localSequence;
         packet.header.ack = this.remoteSequence;
         packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
         packet.tag = defaultValue(tag, this.localSequence);
+        // @TODO: set reliable tag
+        packet.sendTime = performance.now();
+        packet.ackTime = undefined;
+        packet.size = kPacketHeaderSize + payload.byteLength; // @TODO: + reliable payload size
 
-        const bufferSize = packet.toBuffer(scratchPacketBuffer, scratchPacketDataView, payload);
-
-        this.socket.send(scratchPacketBuffer.subarray(0, bufferSize));
+        // Transmit the data
+        packet.writeHeader(scratchPacketDataView);
+        // @TODO: write reliable payload
+        scratchPacketBuffer.set(payload, kPacketHeaderSize);
+        this.socket.send(scratchPacketBuffer.subarray(0, packet.size));
 
         this.localSequence = sequenceNumberWrap(this.localSequence + 1);
     }
@@ -152,8 +175,9 @@ export class NetChannel extends EventDispatcher {
 
             // Parse and buffer the packet 
             const packet = this.remoteHistory[sequence % kPacketHistoryLength];
-            const payloadOffset = packet.fromBuffer(data, view);
-            const payload = new Uint8Array(data, payloadOffset);
+            packet.readHeader(view);
+            packet.size = data.byteLength;
+            packet.rcvdTime = performance.now();
 
             if (!defined(packet)) {
                 console.warn('NetChannel: Received packet that was too large for buffer. Ignoring.');
@@ -172,6 +196,7 @@ export class NetChannel extends EventDispatcher {
                 }
             }
 
+            const payload = new Uint8Array(data, kPacketHeaderSize);
             this.fire(NetChannelEvent.Receive, payload, this.latestAck.info);
         } else {
             // Ignore the packet
