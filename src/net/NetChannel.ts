@@ -1,6 +1,5 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
-import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
 import { defined, defaultValue } from '../util';
 
@@ -8,18 +7,48 @@ export enum NetChannelEvent {
     Receive = "receive",
 };
 
+export interface AckInfo {
+    tag: number;
+    rttTime: number;
+    sentTime: number;
+    ackTime: number;
+}
+
+export class NetChannelStats {
+    averageRtt: number = 0;
+    packetLoss: number = 0;
+    inKbps: number = 0;
+    outKbps: number = 0;
+}
+
+type SequenceNumber = number;
+
+interface PacketHeader {
+    sequence: SequenceNumber;
+    ack: SequenceNumber;
+    ackBitfield: number;
+}
+
+interface Packet {
+    header: PacketHeader;
+    tag: number;
+    size: number;
+
+    ackTime?: number;
+    sendTime: number;
+    rcvdTime: number;
+}
+
+const kPacketHeaderSize = 8;
+const kSequenceNumberDomain = 2 ** 16;
+const kSequenceNumberDomainHalf = kSequenceNumberDomain / 2;
+export const kPacketMaxPayloadSize = 1024;
+
 const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
 const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered lost
 
 const scratchPacketBuffer = new Uint8Array(kPacketMaxPayloadSize + kPacketHeaderSize);
 const scratchPacketDataView = new DataView(scratchPacketBuffer.buffer);
-
-export class NetChannelStats {
-    averageRtt: number = 0; 
-    packetLoss: number = 0;
-    inKbps: number = 0;
-    outKbps: number = 0;
-}
 
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
@@ -44,9 +73,22 @@ export class NetChannel extends EventDispatcher {
         this.socket = socket;
         this.socket.on(WebUdpEvent.Message, (evt) => this.receive(evt.data));
 
+        const emptyHeader = {
+            sequence: -1,
+            ack: -1,
+            ackBitfield: 0,
+        };
+
+        const emptyPacket = {
+            tag: 0,
+            size: 0,
+            sendTime: -1,
+            rcvdTime: -1,
+        };
+
         for (let i = 0; i < kPacketHistoryLength; i++) {
-            this.localHistory[i] = new Packet();
-            this.remoteHistory[i] = new Packet();
+            this.localHistory[i] = { ...emptyPacket, header: { ...emptyHeader }};
+            this.remoteHistory[i] = { ...emptyPacket,  header: { ...emptyHeader }};
         }
     }
 
@@ -66,7 +108,7 @@ export class NetChannel extends EventDispatcher {
             const sequence = this.localSequence - i;
             const packet = this.localHistory[sequence % kPacketHistoryLength];
             const invalid = packet.header.sequence !== sequence; // Stale, an old packet from a previous sequence loop
-            if (invalid) continue; 
+            if (invalid) continue;
 
             const age = now - packet.sendTime;
 
@@ -74,9 +116,9 @@ export class NetChannel extends EventDispatcher {
 
             // Packet loss
             if (age > kMaxRTT) {
-                if (packet.acknowledged) { ackd += 1; }
+                if (defined(packet.ackTime)) { ackd += 1; }
                 else { lost += 1; }
-            } 
+            }
 
             // Average RTT
             if (defined(packet.ackTime)) {
@@ -94,7 +136,7 @@ export class NetChannel extends EventDispatcher {
             const sequence = this.remoteSequence - i;
             const packet = this.remoteHistory[sequence % kPacketHistoryLength];
             const invalid = packet.header.sequence !== sequence; // Stale, an old packet from a previous sequence loop
-            if (invalid) continue; 
+            if (invalid) continue;
 
             // In bandwidth
             rcvdSize += packet.size;
@@ -132,7 +174,10 @@ export class NetChannel extends EventDispatcher {
         packet.size = kPacketHeaderSize + payload.byteLength;
 
         // Transmit the data
-        packet.writeHeader(scratchPacketDataView);
+        scratchPacketDataView.setUint16(0, packet.header.sequence, true);
+        scratchPacketDataView.setUint16(2, packet.header.ack, true);
+        scratchPacketDataView.setUint32(4, packet.header.ackBitfield, true);
+
         scratchPacketBuffer.set(payload, kPacketHeaderSize);
         this.socket.send(scratchPacketBuffer.subarray(0, packet.size));
 
@@ -154,7 +199,9 @@ export class NetChannel extends EventDispatcher {
 
             // Parse and buffer the packet 
             const packet = this.remoteHistory[sequence % kPacketHistoryLength];
-            packet.readHeader(view);
+            packet.header.sequence = view.getUint16(0, true);
+            packet.header.ack = view.getUint16(2, true);
+            packet.header.ackBitfield = view.getUint32(4, true);
             packet.size = data.byteLength;
             packet.rcvdTime = performance.now();
 
@@ -162,14 +209,14 @@ export class NetChannel extends EventDispatcher {
                 console.warn('NetChannel: Received packet that was too large for buffer. Ignoring.');
                 return;
             }
-            
+
             // Update the acknowledged state of all of the recently sent packets
             const bitfield = packet.header.ackBitfield;
             for (let i = 0; i < 32; i++) {
                 if (bitfield & 1 << i) {
-                    const sequence = sequenceNumberWrap(packet.header.ack - i); 
+                    const sequence = sequenceNumberWrap(packet.header.ack - i);
                     const p = this.localHistory[sequence % kPacketHistoryLength];
-                    if (p.header.sequence === sequence && !p.acknowledged) {
+                    if (p.header.sequence === sequence && !defined(p.ackTime)) {
                         this.acknowledge(p);
                     }
                 }
@@ -192,10 +239,10 @@ export class NetChannel extends EventDispatcher {
             sentTime: packet.sendTime,
             rttTime: packet.ackTime - packet.sendTime,
         };
-    
+
         // Track the latest acknowledged packet
-        if (!defined(this.latestAck.sequence) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.sequence)) { 
-            this.latestAck.info = ackInfo; 
+        if (!defined(this.latestAck.sequence) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.sequence)) {
+            this.latestAck.info = ackInfo;
             this.latestAck.sequence = packet.header.sequence;
         }
     }
@@ -212,4 +259,13 @@ export class NetChannel extends EventDispatcher {
         }
         return bitfield;
     }
+}
+
+function sequenceNumberGreaterThan(a: SequenceNumber, b: SequenceNumber) {
+    return ((a > b) && (a - b <= kSequenceNumberDomainHalf)) ||
+        ((a < b) && (b - a > kSequenceNumberDomainHalf));
+}
+
+function sequenceNumberWrap(a: SequenceNumber) {
+    return ((a % kSequenceNumberDomain) + kSequenceNumberDomain) % kSequenceNumberDomain;
 }

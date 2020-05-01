@@ -5,8 +5,9 @@ import { UserCommandBuffer, UserCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
-import { kPacketMaxPayloadSize, AckInfo, Msg, MsgBuf } from "./NetPacket";
+import { kPacketMaxPayloadSize, AckInfo} from "./NetChannel";
 import { NetGraph, NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
+import { MsgBuf, Msg } from "./NetPacket";
 
 export enum NetClientState {
     Free,
@@ -207,13 +208,13 @@ export class NetClient extends EventDispatcher {
     }
     
     transmitVisibilityChange(visible: boolean) {
-        let bits = 0;
-        if (visible) bits |= 0xF0;
-        bits |= MsgId.VisChange & kMsgIdMask;
+        // let bits = 0;
+        // if (visible) bits |= 0xF0;
+        // bits |= MsgId.VisChange & kMsgIdMask;
         
-        const buf = MsgBuf.clear(this.msgBuf);
-        Msg.writeByte(buf, bits);
-        this.channel.sendReliable(buf.data.subarray(0, 1));
+        // const buf = MsgBuf.clear(this.msgBuf);
+        // Msg.writeByte(buf, bits);
+        // this.channel.sendReliable(buf.data.subarray(0, 1));
     }
 
     receiveVisibilityChange(msg: MsgBuf) {

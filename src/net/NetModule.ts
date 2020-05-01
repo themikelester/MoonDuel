@@ -8,7 +8,7 @@ import { assert, defined, arrayRemove } from "../util";
 
 import { NetGraph } from './NetDebug';
 import { DebugMenu } from "../DebugMenu";
-import { AckInfo } from "./NetPacket";
+import { AckInfo } from "./NetChannel";
 
 interface ClientDependencies {
     clock: Clock;
