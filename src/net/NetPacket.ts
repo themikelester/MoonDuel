@@ -6,7 +6,6 @@ export const kPacketHeaderSize = 8;
 export const kSequenceNumberDomain = 2 ** 16;
 export const kSequenceNumberDomainHalf = kSequenceNumberDomain / 2;
 export const kPacketMaxPayloadSize = 1024;
-export const kPacketMaxReliablePayloadSize = 16;
 
 interface PacketHeader {
     sequence: SequenceNumber;
@@ -25,8 +24,6 @@ export class Packet {
     header: PacketHeader;
     tag: number;
     size: number;
-
-    reliableId?: number;
 
     ackTime?: number;
     sendTime: number;

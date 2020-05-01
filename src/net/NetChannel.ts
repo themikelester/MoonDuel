@@ -1,12 +1,11 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
-import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize, kPacketMaxReliablePayloadSize } from './NetPacket';
+import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined, defaultValue, assert, assertDefined } from '../util';
+import { defined, defaultValue } from '../util';
 
 export enum NetChannelEvent {
     Receive = "receive",
-    AckReliable = "ackrel",
 };
 
 const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
@@ -22,12 +21,6 @@ export class NetChannelStats {
     outKbps: number = 0;
 }
 
-interface ReliablePayload {
-    payload: Uint8Array;
-    id: number;
-    tag?: number;
-}
-
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
  * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
@@ -41,9 +34,6 @@ export class NetChannel extends EventDispatcher {
     private localSequence = 0;
     private localHistory: Packet[] = [];
     private remoteHistory: Packet[] = [];
-
-    private reliableId: number = 0;
-    private reliableBuf: ReliablePayload[] = [];
 
     private latestAck = {} as { sequence?: number, info?: AckInfo };
 
@@ -120,20 +110,7 @@ export class NetChannel extends EventDispatcher {
     }
 
     /**
-     * Send a payload that will be resent until it is acknowledged. It will be transmitted with the next call to send().
-     * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
-     * @param payload The payload to include in the packet
-     * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
-     */
-    sendReliable(payload: Uint8Array, tag?: number): boolean {
-        assert(payload.byteLength <= kPacketMaxReliablePayloadSize, 'NetChannel: Reliable payload max size exceed');
-        this.reliableBuf.push({ payload: new Uint8Array(payload), tag, id: this.reliableId++ });
-        return true;
-    }
-
-    /**
-     * Construct a packet with the specified payload and send it to the server. If a reliable payload has be queued,
-     * (via sendReliable()) it will also be sent with this packet.
+     * Construct a packet with the specified payload and send it to the server. 
      * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
      * @param payload The payload to include in the packet
      * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
@@ -144,24 +121,19 @@ export class NetChannel extends EventDispatcher {
             return;
         }
 
-        const reliable = this.reliableBuf[0];
-        const withReliable = defined(reliable); // @TODO: Could have different transmission frequency schemes
-        
         // Allocate the packet
         const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
         packet.header.sequence = this.localSequence;
         packet.header.ack = this.remoteSequence;
         packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
         packet.tag = defaultValue(tag, this.localSequence);
-        packet.reliableId = withReliable ? reliable.id : undefined;
         packet.sendTime = performance.now();
         packet.ackTime = undefined;
-        packet.size = kPacketHeaderSize + payload.byteLength + (withReliable ? reliable.payload.byteLength : 0);
+        packet.size = kPacketHeaderSize + payload.byteLength;
 
         // Transmit the data
         packet.writeHeader(scratchPacketDataView);
         scratchPacketBuffer.set(payload, kPacketHeaderSize);
-        if (withReliable) scratchPacketBuffer.set(reliable.payload, kPacketHeaderSize + payload.byteLength);
         this.socket.send(scratchPacketBuffer.subarray(0, packet.size));
 
         this.localSequence = sequenceNumberWrap(this.localSequence + 1);
@@ -220,13 +192,7 @@ export class NetChannel extends EventDispatcher {
             sentTime: packet.sendTime,
             rttTime: packet.ackTime - packet.sendTime,
         };
-        
-        // If this packet contained a reliable payload that we haven't yet ack'd, remove it from the queue
-        if (defined(packet.reliableId) && packet.reliableId === this.reliableBuf[0].id) {
-            const reliable = assertDefined(this.reliableBuf.shift());
-            this.fire(NetChannelEvent.AckReliable, reliable.tag);
-        }
-
+    
         // Track the latest acknowledged packet
         if (!defined(this.latestAck.sequence) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.sequence)) { 
             this.latestAck.info = ackInfo; 
