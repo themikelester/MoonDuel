@@ -4,7 +4,7 @@ import { NetClient, NetClientEvents, NetClientState } from "./NetClient";
 import { AvatarSystemServer } from "../Avatar";
 import { Snapshot } from "../Snapshot";
 import { Clock } from "../Clock";
-import { assert, defined } from "../util";
+import { assert, defined, arrayRemove } from "../util";
 
 import { NetGraph } from './NetDebug';
 import { DebugMenu } from "../DebugMenu";
@@ -127,6 +127,7 @@ export class NetModuleServer {
     onClientDisconnected(client: NetClient) {
         console.log('Client disconnected:', client);
         // this.context.avatar.removeAvatar(client.id);
+        arrayRemove(this.clients, client);
 
         if (client.graphPanel) { this.graph?.removePanel(client.graphPanel); }
     }
