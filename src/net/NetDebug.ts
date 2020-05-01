@@ -69,13 +69,16 @@ export class NetGraph {
         this.dom.appendChild(canvas);
     
         const frameStatus = new Array(kTimeRangeFrames).fill(NetGraphPacketStatus.Missing);
+        const frameIds = new Array(kTimeRangeFrames).fill(-1);
         let lastFrame = 0;
 
         return {
             dom: canvas,
 
             setPacketStatus(frame: number, status: NetGraphPacketStatus) {
-                frameStatus[frame % kTimeRangeFrames] = status;
+                const oldestFrame = lastFrame - kTimeRangeFrames;
+                if (frame > oldestFrame && frame < lastFrame)
+                    frameStatus[frame % kTimeRangeFrames] = status;
             },
 
             update(ping: number | undefined, serverTime: number, renderTime: number, clientTime: number): void {
@@ -83,7 +86,7 @@ export class NetGraph {
                 ctx.fillRect(kGraphX, kGraphY, kGraphWidth, kGraphHeight);
 
                 const startFrame = Math.floor(serverTime / kFrameLengthMs) - kTimeRangeFrames / 2;
-                const endFrame = startFrame + kTimeRangeFrames;
+                const endFrame = startFrame + kTimeRangeFrames - 1;
 
                 let frame = startFrame;
                 while (frame <= endFrame) {
@@ -92,29 +95,29 @@ export class NetGraph {
                     const x = kGraphX + gx;
                     frame += 1;
 
-                    if (gx <= 0 || gx >= kGraphWidth) {
-                        continue;
-                    }
-
                     // Reset the states of frames just now appearing on the graph
-                    if (frame > lastFrame) { this.setPacketStatus(frame, NetGraphPacketStatus.Missing); }
-
-                    ctx.fillStyle = 'grey';
-                    ctx.fillRect(x - 1, kGraphY, 2, kGraphHeight);
-
-                    // Determine color based on status and other factors
-                    const status: NetGraphPacketStatus = frameStatus[frame % kTimeRangeFrames];
-                    switch(status) {
-                        case NetGraphPacketStatus.Missing: continue;
-                        case NetGraphPacketStatus.Received: ctx.fillStyle = received; break;
-                        case NetGraphPacketStatus.Filled: ctx.fillStyle = filled; break;
-                        case NetGraphPacketStatus.Late: ctx.fillStyle = toolate; break;
-                        default: ctx.fillStyle = 'red';
+                    if (frame > lastFrame) { 
+                        frameStatus[frame % kTimeRangeFrames] = NetGraphPacketStatus.Missing;
                     }
 
-                    const radius = 4;
-                    const left = Math.min(radius, x - kGraphX)
-                    ctx.fillRect(x - left, kGraphY + kGraphHeight * 0.25, left + radius, kGraphHeight * 0.5);
+                    if (gx > 0 && gx < kGraphWidth) {
+                        ctx.fillStyle = 'grey';
+                        ctx.fillRect(x - 1, kGraphY, 2, kGraphHeight);
+
+                        // Determine color based on status and other factors
+                        const status: NetGraphPacketStatus = frameStatus[frame % kTimeRangeFrames];
+                        switch(status) {
+                            case NetGraphPacketStatus.Missing: continue;
+                            case NetGraphPacketStatus.Received: ctx.fillStyle = received; break;
+                            case NetGraphPacketStatus.Filled: ctx.fillStyle = filled; break;
+                            case NetGraphPacketStatus.Late: ctx.fillStyle = toolate; break;
+                            default: ctx.fillStyle = 'red';
+                        }
+
+                        const radius = 4;
+                        const left = Math.min(radius, x - kGraphX)
+                        ctx.fillRect(x - left, kGraphY + kGraphHeight * 0.25, left + radius, kGraphHeight * 0.5);   
+                    }
                 }
 
                 // Server time
