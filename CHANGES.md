@@ -23,6 +23,16 @@ So, for today I'd like to get:
     - Set up a handler to disconnect from the room when the host tab closes (already doing this for the WebRTC code)
     - Either join a random room each time, or start working on host migration
 - Send a reliable message when the tab is backgrounded 
+- Server stops sending data to backgrounded clients, and doesn't complain about missing inputs
+- Server's WebUDP should never error when a client leaves. It should check for channel.closing and channel.closed before send
+- NetClient disconnects after not receiving a message for some timeout, lets start with 5 seconds
+
+##### Evening
+It took me a while, and three attempts, but I'm finally happy with the reliability layer. At first I tried implementing it at the NetChannel layer, but then I saw this from one of the Quake 3 Arena devs:
+> The final iteration (Quake3), which was the first time he really felt he "got it right" (whereas Carmack always felt a little uneasy with previous implementations' fragility), used a radically different approach.  With Quake3 he dropped the notion of a reliable packet altogether, replacing the previous network packet structure with a single packet type -- the client's necessary game state.
+> All reliable data that another node needs is sent repeatedly until the sender receives an update for most-recent-ack (indicating that the packet has been received). For example, if a player sends a chat message (reliable) with update 6, he will continually send that chat message on subsequent state updates until he receives notification from the server that it has received an update >= 6.  Brute force, but it works.
+[http://fabiensanglard.net/quake3/The%20Quake3%20Networking%20Mode.html]
+So that's what I did, at the NetClient level. When a Client update goes out, if there is a reliable message buffered, it gets sent too. If an ack come in that's greater than the frame we first sent out the reliable message, it's ack'd and removed from the buffer. Only ended up being about two dozen lines of code. Reliable messages! But I didn't have time for anything else, so all of the TODOs above are still valid.
 
 ### 2020-04-30
 ##### Morning
