@@ -1,8 +1,8 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
-import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize } from './NetPacket';
+import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize, kPacketMaxReliablePayloadSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined, defaultValue } from '../util';
+import { defined, defaultValue, assert } from '../util';
 import { clamp } from '../MathHelpers';
 
 export enum NetChannelEvent {
@@ -24,7 +24,8 @@ export class NetChannelStats {
 
 interface ReliablePayload {
     payload: Uint8Array;
-    tag?: number
+    id: number;
+    tag?: number;
 }
 
 /**
@@ -41,6 +42,7 @@ export class NetChannel extends EventDispatcher {
     private localHistory: Packet[] = [];
     private remoteHistory: Packet[] = [];
 
+    private reliableId: number = 0;
     private reliableBuf: ReliablePayload[] = [];
 
     private latestAck = {} as { sequence?: number, info?: AckInfo };
@@ -124,12 +126,14 @@ export class NetChannel extends EventDispatcher {
      * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
      */
     sendReliable(payload: Uint8Array, tag?: number): boolean {
-        this.reliableBuf.push({ payload, tag });
+        assert(payload.byteLength <= kPacketMaxReliablePayloadSize, 'NetChannel: Reliable payload max size exceed');
+        this.reliableBuf.push({ payload: new Uint8Array(payload), tag, id: this.reliableId++ });
         return true;
     }
 
     /**
-     * Construct a packet with the specified payload and send it to the server
+     * Construct a packet with the specified payload and send it to the server. If a reliable payload has be queued,
+     * (via sendReliable()) it will also be sent with this packet.
      * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
      * @param payload The payload to include in the packet
      * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
@@ -139,6 +143,9 @@ export class NetChannel extends EventDispatcher {
             console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
             return;
         }
+
+        const reliable = this.reliableBuf[0];
+        const withReliable = defined(reliable); // @TODO: Could have different transmission frequency schemes
         
         // Allocate the packet
         const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
@@ -146,15 +153,15 @@ export class NetChannel extends EventDispatcher {
         packet.header.ack = this.remoteSequence;
         packet.header.ackBitfield = this.writeAckBitfield(this.remoteHistory);
         packet.tag = defaultValue(tag, this.localSequence);
-        // @TODO: set reliable tag
+        packet.reliableId = withReliable ? reliable.id : undefined;
         packet.sendTime = performance.now();
         packet.ackTime = undefined;
-        packet.size = kPacketHeaderSize + payload.byteLength; // @TODO: + reliable payload size
+        packet.size = kPacketHeaderSize + payload.byteLength + (withReliable ? reliable.payload.byteLength : 0);
 
         // Transmit the data
         packet.writeHeader(scratchPacketDataView);
-        // @TODO: write reliable payload
         scratchPacketBuffer.set(payload, kPacketHeaderSize);
+        if (withReliable) scratchPacketBuffer.set(payload, kPacketHeaderSize + payload.byteLength);
         this.socket.send(scratchPacketBuffer.subarray(0, packet.size));
 
         this.localSequence = sequenceNumberWrap(this.localSequence + 1);
@@ -215,6 +222,12 @@ export class NetChannel extends EventDispatcher {
 
     private acknowledge(packet: Packet) {
         const ackInfo = packet.acknowledge();
+
+        // If this packet contained a reliable payload that we haven't yet ack'd, remove it from the queue
+        // @TODO: Notify higher layers of the ACK
+        if (packet.reliableId && packet.reliableId === this.reliableBuf[0].id) {
+            this.reliableBuf.shift();
+        }
 
         // Track the latest acknowledged packet
         if (!defined(this.latestAck.sequence) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.sequence)) { 
