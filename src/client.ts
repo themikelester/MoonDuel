@@ -84,6 +84,9 @@ export class Client {
         window.onresize = this.onResize.bind(this);
         this.onResize();
 
+        // Handle window visibility changing (minimized or background tab)
+        document.onvisibilitychange = this.onVisibility.bind(this);
+
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
         } else {
@@ -156,5 +159,10 @@ export class Client {
     private onResize() {
         this.cameraSystem.resize(window.innerWidth / window.innerHeight);
         this.compositor.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+    }
+
+    private onVisibility() {
+        const hidden = document.hidden;
+        this.net.onVisibility(hidden);
     }
 }

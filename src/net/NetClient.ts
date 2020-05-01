@@ -31,11 +31,12 @@ export enum NetClientEvents {
 enum MsgId {
     ServerFrame = 0,
     ClientFrame = 1,
+    VisChange = 2,
 
     _Count
 }
 
-const kMsgIdMask = 0b00000011;
+const kMsgIdMask = 0b00001111;
 assert((kMsgIdMask+1) >= MsgId._Count, "Don't forget to update the bitmask!");
 
 
@@ -196,6 +197,21 @@ export class NetClient extends EventDispatcher {
             this.graphPanel.setPacketStatus(snap.frame, status);
         }
     }
+    
+    transmitVisibilityChange(visible: boolean) {
+        let bits = 0;
+        if (visible) bits |= 0xF0;
+        bits |= MsgId.VisChange & kMsgIdMask;
+        
+        const buf = MsgBuf.clear(this.msgBuf);
+        Msg.writeByte(buf, bits);
+        this.channel.send(buf.data.subarray(0, 1));
+    }
+
+    receiveVisibilityChange(msg: MsgBuf) {
+        const visible = (Msg.readByte(msg) & ~kMsgIdMask) > 0;
+        console.log(`[Client ${this.id}] Received new visibility status: ${visible ? 'visible' : 'hidden' }`);
+    }
 
     getSnapshot(frame: number, dst: Snapshot) {
         this.lastRequestedFrame = Math.ceil(frame);
@@ -208,7 +224,7 @@ export class NetClient extends EventDispatcher {
 
         // If we have not yet received an input for this frame, complain, and use the most recent
         if (!defined(cmd)) {
-            console.warn(`Client ${this.id} missing input for frame ${frame}`);
+            console.warn(`[Client ${this.id}] Missing input for frame ${frame}`);
             cmd = this.userCommands.getUserCommand();
         }
 
@@ -229,6 +245,7 @@ export class NetClient extends EventDispatcher {
             switch(msgId) {
                 case MsgId.ServerFrame: this.receiveServerFrame(msg); break;
                 case MsgId.ClientFrame: this.receiveClientFrame(msg); break;
+                case MsgId.VisChange: this.receiveVisibilityChange(msg); break;
                 default: console.warn('Received unknown message', buf); 
             }
         }

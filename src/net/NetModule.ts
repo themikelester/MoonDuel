@@ -77,6 +77,10 @@ export class NetModuleClient {
         }
     }
 
+    onVisibility(hidden: boolean) {
+        this.client.transmitVisibilityChange(!hidden);
+    }
+
     update({ }) {
         this.updateNetGraph();
     }
