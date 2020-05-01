@@ -119,6 +119,9 @@ export class NetClient extends EventDispatcher {
         }
 
         this.channel.send(buf.data.subarray(0, buf.offset), frame);
+        
+        if (frame % 2 === 0) this.channel.transmit();
+
         this.lastTransmittedFrame = frame;
 
         this.channel.computeStats();
@@ -165,6 +168,8 @@ export class NetClient extends EventDispatcher {
         Snapshot.serialize(buf, snap);
 
         this.channel.send(buf.data.subarray(0, buf.offset), snap.frame);
+        if (snap.frame % 2 === 0) this.channel.transmit();
+
         this.lastTransmittedFrame = snap.frame;
 
         this.channel.computeStats();
@@ -216,7 +221,7 @@ export class NetClient extends EventDispatcher {
         this.ping = this.channel.ping;
 
         if (defined(lastAcknowledged)) {
-            this.lastAcknowledgedFrame = lastAcknowledged.tag;
+            this.lastAcknowledgedFrame = Math.max.apply(null, lastAcknowledged.tags);
         }
 
         if (msg[0] === 0) this.receiveServerFrame(msg);
