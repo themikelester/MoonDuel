@@ -5,7 +5,8 @@ import { defined, defaultValue, assert } from '../util';
 import { Buf } from '../Buf';
 
 export enum NetChannelEvent {
-    Receive = "receive",
+    Receive = "rec",
+    Acknowledge = "ack"
 };
 
 export interface AckInfo {
@@ -43,10 +44,16 @@ interface Packet {
 const kPacketHeaderSize = 8;
 const kSequenceNumberDomain = 2 ** 16;
 const kSequenceNumberDomainHalf = kSequenceNumberDomain / 2;
-export const kPacketMaxPayloadSize = 1024;
-
 const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
 const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered lost
+export const kPacketMaxPayloadSize = 1024;
+
+const scratchAckInfo: AckInfo = {
+    tag: 0,
+    rttTime: 0,
+    sentTime: 0,
+    ackTime: 0,
+};
 
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
@@ -62,7 +69,6 @@ export class NetChannel extends EventDispatcher {
     private localHistory: Packet[] = [];
     private remoteHistory: Packet[] = [];
 
-    private latestAck = {} as { sequence?: number, info?: AckInfo };
     private packetBuffer = new Buf(new Uint8Array(kPacketHeaderSize + kPacketMaxPayloadSize));
 
     get isOpen() { return this.socket.isOpen; }
@@ -211,6 +217,10 @@ export class NetChannel extends EventDispatcher {
             packet.size = data.byteLength;
             packet.rcvdTime = performance.now();
 
+            // Notify listeners 
+            Buf.skip(buf, kPacketHeaderSize);
+            this.fire(NetChannelEvent.Receive, buf);
+
             // Update the acknowledged state of all of the recently sent packets
             const bitfield = packet.header.ackBitfield;
             for (let i = 0; i < 32; i++) {
@@ -222,9 +232,6 @@ export class NetChannel extends EventDispatcher {
                     }
                 }
             }
-
-            Buf.skip(buf, kPacketHeaderSize);
-            this.fire(NetChannelEvent.Receive, buf, this.latestAck.info);
         } else {
             // Ignore the packet
             console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);
@@ -234,18 +241,13 @@ export class NetChannel extends EventDispatcher {
     private acknowledge(packet: Packet) {
         packet.ackTime = performance.now();
 
-        const ackInfo = {
-            tag: packet.tag,
-            ackTime: packet.ackTime,
-            sentTime: packet.sendTime,
-            rttTime: packet.ackTime - packet.sendTime,
-        };
+        const ackInfo = scratchAckInfo;
+        ackInfo.tag = packet.tag;
+        ackInfo.ackTime = packet.ackTime;
+        ackInfo.sentTime = packet.sendTime;
+        ackInfo.rttTime = packet.ackTime - packet.sendTime;
 
-        // Track the latest acknowledged packet
-        if (!defined(this.latestAck.sequence) || sequenceNumberGreaterThan(packet.header.sequence, this.latestAck.sequence)) {
-            this.latestAck.info = ackInfo;
-            this.latestAck.sequence = packet.header.sequence;
-        }
+        this.fire(NetChannelEvent.Acknowledge, ackInfo);
     }
 
     private writeAckBitfield(history: Packet[]) {

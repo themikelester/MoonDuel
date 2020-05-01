@@ -24,9 +24,10 @@ export enum NetClientState {
 }
 
 export enum NetClientEvents {
-    Connected = 'connected',
-    Disconnected = 'disconnected',
-    Message = 'message',
+    Connected = 'con',
+    Disconnected = 'dis',
+    Message = 'msg',
+    Acknowledge = 'ack',
 }
 
 enum MsgId {
@@ -57,8 +58,6 @@ export class NetClient extends EventDispatcher {
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
 
-    private msgBuf = new Buf(new Uint8Array(kPacketMaxPayloadSize));
-
     // Debugging
     graphPanel?: NetGraphPanel;
 
@@ -81,6 +80,7 @@ export class NetClient extends EventDispatcher {
         this.channel = new NetChannel();
 
         this.channel.on(NetChannelEvent.Receive, this.onMessage.bind(this));
+        this.channel.on(NetChannelEvent.Acknowledge, this.onAck.bind(this));
         this.channel.initialize(socket);
     }
 
@@ -240,12 +240,16 @@ export class NetClient extends EventDispatcher {
         return assertDefined(cmd);
     }
 
-    onMessage(msg: Buf, lastAcknowledged?: AckInfo) {
-        this.ping = this.channel.ping;
-
-        if (defined(lastAcknowledged)) {
-            this.lastAcknowledgedFrame = lastAcknowledged.tag;
+    onAck(ack: AckInfo) {
+        if (ack.tag > this.lastAcknowledgedFrame) {
+            this.lastAcknowledgedFrame = ack.tag;
         }
+
+        this.fire(NetClientEvents.Acknowledge, ack);
+    }
+
+    onMessage(msg: Buf) {
+        this.ping = this.channel.ping;
 
         while (msg.offset < msg.data.byteLength) {
             const msgId = Buf.peekByte(msg) & kMsgIdMask;
@@ -257,6 +261,6 @@ export class NetClient extends EventDispatcher {
             }
         }
 
-        this.fire(NetClientEvents.Message, msg, lastAcknowledged);
+        this.fire(NetClientEvents.Message, msg);
     }
 }
