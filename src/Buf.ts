@@ -33,6 +33,12 @@ export class Buf {
         this.offset = 0;
         return this;
     }
+
+    finish() {
+        const buf = this.data.subarray(0, this.offset);
+        this.offset = 0;
+        return buf;
+    }
 }
 
 export namespace Buf {
@@ -57,6 +63,7 @@ export namespace Buf {
 
         const offset = buf.alloc(1);
         buf.data[offset] = c;
+        return offset;
     }
 
     export function writeByte(buf: Buf, c: number) {
@@ -71,6 +78,7 @@ export namespace Buf {
 
         const offset = buf.alloc(1);
         buf.data[offset] = c;
+        return offset;
     }
 
     export function writeShort(buf: Buf, c: number) {
@@ -86,6 +94,7 @@ export namespace Buf {
         const offset = buf.alloc(2);
         buf.data[offset + 0] = (c >> 0) & 0xFF;
         buf.data[offset + 1] = (c >> 8) & 0xFF;
+        return offset;
     }
 
     export function writeInt(buf: Buf, c: number) {
@@ -103,29 +112,33 @@ export namespace Buf {
         buf.data[offset + 1] = (c >> 8) & 0xFF;
         buf.data[offset + 2] = (c >> 16) & 0xFF;
         buf.data[offset + 3] = (c >> 24) & 0xFF;
+        return offset;
     }
 
     export function writeAngle16(buf: Buf, angleRad: number) {
-        writeShort(buf, Math.round(angleRad * 65536 / (Math.PI * 2)))
+        return writeShort(buf, Math.round(angleRad * 65536 / (Math.PI * 2)));
     }
 
     // @HACK
     export function writeFloat(buf: Buf, f: number) {
         const offset = buf.alloc(4);
         buf.dataView.setFloat32(offset, f, true);
+        return offset;
     }
 
     // @HACK
     export function writeString(buf: Buf, str: string) {
         assert(str.length < 256);
-        Buf.writeByte(buf, str.length);
+        const offset = Buf.writeByte(buf, str.length);
         for (let i = 0; i < str.length; i++) {
             Buf.writeByte(buf, str.charCodeAt(i));
         }
+        return offset;
     }
 
     export function skip(buf: Buf, c: number) {
-        buf.alloc(c);
+        const offset = buf.alloc(c);
+        return offset;
     }
 
     export function readChar(buf: Buf) {

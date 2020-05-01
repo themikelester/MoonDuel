@@ -1,7 +1,8 @@
 
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined, defaultValue } from '../util';
+import { defined, defaultValue, assert } from '../util';
+import { Buf } from '../Buf';
 
 export enum NetChannelEvent {
     Receive = "receive",
@@ -47,9 +48,6 @@ export const kPacketMaxPayloadSize = 1024;
 const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
 const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered lost
 
-const scratchPacketBuffer = new Uint8Array(kPacketMaxPayloadSize + kPacketHeaderSize);
-const scratchPacketDataView = new DataView(scratchPacketBuffer.buffer);
-
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
  * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
@@ -65,6 +63,7 @@ export class NetChannel extends EventDispatcher {
     private remoteHistory: Packet[] = [];
 
     private latestAck = {} as { sequence?: number, info?: AckInfo };
+    private packetBuffer = new Buf(new Uint8Array(kPacketHeaderSize + kPacketMaxPayloadSize));
 
     get isOpen() { return this.socket.isOpen; }
     get ping() { return this.stats.averageRtt > 0 ? this.stats.averageRtt : undefined; }
@@ -151,19 +150,25 @@ export class NetChannel extends EventDispatcher {
         return this.stats;
     }
 
+    allocatePacket(): Buf {
+        this.packetBuffer.clear();
+        
+        // Leave space for the packet header in the buffer
+        Buf.skip(this.packetBuffer, kPacketHeaderSize);
+
+        return this.packetBuffer;
+    }
+
     /**
      * Construct a packet with the specified payload and send it to the server. 
      * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
      * @param payload The payload to include in the packet
      * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
      */
-    send(payload: Uint8Array, tag?: number) {
-        if (payload.length > kPacketMaxPayloadSize) {
-            console.warn('NetChannel: Attempted to send packet that was too large for buffer. Ignoring.');
-            return;
-        }
+    send(packetBuffer: Buf, tag?: number) {
+        assert(packetBuffer === this.packetBuffer, 'Pass the same buffer from allocatePacket()');
 
-        // Allocate the packet
+        // Store the packet metainfo for later acknowledgement
         const packet = this.localHistory[this.localSequence % kPacketHistoryLength];
         packet.header.sequence = this.localSequence;
         packet.header.ack = this.remoteSequence;
@@ -171,15 +176,16 @@ export class NetChannel extends EventDispatcher {
         packet.tag = defaultValue(tag, this.localSequence);
         packet.sendTime = performance.now();
         packet.ackTime = undefined;
-        packet.size = kPacketHeaderSize + payload.byteLength;
+        packet.size = this.packetBuffer.offset;
+        
+        // Write the packet header into the buffer
+        this.packetBuffer.dataView.setUint16(0, packet.header.sequence, true);
+        this.packetBuffer.dataView.setUint16(2, packet.header.ack, true);
+        this.packetBuffer.dataView.setUint32(4, packet.header.ackBitfield, true);
 
-        // Transmit the data
-        scratchPacketDataView.setUint16(0, packet.header.sequence, true);
-        scratchPacketDataView.setUint16(2, packet.header.ack, true);
-        scratchPacketDataView.setUint32(4, packet.header.ackBitfield, true);
-
-        scratchPacketBuffer.set(payload, kPacketHeaderSize);
-        this.socket.send(scratchPacketBuffer.subarray(0, packet.size));
+        // Transmit
+        const data = this.packetBuffer.finish();
+        this.socket.send(data);
 
         this.localSequence = sequenceNumberWrap(this.localSequence + 1);
     }
@@ -190,8 +196,8 @@ export class NetChannel extends EventDispatcher {
      * @param data The raw data received from the WebUDP connection
      */
     private receive(data: ArrayBuffer) {
-        const view = new DataView(data);
-        const sequence = view.getUint16(0, true);
+        const buf = new Buf(new Uint8Array(data));
+        const sequence = buf.dataView.getUint16(0, true);
 
         // If this packet is newer than the latest packet we've received, update
         if (sequenceNumberGreaterThan(sequence, this.remoteSequence)) {
@@ -199,16 +205,11 @@ export class NetChannel extends EventDispatcher {
 
             // Parse and buffer the packet 
             const packet = this.remoteHistory[sequence % kPacketHistoryLength];
-            packet.header.sequence = view.getUint16(0, true);
-            packet.header.ack = view.getUint16(2, true);
-            packet.header.ackBitfield = view.getUint32(4, true);
+            packet.header.sequence = buf.dataView.getUint16(0, true);
+            packet.header.ack = buf.dataView.getUint16(2, true);
+            packet.header.ackBitfield = buf.dataView.getUint32(4, true);
             packet.size = data.byteLength;
             packet.rcvdTime = performance.now();
-
-            if (!defined(packet)) {
-                console.warn('NetChannel: Received packet that was too large for buffer. Ignoring.');
-                return;
-            }
 
             // Update the acknowledged state of all of the recently sent packets
             const bitfield = packet.header.ackBitfield;
@@ -222,8 +223,8 @@ export class NetChannel extends EventDispatcher {
                 }
             }
 
-            const payload = new Uint8Array(data, kPacketHeaderSize);
-            this.fire(NetChannelEvent.Receive, payload, this.latestAck.info);
+            Buf.skip(buf, kPacketHeaderSize);
+            this.fire(NetChannelEvent.Receive, buf, this.latestAck.info);
         } else {
             // Ignore the packet
             console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);

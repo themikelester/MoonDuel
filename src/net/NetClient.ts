@@ -115,11 +115,11 @@ export class NetClient extends EventDispatcher {
         this.userCommands.setUserCommand(cmd);
 
         // Construct the message
-        const buf = this.msgBuf.clear();
+        const buf = this.channel.allocatePacket();
         let idByte = MsgId.ClientFrame;
         let cmdCount = 0;
 
-        Buf.writeChar(buf, idByte); // Client frame
+        const idByteOffset = Buf.writeChar(buf, idByte); // Client frame
         Buf.writeInt(buf, frame); // Frame number
 
         // Send all unacknowledged user commands 
@@ -137,9 +137,9 @@ export class NetClient extends EventDispatcher {
 
         // Use the upper nibble of the ID byte to store the command count
         idByte |= cmdCount << 4;
-        buf.data[0] = idByte;
+        buf.data[idByteOffset] = idByte;
 
-        this.channel.send(buf.data.subarray(0, buf.offset), frame);
+        this.channel.send(buf, frame);
         this.lastTransmittedFrame = frame;
 
         this.channel.computeStats();
@@ -174,13 +174,13 @@ export class NetClient extends EventDispatcher {
         // Buffer the state so that we can delta-compare later
         this.snapshot.setSnapshot(snap);
 
-        const buf = this.msgBuf.clear();
+        const buf = this.channel.allocatePacket();
         Buf.writeByte(buf, 0); // Server frame
 
         // Send the latest state
         Snapshot.serialize(buf, snap);
 
-        this.channel.send(buf.data.subarray(0, buf.offset), snap.frame);
+        this.channel.send(buf, snap.frame);
         this.lastTransmittedFrame = snap.frame;
 
         this.channel.computeStats();
@@ -240,14 +240,12 @@ export class NetClient extends EventDispatcher {
         return assertDefined(cmd);
     }
 
-    onMessage(buf: Uint8Array, lastAcknowledged?: AckInfo) {
+    onMessage(msg: Buf, lastAcknowledged?: AckInfo) {
         this.ping = this.channel.ping;
 
         if (defined(lastAcknowledged)) {
             this.lastAcknowledgedFrame = lastAcknowledged.tag;
         }
-
-        const msg = new Buf(buf);
 
         while (msg.offset < msg.data.byteLength) {
             const msgId = Buf.peekByte(msg) & kMsgIdMask;
@@ -255,7 +253,7 @@ export class NetClient extends EventDispatcher {
                 case MsgId.ServerFrame: this.receiveServerFrame(msg); break;
                 case MsgId.ClientFrame: this.receiveClientFrame(msg); break;
                 case MsgId.VisChange: this.receiveVisibilityChange(msg); break;
-                default: console.warn('Received unknown message', buf); 
+                default: console.warn('Received unknown message', msg.data); 
             }
         }
 
