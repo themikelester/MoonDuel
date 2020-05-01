@@ -37,14 +37,60 @@ enum MsgId {
     _Count
 }
 
-const kIsMsgIdReliable = [false, false, true];
-assert(kIsMsgIdReliable.length === MsgId._Count);
-
 const kMsgIdMask  = 0b00000111;
 const kParityShift = 3;
 
 assert((kMsgIdMask+1) >= MsgId._Count, "Don't forget to update the bitmask!");
 
+/**
+ * Send messages that will be sent repeatedly until acknowledged. Only one message may be in flight at a time.
+ * @NOTE: This means that reliable messages will be sent AT MOST once every round-trip-time ms.
+ */
+class ReliableMessageManager {
+    private buffer: Uint8Array[] = [];
+    private sendFrame?: number;
+    private sendParity = 0;
+    private recvParity = 0;
+
+    getMessageForTransmission(frame: number) {
+        if (this.buffer.length <= 0) return undefined;
+        
+        // Store the frame at which we're first sending this reliable message...
+        if (!defined(this.sendFrame)) { this.sendFrame = frame; }
+
+        return this.buffer[0];
+    }
+
+    ack(frame: number) {
+        // ... If we get an ack for any frame after we send the message, it was received
+        if (defined(this.sendFrame) && frame >= this.sendFrame) {
+            this.buffer.shift();
+            this.sendFrame = undefined;
+        }
+    }
+
+    send(data: Uint8Array) {
+        // The parity bit is toggle each transmission so that the receiver can detect duplicates
+        data[0] |= (this.sendParity & 1) << kParityShift;
+        this.sendParity ^= 1; 
+        
+        // Buffer the message until next transmit
+        this.buffer.push(data);
+    }
+
+    receive(buf: Buf) {
+        const idByte = Buf.peekByte(buf);
+
+        // If we've already received this reliable message, ignore
+        const parity = (idByte >> kParityShift) & 1;
+        const alreadyReceived = parity != this.recvParity;
+        if (!alreadyReceived) {
+            this.recvParity ^= 1;
+        }
+
+        return alreadyReceived;
+    }
+}
 
 export class NetClient extends EventDispatcher {
     id: string;
@@ -62,10 +108,7 @@ export class NetClient extends EventDispatcher {
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
 
-    private reliableBuf: Uint8Array[] = [];
-    private reliableFrame?: number;
-    private reliableSendParity = 0;
-    private reliableRecvParity = 0;
+    private reliable = new ReliableMessageManager();
 
     // Debugging
     graphPanel?: NetGraphPanel;
@@ -127,10 +170,8 @@ export class NetClient extends EventDispatcher {
         const buf = this.channel.allocatePacket();
 
         // Write any reliable messages
-        if (defined(this.reliableBuf[0])) {
-            buf.write(this.reliableBuf[0]);
-            if (!defined(this.reliableFrame)) this.reliableFrame = frame; 
-        }
+        const reliableMsg = this.reliable.getMessageForTransmission(frame);
+        if (reliableMsg) buf.write(reliableMsg);
 
         // Write the user commands
         this.sendClientFrame(buf, frame, cmd);
@@ -232,14 +273,15 @@ export class NetClient extends EventDispatcher {
         let bits = 0;
         if (visible) bits |= 0xF0;
         bits |= MsgId.VisChange & kMsgIdMask;
-        bits |= (this.reliableSendParity & 1) << kParityShift;
-        this.reliableSendParity ^= 1; 
-        
-        this.reliableBuf.push(new Uint8Array([bits]));
+
+        const data = new Uint8Array([bits]); 
+        this.reliable.send(data);
     }
 
-    receiveVisibilityChange(msg: Buf, ignore: boolean) {
+    receiveVisibilityChange(msg: Buf) {
+        const ignore = this.reliable.receive(msg);
         const visible = (Buf.readByte(msg) & ~kMsgIdMask) > 0;
+
         if (!ignore) {
             console.log(`[Client ${this.id}] Received new visibility status: ${visible ? 'visible' : 'hidden' }`);
         }
@@ -269,11 +311,7 @@ export class NetClient extends EventDispatcher {
             this.lastAcknowledgedFrame = frame;
         }
 
-        if (this.reliableBuf[0] && frame >= this.reliableFrame!) {
-            // The in-flight reliable message has been acknowledged, stop sending it
-            this.reliableBuf.shift();
-            this.reliableFrame = undefined;
-        }
+        this.reliable.ack(frame);
 
         this.fire(NetClientEvents.Acknowledge, ack);
     }
@@ -284,19 +322,12 @@ export class NetClient extends EventDispatcher {
         while (msg.offset < msg.data.byteLength) {
             const idByte = Buf.peekByte(msg)
             const msgId = idByte & kMsgIdMask;
-            const reliableParity = (idByte >> kParityShift) & 1;
             let error = false;
-
-            // If we've already received this reliable message, ignore
-            const ignoreReliable = reliableParity != this.reliableRecvParity;
-            if (kIsMsgIdReliable[msgId] && !ignoreReliable) {
-                this.reliableRecvParity ^= 1;
-            }
 
             switch(msgId) {
                 case MsgId.ServerFrame: this.receiveServerFrame(msg); break;
                 case MsgId.ClientFrame: this.receiveClientFrame(msg); break;
-                case MsgId.VisChange: this.receiveVisibilityChange(msg, ignoreReliable); break;
+                case MsgId.VisChange: this.receiveVisibilityChange(msg); break;
                 default: console.warn('Received unknown message. Ignoring.'); error = true; break; 
             }
 
