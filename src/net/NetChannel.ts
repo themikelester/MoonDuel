@@ -2,11 +2,12 @@
 import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { sequenceNumberGreaterThan, sequenceNumberWrap, Packet, kPacketMaxPayloadSize, AckInfo, kPacketHeaderSize, kPacketMaxReliablePayloadSize } from './NetPacket';
 import { EventDispatcher } from '../EventDispatcher';
-import { defined, defaultValue, assert } from '../util';
+import { defined, defaultValue, assert, assertDefined } from '../util';
 import { clamp } from '../MathHelpers';
 
 export enum NetChannelEvent {
     Receive = "receive",
+    AckReliable = "ackrel",
 };
 
 const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at 60hz
@@ -212,12 +213,19 @@ export class NetChannel extends EventDispatcher {
     }
 
     private acknowledge(packet: Packet) {
-        const ackInfo = packet.acknowledge();
+        packet.ackTime = performance.now();
 
+        const ackInfo = {
+            tag: packet.tag,
+            ackTime: packet.ackTime,
+            sentTime: packet.sendTime,
+            rttTime: packet.ackTime - packet.sendTime,
+        };
+        
         // If this packet contained a reliable payload that we haven't yet ack'd, remove it from the queue
-        // @TODO: Notify higher layers of the ACK
         if (packet.reliableId && packet.reliableId === this.reliableBuf[0].id) {
-            this.reliableBuf.shift();
+            const reliable = assertDefined(this.reliableBuf.shift());
+            this.fire(NetChannelEvent.AckReliable, reliable.tag);
         }
 
         // Track the latest acknowledged packet

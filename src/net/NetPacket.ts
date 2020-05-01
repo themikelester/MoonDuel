@@ -53,16 +53,6 @@ export class Packet {
         this.header.ack = dataView.getUint16(2, true);
         this.header.ackBitfield = dataView.getUint32(4, true);
     }
-
-    acknowledge(): AckInfo {
-        this.ackTime = performance.now();
-        return {
-            tag: this.tag,
-            ackTime: this.ackTime,
-            sentTime: this.sendTime,
-            rttTime: this.ackTime - this.sendTime,
-        }
-    }
 }
 
 export function sequenceNumberGreaterThan(a: SequenceNumber, b: SequenceNumber) {
