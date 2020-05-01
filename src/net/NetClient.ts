@@ -1,11 +1,10 @@
-import { NetChannel, NetChannelEvent } from "./NetChannel";
+import { NetChannel, NetChannelEvent, AckInfo } from "./NetChannel";
 import { assert, defined, assertDefined } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer, UserCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
-import { kPacketMaxPayloadSize, AckInfo} from "./NetChannel";
 import { NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
 import { Buf } from "../Buf";
 
@@ -38,7 +37,12 @@ enum MsgId {
     _Count
 }
 
-const kMsgIdMask = 0b00001111;
+const kIsMsgIdReliable = [false, false, true];
+assert(kIsMsgIdReliable.length === MsgId._Count);
+
+const kMsgIdMask  = 0b00000111;
+const kParityShift = 3;
+
 assert((kMsgIdMask+1) >= MsgId._Count, "Don't forget to update the bitmask!");
 
 
@@ -57,6 +61,11 @@ export class NetClient extends EventDispatcher {
 
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
+
+    private reliableBuf: Uint8Array[] = [];
+    private reliableFrame?: number;
+    private reliableSendParity = 0;
+    private reliableRecvParity = 0;
 
     // Debugging
     graphPanel?: NetGraphPanel;
@@ -116,6 +125,23 @@ export class NetClient extends EventDispatcher {
 
         // Construct the message
         const buf = this.channel.allocatePacket();
+
+        // Write any reliable messages
+        if (defined(this.reliableBuf[0])) {
+            buf.write(this.reliableBuf[0]);
+            if (!defined(this.reliableFrame)) this.reliableFrame = frame; 
+        }
+
+        // Write the user commands
+        this.sendClientFrame(buf, frame, cmd);
+
+        this.channel.send(buf, frame);
+        this.lastTransmittedFrame = frame;
+
+        this.channel.computeStats();
+    }
+
+    sendClientFrame(buf: Buf, frame: number, cmd: UserCommand) {
         let idByte = MsgId.ClientFrame;
         let cmdCount = 0;
 
@@ -138,11 +164,6 @@ export class NetClient extends EventDispatcher {
         // Use the upper nibble of the ID byte to store the command count
         idByte |= cmdCount << 4;
         buf.data[idByteOffset] = idByte;
-
-        this.channel.send(buf, frame);
-        this.lastTransmittedFrame = frame;
-
-        this.channel.computeStats();
     }
 
     receiveClientFrame(msg: Buf) {
@@ -208,18 +229,20 @@ export class NetClient extends EventDispatcher {
     }
     
     transmitVisibilityChange(visible: boolean) {
-        // let bits = 0;
-        // if (visible) bits |= 0xF0;
-        // bits |= MsgId.VisChange & kMsgIdMask;
+        let bits = 0;
+        if (visible) bits |= 0xF0;
+        bits |= MsgId.VisChange & kMsgIdMask;
+        bits |= (this.reliableSendParity & 1) << kParityShift;
+        this.reliableSendParity ^= 1; 
         
-        // const buf = MsgBuf.clear(this.msgBuf);
-        // Buf.writeByte(buf, bits);
-        // this.channel.sendReliable(buf.data.subarray(0, 1));
+        this.reliableBuf.push(new Uint8Array([bits]));
     }
 
-    receiveVisibilityChange(msg: Buf) {
+    receiveVisibilityChange(msg: Buf, ignore: boolean) {
         const visible = (Buf.readByte(msg) & ~kMsgIdMask) > 0;
-        console.log(`[Client ${this.id}] Received new visibility status: ${visible ? 'visible' : 'hidden' }`);
+        if (!ignore) {
+            console.log(`[Client ${this.id}] Received new visibility status: ${visible ? 'visible' : 'hidden' }`);
+        }
     }
 
     getSnapshot(frame: number, dst: Snapshot) {
@@ -241,8 +264,15 @@ export class NetClient extends EventDispatcher {
     }
 
     onAck(ack: AckInfo) {
-        if (ack.tag > this.lastAcknowledgedFrame) {
-            this.lastAcknowledgedFrame = ack.tag;
+        const frame = ack.tag;
+        if (frame > this.lastAcknowledgedFrame) {
+            this.lastAcknowledgedFrame = frame;
+        }
+
+        if (this.reliableBuf[0] && frame >= this.reliableFrame!) {
+            // The in-flight reliable message has been acknowledged, stop sending it
+            this.reliableBuf.shift();
+            this.reliableFrame = undefined;
         }
 
         this.fire(NetClientEvents.Acknowledge, ack);
@@ -252,13 +282,25 @@ export class NetClient extends EventDispatcher {
         this.ping = this.channel.ping;
 
         while (msg.offset < msg.data.byteLength) {
-            const msgId = Buf.peekByte(msg) & kMsgIdMask;
+            const idByte = Buf.peekByte(msg)
+            const msgId = idByte & kMsgIdMask;
+            const reliableParity = (idByte >> kParityShift) & 1;
+            let error = false;
+
+            // If we've already received this reliable message, ignore
+            const ignoreReliable = reliableParity != this.reliableRecvParity;
+            if (kIsMsgIdReliable[msgId] && !ignoreReliable) {
+                this.reliableRecvParity ^= 1;
+            }
+
             switch(msgId) {
                 case MsgId.ServerFrame: this.receiveServerFrame(msg); break;
                 case MsgId.ClientFrame: this.receiveClientFrame(msg); break;
-                case MsgId.VisChange: this.receiveVisibilityChange(msg); break;
-                default: console.warn('Received unknown message', msg.data); 
+                case MsgId.VisChange: this.receiveVisibilityChange(msg, ignoreReliable); break;
+                default: console.warn('Received unknown message. Ignoring.'); error = true; break; 
             }
+
+            if (error) break;
         }
 
         this.fire(NetClientEvents.Message, msg);

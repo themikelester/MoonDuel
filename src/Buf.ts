@@ -1,4 +1,4 @@
-import { assert } from "./util";
+import { assert, defined, assertDefined } from "./util";
 
 /**
  * Helper functions to ease serialization/deserialization. Based on the MSG structure from QuakeWorld. 
@@ -17,16 +17,24 @@ export class Buf {
         this.dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
     }
 
-    alloc(byteLength: number): number {
+    alloc(byteLength: number): number | null {
         const offset = this.offset;
 
         // If we would overflow, return -1 
         if ((this.offset + byteLength) > this.data.byteLength) {
-            return -1;
+            return null;
         }
 
         this.offset += byteLength;
         return offset;
+    }
+
+    write(data: Uint8Array) {
+        const offset = this.alloc(data.byteLength);
+        if (offset === null) return false;
+        
+        this.data.set(data, offset);
+        return true;
     }
 
     clear() {
@@ -61,7 +69,7 @@ export namespace Buf {
                 throw new Error('Msg.writeChar: range error');
         }
 
-        const offset = buf.alloc(1);
+        const offset = assertDefined(buf.alloc(1));
         buf.data[offset] = c;
         return offset;
     }
@@ -76,7 +84,7 @@ export namespace Buf {
                 throw new Error('Msg.writeChar: range error');
         }
 
-        const offset = buf.alloc(1);
+        const offset = assertDefined(buf.alloc(1));
         buf.data[offset] = c;
         return offset;
     }
@@ -91,7 +99,7 @@ export namespace Buf {
                 throw new Error('Msg.writeInt: range error');
         }
 
-        const offset = buf.alloc(2);
+        const offset = assertDefined(buf.alloc(2));
         buf.data[offset + 0] = (c >> 0) & 0xFF;
         buf.data[offset + 1] = (c >> 8) & 0xFF;
         return offset;
@@ -107,7 +115,7 @@ export namespace Buf {
                 throw new Error('Msg.writeInt: range error');
         }
 
-        const offset = buf.alloc(4);
+        const offset = assertDefined(buf.alloc(4));
         buf.data[offset + 0] = (c >> 0) & 0xFF;
         buf.data[offset + 1] = (c >> 8) & 0xFF;
         buf.data[offset + 2] = (c >> 16) & 0xFF;
@@ -121,7 +129,7 @@ export namespace Buf {
 
     // @HACK
     export function writeFloat(buf: Buf, f: number) {
-        const offset = buf.alloc(4);
+        const offset = assertDefined(buf.alloc(4));
         buf.dataView.setFloat32(offset, f, true);
         return offset;
     }
@@ -137,18 +145,18 @@ export namespace Buf {
     }
 
     export function skip(buf: Buf, c: number) {
-        const offset = buf.alloc(c);
+        const offset = assertDefined(buf.alloc(c));
         return offset;
     }
 
     export function readChar(buf: Buf) {
-        const offset = buf.alloc(1);
+        const offset = assertDefined(buf.alloc(1));
         const c = buf.data[offset];
         return (c >> 7) ? 0xFFFFFF00 | c : c;
     }
 
     export function readByte(buf: Buf) {
-        const offset = buf.alloc(1);
+        const offset = assertDefined(buf.alloc(1));
         return buf.data[offset];
     }
 
@@ -157,13 +165,13 @@ export namespace Buf {
     }
 
     export function readShort(buf: Buf) {
-        const offset = buf.alloc(2);
+        const offset = assertDefined(buf.alloc(2));
         const c = buf.data[offset] + (buf.data[offset + 1] << 8);
         return (c >> 15) ? 0xFFFF0000 | c : c;
     }
 
     export function readInt(buf: Buf) {
-        const offset = buf.alloc(4);
+        const offset = assertDefined(buf.alloc(4));
         let c = (buf.data[offset + 0])
             + (buf.data[offset + 1] << 8)
             + (buf.data[offset + 2] << 16)
@@ -177,7 +185,7 @@ export namespace Buf {
 
     // @HACK
     export function readFloat(buf: Buf) {
-        const offset = buf.alloc(4);
+        const offset = assertDefined(buf.alloc(4));
         return buf.dataView.getFloat32(offset, true);
     }
 
