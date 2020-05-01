@@ -10,6 +10,20 @@ Change Log
 ##### Morning
 Today I'm going to spend (hopefully just a few minutes) fixing up NetGraph, then work on client side prediction. By the end of the day I'd like to have prediction working with instant reconciliation (in the case of a mispredict, we just immediately snap to the server's position, instead of interpolating). 
 
+##### Morning
+After doing a quick trans-sydney playtest with Adam (40ms ping, great quality), I've decided that it'd probably be better to fix up all the server connectivity issues first. The number one problem is the zombie server sitting in a room after it has disconnected. If you reload the page, you'll connect to the old server's id even though it isn't listening, and the game is bust. I could fix this with host migration, though that might be tough. 
+
+I think first I need reliable messages. That will allow for the possibility of host migration, as well as simple messages like connected and disconnected. It would also be good to notify the server when a client goes into the background. It would be great to detect if the server backgrounded and just pause the whole game. Eventually this would be fixed by playing audio through the client so that chrome continues to tick the server even while backgrounded. 
+
+A bug that appeared during the Adam playtest: he first connected with his phone (through clicking the link in the discord app), then closed the app (swiped up in the app switcher), yet that client maintained a WebRTC connection for about 5 minutes. The server thought it was alive the whole time and continuously sent packets to it, receiving none in return. This means we'll need a NetChannel/WebUdpSocket timeout that is capable of closing the connection. 5 seconds sounds good to me.
+
+So, for today I'd like to get: 
+- Reliable messages in the NetChannel layer
+- Fix "zombie server" bug. 
+    - Set up a handler to disconnect from the room when the host tab closes (already doing this for the WebRTC code)
+    - Either join a random room each time, or start working on host migration
+- Send a reliable message when the tab is backgrounded 
+
 ### 2020-04-30
 ##### Morning
 Today I'm studying the NetGraphs and trying to improve the perceived performance of the netcode. I think this will mean supporting renderTime and clientTime contraction and dilation. I.e. the client misses a few frames from the server, or its ping changes, so it dilates time to increase the time difference between renderTime and serverTime. When conditions improve it can contract time to speed things up and return to the optimal time difference. The same goes for client time if the server says that an input arrived late (as detailed in https://youtu.be/W3aieHjyNvw?t=1530).
