@@ -221,6 +221,10 @@ export namespace Msg {
         return buf.data[offset];
     }
 
+    export function peekByte(buf: MsgBuf) {
+        return buf.data[buf.offset];
+    }
+
     export function readShort(buf: MsgBuf) {
         const offset = MsgBuf.alloc(buf, 2);
         const c = buf.data[offset] + (buf.data[offset + 1] << 8);

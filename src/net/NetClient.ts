@@ -28,6 +28,17 @@ export enum NetClientEvents {
     Message = 'message',
 }
 
+enum MsgId {
+    ServerFrame = 0,
+    ClientFrame = 1,
+
+    _Count
+}
+
+const kMsgIdMask = 0b00000011;
+assert((kMsgIdMask+1) >= MsgId._Count, "Don't forget to update the bitmask!");
+
+
 export class NetClient extends EventDispatcher {
     id: string;
     state: NetClientState = NetClientState.Free;
@@ -124,18 +135,13 @@ export class NetClient extends EventDispatcher {
         this.channel.computeStats();
     }
 
-    receiveClientFrame(msg: Uint8Array) {
-        if (msg.byteLength <= 5) {
-            return;
-        }
+    receiveClientFrame(msg: MsgBuf) {
+        Msg.skip(msg, 1);
+        const frame = Msg.readInt(msg);
 
-        const buf = MsgBuf.create(msg);
-        Msg.skip(buf, 1);
-        const frame = Msg.readInt(buf);
-
-        for (let i = 0; buf.offset < buf.data.byteLength; i++) {
+        for (let i = 0; msg.offset < msg.data.byteLength; i++) {
             const cmd = {} as UserCommand;
-            UserCommand.deserialize(cmd, buf);
+            UserCommand.deserialize(cmd, msg);
 
             cmd.frame = frame - i;
 
@@ -170,27 +176,24 @@ export class NetClient extends EventDispatcher {
         this.channel.computeStats();
     }
 
-    receiveServerFrame(msg: Uint8Array) {
-        if (msg.byteLength > 1) {
-            const buf = MsgBuf.create(msg);
-            Msg.skip(buf, 1);
+    receiveServerFrame(msg: MsgBuf) {
+        Msg.skip(msg, 1);
 
-            const snap = new Snapshot();
-            Snapshot.deserialize(buf, snap);
-            this.snapshot.setSnapshot(snap);
+        const snap = new Snapshot();
+        Snapshot.deserialize(msg, snap);
+        this.snapshot.setSnapshot(snap);
 
-            this.lastReceivedFrame = snap.frame;
+        this.lastReceivedFrame = snap.frame;
 
-            if (this.graphPanel) {
-                // Mark non-received frames between the last requested and now as filled
-                // @NOTE: If they come later (but before they're requested) they can still mark themselves as received
-                for (let i = this.lastRequestedFrame + 1; i < snap.frame; i++) {
-                    if (!this.snapshot.hasSnapshot(i)) this.graphPanel.setPacketStatus(i, NetGraphPacketStatus.Filled);
-                }
-
-                const status = (snap.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
-                this.graphPanel.setPacketStatus(snap.frame, status);
+        if (this.graphPanel) {
+            // Mark non-received frames between the last requested and now as filled
+            // @NOTE: If they come later (but before they're requested) they can still mark themselves as received
+            for (let i = this.lastRequestedFrame + 1; i < snap.frame; i++) {
+                if (!this.snapshot.hasSnapshot(i)) this.graphPanel.setPacketStatus(i, NetGraphPacketStatus.Filled);
             }
+
+            const status = (snap.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
+            this.graphPanel.setPacketStatus(snap.frame, status);
         }
     }
 
@@ -212,15 +215,23 @@ export class NetClient extends EventDispatcher {
         return assertDefined(cmd);
     }
 
-    onMessage(msg: Uint8Array, lastAcknowledged?: AckInfo) {
+    onMessage(buf: Uint8Array, lastAcknowledged?: AckInfo) {
         this.ping = this.channel.ping;
 
         if (defined(lastAcknowledged)) {
             this.lastAcknowledgedFrame = lastAcknowledged.tag;
         }
 
-        if (msg[0] === 0) this.receiveServerFrame(msg);
-        else this.receiveClientFrame(msg);
+        const msg = MsgBuf.create(buf);
+
+        while (msg.offset < msg.data.byteLength) {
+            const msgId = Msg.peekByte(msg) & kMsgIdMask;
+            switch(msgId) {
+                case MsgId.ServerFrame: this.receiveServerFrame(msg); break;
+                case MsgId.ClientFrame: this.receiveClientFrame(msg); break;
+                default: console.warn('Received unknown message', buf); 
+            }
+        }
 
         this.fire(NetClientEvents.Message, msg, lastAcknowledged);
     }
