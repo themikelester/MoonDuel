@@ -169,11 +169,7 @@ export class WebUdpSocket extends EventDispatcher {
 
     send(data: string | Blob | ArrayBuffer | ArrayBufferView): boolean {
         if (this.channel && this.isOpen) {
-            try { this.channel.send(data as any); }
-            catch(e) {
-                console.error('DataChannel closed unexpectedly');
-            }
-
+            this.channel.send(data as any);
             return true;
         }
 
@@ -215,7 +211,11 @@ export class WebUdpSocket extends EventDispatcher {
     }
 
     private onDataChannelError(evt: RTCErrorEvent) {
-        console.error("WebUdpPeer: Data channel error", evt);
+        // Chrome appears to send errors if the RTCPeerConnection is closed immediately after the RTCDataChannel. 
+        // It sends an 'RTCError: Transport channel closed' just before the close event. Ignore it.
+        if (this.channel?.readyState !== 'closed') {
+            console.error("WebUdpPeer: Data channel error:", evt.error);
+        }
     }
 
     private setDataChannel(dataChannel: RTCDataChannel) {
