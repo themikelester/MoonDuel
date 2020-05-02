@@ -49,24 +49,24 @@ assert((kMsgIdMask+1) >= MsgId._Count, "Don't forget to update the bitmask!");
  */
 class ReliableMessageManager {
     private buffer: Uint8Array[] = [];
-    private sendFrame?: number;
+    private sendTag?: number;
     private sendParity = 0;
     private recvParity = 0;
 
-    getMessageForTransmission(frame: number) {
+    getMessageForTransmission(tag: number) {
         if (this.buffer.length <= 0) return undefined;
         
         // Store the frame at which we're first sending this reliable message...
-        if (!defined(this.sendFrame)) { this.sendFrame = frame; }
+        if (!defined(this.sendTag)) { this.sendTag = tag; }
 
         return this.buffer[0];
     }
 
     ack(frame: number) {
         // ... If we get an ack for any frame after we send the message, it was received
-        if (defined(this.sendFrame) && frame >= this.sendFrame) {
+        if (defined(this.sendTag) && Math.abs(frame) >= this.sendTag) {
             this.buffer.shift();
-            this.sendFrame = undefined;
+            this.sendTag = undefined;
         }
     }
 
@@ -165,6 +165,33 @@ export class NetClient extends EventDispatcher {
 
     setNetGraphPanel(graphPanel: NetGraphPanel) {
         this.graphPanel = graphPanel;
+    }
+
+    /**
+     * Transmit only reliable messages. No frame data will be included. This is intended to be called when the main
+     * client loop is not running so that reliable messages can be flushed.
+     * @param index This must increase each time this function is called.
+     */
+    transmitReliable(index: number) {
+        // The absolute value of tag must increase monotinically, including the lastTransmittedFrame,
+        // so that the reliable layer can properly detect reception. It must be negative to avoid 
+        // increasing lastAcknowledgedFrame on ack.
+        const tag = -(this.lastTransmittedFrame + 1 + index);
+
+        // If there are no more reliable messages, we're done
+        const reliableMsg = this.reliable.getMessageForTransmission(tag);
+        if (!reliableMsg) {
+            return true;
+        }
+
+        console.debug('Transmitting reliable message');
+
+        // Send the message
+        const buf = this.channel.allocatePacket();
+        buf.write(reliableMsg);
+        this.channel.send(buf, tag);
+
+        return false;
     }
 
     transmitClientFrame(frame: number, cmd: UserCommand) {
@@ -312,12 +339,16 @@ export class NetClient extends EventDispatcher {
     }
 
     onAck(ack: AckInfo) {
-        const frame = ack.tag;
-        if (frame > this.lastAcknowledgedFrame) {
-            this.lastAcknowledgedFrame = frame;
+        // If the tag is positive it represents a frame number
+        // Otherwise this packet does not contain frame data
+        if (ack.tag > 0) {
+            const frame = ack.tag;
+            if (frame > this.lastAcknowledgedFrame) {
+                this.lastAcknowledgedFrame = frame;
+            }
         }
 
-        this.reliable.ack(frame);
+        this.reliable.ack(ack.tag);
 
         this.fire(NetClientEvents.Acknowledge, ack);
     }

@@ -31,6 +31,7 @@ export class NetModuleClient {
     private renderDelay: number = 0;
 
     private fastestAck?: AckInfo;
+    private transmitInterval?: number;
 
     initialize(context: ClientDependencies) {
         this.context = context;
@@ -81,6 +82,29 @@ export class NetModuleClient {
 
     onVisibility(hidden: boolean) {
         this.client.transmitVisibilityChange(!hidden);
+
+        // Send reliable messages now while we are still allowed to execute
+        this.client.transmitReliable(i++);
+
+        if (hidden) {
+            const kTransmissionDelayMs = 16; 
+            let i = 0;
+
+            // Continue transmitting reliable messages until they are all sent...
+            this.transmitInterval = window.setInterval(() => {
+                const finished = this.client.transmitReliable(i++);
+                if (finished) {
+                    clearInterval(this.transmitInterval);
+                    this.transmitInterval
+                }
+            }, kTransmissionDelayMs);
+        } else {
+            // ... or if we become visible again
+            if (defined(this.transmitInterval)) { 
+                window.clearInterval(this.transmitInterval);
+                this.transmitInterval = undefined;
+            }
+        }
     }
 
     update({ }) {

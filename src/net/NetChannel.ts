@@ -173,7 +173,7 @@ export class NetChannel extends EventDispatcher {
      * Construct a packet with the specified payload and send it to the server. 
      * @NOTE: The payload is copied, no reference to it needs (or should) be maintained outside of this function
      * @param payload The payload to include in the packet
-     * @param tag A numeric identifier which will be passed to a future Receive event once this packet is acknowledged
+     * @param tag A numeric identifier which will be passed to a future Acknowledge event
      */
     send(packetBuffer: Buf, tag?: number) {
         assert(packetBuffer === this.packetBuffer, 'Pass the same buffer from allocatePacket()');
