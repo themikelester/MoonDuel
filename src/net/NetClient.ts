@@ -12,6 +12,7 @@ export enum NetClientState {
     Free,
     Connected,
     Disconnected,
+    Closed,
 
     // The Quake 3 Arena states:
     // CS_FREE,		// can be reused for a new connection
@@ -155,6 +156,11 @@ export class NetClient extends EventDispatcher {
     accept(socket: WebUdpSocket) {
         this.id = socket.peerId;
         this.initialize(socket);
+    }
+
+    close() {
+        this.state = NetClientState.Closed;
+        this.channel.close();
     }
 
     setNetGraphPanel(graphPanel: NetGraphPanel) {

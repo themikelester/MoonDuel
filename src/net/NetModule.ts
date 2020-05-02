@@ -44,6 +44,10 @@ export class NetModuleClient {
         this.context.toplevel.appendChild(this.graph.dom);
     }
 
+    terminate() {
+        this.client.close();
+    }
+
     onConnect(serverId: ClientId) {
         // Establish a WebUDP connection with the server
         this.client.on(NetClientEvents.Acknowledge, this.onAck.bind(this));

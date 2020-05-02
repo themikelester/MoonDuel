@@ -97,6 +97,10 @@ export class NetChannel extends EventDispatcher {
         }
     }
 
+    close() {
+        this.socket.close();
+    }
+
     computeStats() {
         const now = performance.now();
         let ackd = 0;

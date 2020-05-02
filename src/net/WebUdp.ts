@@ -54,8 +54,6 @@ export class WebUdpSocket extends EventDispatcher {
         return this.channel && this.channel.readyState === 'open';
     }
 
-    unloadCallback = () => this.close();
-
     /**
      * Attempt to initiate a WebRTC connection with a peer via the signal server.
      * @NOTE: The peer must already be listening for offers. See WebUdpSocketFactory.
@@ -189,13 +187,10 @@ export class WebUdpSocket extends EventDispatcher {
             // ... and set clear references to avoid reuse
             this.peer = null;
             this.channel = null;
-
-            window.removeEventListener('beforeunload', this.unloadCallback);
         }
     };
 
     private createPeer(config: RTCConfiguration) {
-        window.addEventListener('beforeunload', this.unloadCallback);
         return new RTCPeerConnection(config);
     }
 

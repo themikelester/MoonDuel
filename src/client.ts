@@ -67,6 +67,7 @@ export class Client {
         const success = this.gfxDevice.initialize(this.canvas);
         if (success) this.gfxDevice.resize(this.canvas.width, this.canvas.height);
         else return InitErrorCode.NO_WEBGL_GENERIC;
+        this.onResize();
 
         // Initialize Modules
         this.resources.initialize(this.gfxDevice);
@@ -80,12 +81,10 @@ export class Client {
         this.debugGrid.initialize(this);
         this.state.initialize(this);
         
-        // Handle resizing
+        // Events
         window.onresize = this.onResize.bind(this);
-        this.onResize();
-
-        // Handle window visibility changing (minimized or background tab)
         document.onvisibilitychange = this.onVisibility.bind(this);
+        window.onbeforeunload = this.onUnload.bind(this);
 
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
@@ -164,5 +163,9 @@ export class Client {
     private onVisibility() {
         const hidden = document.hidden;
         this.net.onVisibility(hidden);
+    }
+
+    private onUnload() {
+        this.net.terminate();
     }
 }
