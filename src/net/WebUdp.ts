@@ -44,11 +44,15 @@ export class WebUdpSocketFactory extends EventDispatcher {
 }
 
 export class WebUdpSocket extends EventDispatcher {
-    peer: RTCPeerConnection;
     clientId: ClientId;
     peerId: ClientId;
-    channel: RTCDataChannel;
-    isOpen: boolean = false;
+
+    peer: Nullable<RTCPeerConnection>;
+    channel: Nullable<RTCDataChannel>;
+
+    get isOpen() {
+        return this.channel && this.channel.readyState === 'open';
+    }
 
     unloadCallback = () => this.close();
 
@@ -72,11 +76,11 @@ export class WebUdpSocket extends EventDispatcher {
         connectedToSignalServer.then(async () => {
             const iceServers = await signalSocket.requestIceServers();
     
-            this.createPeer(iceServers);
+            this.peer = this.createPeer(iceServers);
             
             // Watch for any important changes on the WebRTC connection
             this.peer.onconnectionstatechange = () => {
-                switch(this.peer.connectionState) {
+                switch(this.peer!.connectionState) {
                     case "connected": break;
                     case "disconnected": break;
                     case "failed": this.close(); break;
@@ -110,11 +114,11 @@ export class WebUdpSocket extends EventDispatcher {
                 console.debug('WebUDP: Received answer', msg.answer);
     
                 // Accept the answer
-                this.peer.setRemoteDescription(msg.answer);
+                this.peer!.setRemoteDescription(msg.answer);
     
                 // And accept all of the remote's ICE candidates
                 for (const candidate of msg.iceCandidates) {
-                    this.peer.addIceCandidate(candidate);
+                    this.peer!.addIceCandidate(candidate);
                 }
     
                 // @TODO: Also close after timeout, or on error
@@ -138,7 +142,7 @@ export class WebUdpSocket extends EventDispatcher {
         // @TODO: This only needs to happen once on the server
         const iceServers = await signalSocket.requestIceServers();
 
-        this.createPeer(iceServers);
+        this.peer = this.createPeer(iceServers);
 
         // Start pinging STUN/TURN servers to generate ICE candidates
         const iceCandidatesPromise = this.getIceCandidates();
@@ -164,8 +168,12 @@ export class WebUdpSocket extends EventDispatcher {
     }
 
     send(data: string | Blob | ArrayBuffer | ArrayBufferView): boolean {
-        if (this.isOpen) {
-            this.channel.send(data as any);
+        if (this.channel && this.isOpen) {
+            try { this.channel.send(data as any); }
+            catch(e) {
+                console.error('DataChannel closed unexpectedly');
+            }
+
             return true;
         }
 
@@ -176,25 +184,28 @@ export class WebUdpSocket extends EventDispatcher {
         if (defined(this.peer)) {
             this.fire(WebUdpEvent.Close);
 
-            this.isOpen = false;
+            // Close the RTCDataChannel
             if (this.channel) this.channel.close();
-            this.peer.close();
-            
+
+            // Close the RTCPeerConnection
+            if (this.peer) this.peer.close();
+
+            // ... and set clear references to avoid reuse
+            this.peer = null;
+            this.channel = null;
+
             window.removeEventListener('beforeunload', this.unloadCallback);
-    
-            delete this.peer;
         }
     };
 
     private createPeer(config: RTCConfiguration) {
-        this.peer = new RTCPeerConnection(config);
         window.addEventListener('beforeunload', this.unloadCallback);
+        return new RTCPeerConnection(config);
     }
 
     private onDataChannelOpen() {
         console.debug('WebUDP: DataChannel open'); 
 
-        this.isOpen = true; 
         this.fire(WebUdpEvent.Open); 
     }
 
@@ -219,7 +230,7 @@ export class WebUdpSocket extends EventDispatcher {
     private getIceCandidates(): Promise<RTCIceCandidate[]> {
         return new Promise(resolve => {
             const candidates: RTCIceCandidate[] = [];
-            this.peer.onicecandidate = evt => {
+            this.peer!.onicecandidate = evt => {
                 if (evt.candidate) {
                     console.debug('WebUDP: Received ICE candidate', evt.candidate);
                     candidates.push(evt.candidate);
