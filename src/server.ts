@@ -32,6 +32,9 @@ export class Server {
 
     public async init() {
         console.log(`Source for this build available at ${GITHUB_REVISION_URL}`);
+        
+        // Events
+        window.onbeforeunload = this.onUnload.bind(this);
 
         // Initialize Modules
         this.resources.initialize();
@@ -73,5 +76,9 @@ export class Server {
     }
 
     private update() {
+    }
+
+    private onUnload() {
+        this.net.terminate();
     }
 }

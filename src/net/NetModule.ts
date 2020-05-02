@@ -106,6 +106,13 @@ export class NetModuleServer {
         this.graph = window.client?.net.graph;
     }
 
+    terminate() {
+        if (this.signalSocket) this.signalSocket.close();
+        for (const client of this.clients) {
+            client.close();
+        }
+    }
+
     async onConnect(signalSocket: SignalSocket) {
         this.signalSocket = signalSocket;
         const listener = new WebUdpSocketFactory(signalSocket);
