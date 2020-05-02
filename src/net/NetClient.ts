@@ -28,6 +28,7 @@ export enum NetClientEvents {
     Disconnected = 'dis',
     Message = 'msg',
     Acknowledge = 'ack',
+    ServerTimeAdjust = 'stime',
 }
 
 enum MsgId {
@@ -108,6 +109,10 @@ export class NetClient extends EventDispatcher {
 
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
+    
+    private fastestAck?: AckInfo;
+    private serverTimeDelta: number;
+    get serverTime() { return performance.now() + this.serverTimeDelta; }
 
     private reliable = new ReliableMessageManager();
 
@@ -281,7 +286,7 @@ export class NetClient extends EventDispatcher {
         this.channel.computeStats();
     }
 
-    receiveServerFrame(msg: Buf) {
+    receiveServerFrame(msg: Buf, latestAck: AckInfo) {
         Buf.skip(msg, 1);
 
         const snap = new Snapshot();
@@ -289,6 +294,16 @@ export class NetClient extends EventDispatcher {
         this.snapshot.setSnapshot(snap);
 
         this.lastReceivedFrame = snap.frame;
+
+        // Compute server time based on the packet with the lowest RTT, which should yield the most accurate result
+        if (latestAck && (!this.fastestAck || latestAck.rttTime < this.fastestAck.rttTime)) {
+            console.log('Fastest ack:', latestAck.rttTime);
+            this.fastestAck = latestAck;
+
+            const serverTime = snap.frame * 16 + latestAck.rttTime * 0.5;
+            this.serverTimeDelta = serverTime - performance.now();
+            this.fire(NetClientEvents.ServerTimeAdjust, serverTime);
+        }
 
         if (this.graphPanel) {
             // Mark non-received frames between the last requested and now as filled
@@ -353,7 +368,7 @@ export class NetClient extends EventDispatcher {
         this.fire(NetClientEvents.Acknowledge, ack);
     }
 
-    onMessage(msg: Buf) {
+    onMessage(msg: Buf, latestAck: AckInfo) {
         this.ping = this.channel.ping;
 
         while (msg.offset < msg.data.byteLength) {
@@ -362,7 +377,7 @@ export class NetClient extends EventDispatcher {
             let error = false;
 
             switch(msgId) {
-                case MsgId.ServerFrame: this.receiveServerFrame(msg); break;
+                case MsgId.ServerFrame: this.receiveServerFrame(msg, latestAck); break;
                 case MsgId.ClientFrame: this.receiveClientFrame(msg); break;
                 case MsgId.VisChange: this.receiveVisibilityChange(msg); break;
                 default: console.warn('Received unknown message. Ignoring.'); error = true; break; 
@@ -371,6 +386,6 @@ export class NetClient extends EventDispatcher {
             if (error) break;
         }
 
-        this.fire(NetClientEvents.Message, msg);
+        this.fire(NetClientEvents.Message, msg, latestAck);
     }
 }

@@ -214,21 +214,23 @@ export class NetChannel extends EventDispatcher {
             packet.size = data.byteLength;
             packet.rcvdTime = performance.now();
 
-            // Notify listeners 
-            Buf.skip(buf, kPacketHeaderSize);
-            this.fire(NetChannelEvent.Receive, buf);
-
             // Update the acknowledged state of all of the recently sent packets
             const bitfield = packet.header.ackBitfield;
+            let latestAck: AckInfo | undefined;
             for (let i = 0; i < 32; i++) {
                 if (bitfield & 1 << i) {
                     const sequence = sequenceNumberWrap(packet.header.ack - i);
                     const p = this.localHistory[sequence % kPacketHistoryLength];
                     if (p.header.sequence === sequence && !defined(p.ackTime)) {
-                        this.acknowledge(p);
+                        const info = this.acknowledge(p);
+                        if (i === 0) latestAck = info;
                     }
                 }
             }
+
+            // Notify listeners 
+            Buf.skip(buf, kPacketHeaderSize);
+            this.fire(NetChannelEvent.Receive, buf, latestAck);
         } else {
             // Ignore the packet
             console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);
@@ -246,6 +248,8 @@ export class NetChannel extends EventDispatcher {
         };
 
         this.fire(NetChannelEvent.Acknowledge, ackInfo);
+
+        return ackInfo;
     }
 
     private writeAckBitfield(history: Packet[]) {

@@ -51,7 +51,7 @@ export class NetModuleClient {
 
     onConnect(serverId: ClientId) {
         // Establish a WebUDP connection with the server
-        this.client.on(NetClientEvents.Acknowledge, this.onAck.bind(this));
+        this.client.on(NetClientEvents.ServerTimeAdjust, this.onServerTimeAdjust.bind(this));
         this.client.connect(serverId);
 
         this.client.on(NetClientEvents.Connected, () => {
@@ -59,14 +59,8 @@ export class NetModuleClient {
         })
     }
 
-    onAck(lastAck: AckInfo) {
-        if (!this.fastestAck || lastAck.rttTime < this.fastestAck.rttTime) {
-            this.fastestAck = lastAck;
-
-            // Compute server time based on the packet with the lowest RTT, which should yield the most accurate result
-            const serverTime = this.client.lastReceivedFrame * this.context.clock.simDt + lastAck.rttTime * 0.5;
-            this.context.clock.syncToServerTime(serverTime);
-        }
+    onServerTimeAdjust(serverTime: number) {
+        this.context.clock.syncToServerTime(serverTime);
 
         // Once our ping is calculated, adjust client and render times
         if (!this.synced && defined(this.client.ping)) {
