@@ -84,11 +84,11 @@ export class NetModuleClient {
         this.client.transmitVisibilityChange(!hidden);
 
         // Send reliable messages now while we are still allowed to execute
-        this.client.transmitReliable(i++);
+        this.client.transmitReliable(0);
 
         if (hidden) {
             const kTransmissionDelayMs = 16; 
-            let i = 0;
+            let i = 1;
 
             // Continue transmitting reliable messages until they are all sent...
             this.transmitInterval = window.setInterval(() => {
