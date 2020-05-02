@@ -48,13 +48,6 @@ const kPacketHistoryLength = 512; // Approximately 8 seconds worth of packets at
 const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered lost
 export const kPacketMaxPayloadSize = 1024;
 
-const scratchAckInfo: AckInfo = {
-    tag: 0,
-    rttTime: 0,
-    sentTime: 0,
-    ackTime: 0,
-};
-
 /**
  * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
  * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
@@ -245,11 +238,12 @@ export class NetChannel extends EventDispatcher {
     private acknowledge(packet: Packet) {
         packet.ackTime = performance.now();
 
-        const ackInfo = scratchAckInfo;
-        ackInfo.tag = packet.tag;
-        ackInfo.ackTime = packet.ackTime;
-        ackInfo.sentTime = packet.sendTime;
-        ackInfo.rttTime = packet.ackTime - packet.sendTime;
+        const ackInfo = {
+            tag: packet.tag,
+            ackTime: packet.ackTime,
+            sentTime: packet.sendTime,
+            rttTime: packet.ackTime - packet.sendTime,
+        };
 
         this.fire(NetChannelEvent.Acknowledge, ackInfo);
     }
