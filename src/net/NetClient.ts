@@ -298,7 +298,6 @@ export class NetClient extends EventDispatcher {
 
         // Compute server time based on the packet with the lowest RTT, which should yield the most accurate result
         if (latestAck && (!this.fastestAck || latestAck.rttTime < this.fastestAck.rttTime)) {
-            console.log('Fastest ack:', latestAck.rttTime);
             this.fastestAck = latestAck;
 
             const serverTime = snap.frame * 16 + latestAck.rttTime * 0.5;
