@@ -6,6 +6,18 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-05-04
+##### Morning
+I spent a few hours over the weekend finishing all the todo's from Friday (except for the NetClient timeout). I also fixed up the client's server time estimation. There was a bug where it would only be computed from the first ack, instead of the fastest. Now it is properly adjusting. 
+
+Today I'm going to try to get renderTime and clientTime adjustments in. The issue this is trying to solve is that when ping changes, or even just settles after the initial flurry of messages, clock times need to adjust to the new rtt. If clientTime is too close to serverTime, user commands won't reach the server before their frame is processed. Likewise, if renderTime is too close to serverTime, snapshots will be late and we'll be forced to extrapolate. So we need to adjust these times. But snapping them directly would cause world objects to snap (Your avatar if moving clientTime, and everything else when changing renderTime). Instead, to speed up clientTime, I'll compute a 16ms fixed frame every 15ms. So the client will start sending frames to the server faster than the server is expecting them. Once clientTime reaches targetClientTime, it returns to the standard tick rate. The same goes for renderTime, except we'll want to modify renderDt each frame. 
+
+This idea is based on the Overwatch netcode (https://youtu.be/W3aieHjyNvw?t=1530). See my previous plan [here](#4-30Morning)
+
+Even with this smooth acceleration to the target time, the effect is still jarring. We want to avoid making clock adjustments too frequently. If we're too close to server time and missing frames, increase the delta immediately. But if we're trying to reduce the delta (ping or packet loss has improved), wait a specific amount of time T. If we toggle from "good" to "bad" quickly, double the time T before we return to "good". For every 10 seconds we're in good mode, halve the time T. This is a basic congestion avoidance algorithm, but is applicable anywhere that you want to reduce thrashing between modes. Glen Fiedler describes it at the bottom of this article: https://gafferongames.com/post/reliability_ordering_and_congestion_avoidance_over_udp/. 
+
+We'll also need to limit how far ahead and behind the clocks can get. If the ping goes astronomical (say greater than 250ms) and stays there, we're going to drop the client anyway. But if it's just a short period of bad behavior, we don't want to the clocks super far away and then have to bring them back in again. I'd say limiting the server-to-client/render time difference to 250ms (which is what you'd get with about 500ms ping) makes sense. 
+
 ### 2020-05-01
 ##### Morning
 Today I'm going to spend (hopefully just a few minutes) fixing up NetGraph, then work on client side prediction. By the end of the day I'd like to have prediction working with instant reconciliation (in the case of a mispredict, we just immediately snap to the server's position, instead of interpolating). 
@@ -36,7 +48,7 @@ It took me a while, and three attempts, but I'm finally happy with the reliabili
 So that's what I did, at the NetClient level. When a Client update goes out, if there is a reliable message buffered, it gets sent too. If an ack come in that's greater than the frame we first sent out the reliable message, it's ack'd and removed from the buffer. Only ended up being about two dozen lines of code. Reliable messages! But I didn't have time for anything else, so all of the TODOs above are still valid.
 
 ### 2020-04-30
-##### Morning
+##### <a name="4-30Morning"></a>Morning
 Today I'm studying the NetGraphs and trying to improve the perceived performance of the netcode. I think this will mean supporting renderTime and clientTime contraction and dilation. I.e. the client misses a few frames from the server, or its ping changes, so it dilates time to increase the time difference between renderTime and serverTime. When conditions improve it can contract time to speed things up and return to the optimal time difference. The same goes for client time if the server says that an input arrived late (as detailed in https://youtu.be/W3aieHjyNvw?t=1530).
 
 I think a good metric for success would be making it playable at 5% packet loss with 200ms ping (using the NetworkShaper.sh script). As of now, using both packet loss and delay in the shaper causes ping to skyrocket to around 1.5 seconds. I have no idea why this is happening, but it may be due to congestion (either real or artically induced by the shaper, not sure). So I may need to optimize packet size today.
