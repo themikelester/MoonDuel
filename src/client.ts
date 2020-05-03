@@ -123,7 +123,7 @@ export class Client {
 
             // @TODO: Avatar prediction
 
-            if (this.net.client.state === NetClientState.Connected) {
+            if (this.net.client.state === NetClientState.Active) {
                 const cmd = assertDefined(this.userCommands.getUserCommand(this.clock.simFrame));
                 this.net.client.transmitClientFrame(this.clock.simFrame, cmd);
             }
@@ -132,7 +132,7 @@ export class Client {
 
     private update() {
         // Interpolate the latest world state for rendering
-        if (this.net.client.state === NetClientState.Connected) {
+        if (this.net.client.state === NetClientState.Active) {
             let displaySnapshotTime = this.clock.renderTime / this.clock.simDt;
             const valid = this.net.client.getSnapshot(displaySnapshotTime, this.displaySnapshot);
         } else {

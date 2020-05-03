@@ -9,10 +9,11 @@ import { NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
 import { Buf } from "../Buf";
 
 export enum NetClientState {
-    Free,
-    Connected,
-    Disconnected,
-    Closed,
+    Free, 
+    Disconnected, // We were connected, but it has been closed
+    Connected,    // Socket is open, but no frames received
+    Active,       // A frame has been received from the peer
+    Background,   // We're still active, but running with reduced resources
 
     // The Quake 3 Arena states:
     // CS_FREE,		// can be reused for a new connection
@@ -164,7 +165,7 @@ export class NetClient extends EventDispatcher {
     }
 
     close() {
-        this.state = NetClientState.Closed;
+        this.state = NetClientState.Disconnected;
         this.channel.close();
     }
 
@@ -331,6 +332,7 @@ export class NetClient extends EventDispatcher {
         const visible = (Buf.readByte(msg) & ~kMsgIdMask) > 0;
 
         if (!ignore) {
+            this.state = visible ? NetClientState.Active : NetClientState.Background;
             console.log(`[Client ${this.id}] Received new visibility status: ${visible ? 'visible' : 'hidden' }`);
         }
     }
@@ -370,6 +372,10 @@ export class NetClient extends EventDispatcher {
 
     onMessage(msg: Buf, latestAck: AckInfo) {
         this.ping = this.channel.ping;
+
+        if (this.state === NetClientState.Connected) {
+            this.state = NetClientState.Active;
+        }
 
         while (msg.offset < msg.data.byteLength) {
             const idByte = Buf.peekByte(msg)

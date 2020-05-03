@@ -1,6 +1,6 @@
 import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
-import { NetClient, NetClientEvents, NetClientState } from "./NetClient";
+import { NetClient, NetClientEvents } from "./NetClient";
 import { AvatarSystemServer } from "../Avatar";
 import { Snapshot } from "../Snapshot";
 import { Clock } from "../Clock";

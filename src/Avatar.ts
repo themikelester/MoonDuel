@@ -188,7 +188,7 @@ export class AvatarSystemClient {
             const state = states[i];
 
             // @HACK: If we're connected, update the localAvatar to point at the one this client controls
-            if (window.client.net.client.state === NetClientState.Connected) {
+            if (window.client.net.client.state === NetClientState.Active) {
                 if (state.clientId === window.client.net.client.id) {
                     this.localAvatar = avatar;
                 }
