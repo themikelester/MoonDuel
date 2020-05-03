@@ -7,6 +7,7 @@ import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
 import { NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
 import { Buf } from "../Buf";
+import { clamp } from "../MathHelpers";
 
 export enum NetClientState {
     Free, 
@@ -275,8 +276,15 @@ export class NetClient extends EventDispatcher {
         // Buffer the state so that we can delta-compare later
         this.snapshot.setSnapshot(snap);
 
+        // Let the client know how many frames ahead (or behind) it is
+        const frameDiff = this.lastReceivedFrame - this.lastRequestedFrame;
+
         const buf = this.channel.allocatePacket();
-        Buf.writeByte(buf, 0); // Server frame
+        
+        // Pass the frameDiff as a signed 4-bit in the upper nibble of the idByte
+        let idByte = MsgId.ServerFrame;
+        idByte |= (clamp(frameDiff, -8, 7) & 0b1111) << 4;
+        Buf.writeByte(buf, idByte);
 
         // Send the latest state
         Snapshot.serialize(buf, snap);
@@ -288,7 +296,9 @@ export class NetClient extends EventDispatcher {
     }
 
     receiveServerFrame(msg: Buf, latestAck: AckInfo) {
-        Buf.skip(msg, 1);
+        const idByte = Buf.readByte(msg);
+        const frameNibble = (idByte >> 4);
+        const frameDiff = (frameNibble >> 3) ? (0xFFFFFFF0 | frameNibble) : frameNibble;
 
         const snap = new Snapshot();
         Snapshot.deserialize(msg, snap);
