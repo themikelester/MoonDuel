@@ -38,7 +38,7 @@ export class UserCommand {
     }
 }
 
-const kEmptyCommand: UserCommand = {
+export const kEmptyCommand: UserCommand = {
     frame: -1,
     headingX: 0,
     headingZ: 1,

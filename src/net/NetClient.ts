@@ -1,7 +1,7 @@
 import { NetChannel, NetChannelEvent, AckInfo } from "./NetChannel";
 import { assert, defined, assertDefined } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
-import { UserCommandBuffer, UserCommand } from "../UserCommand";
+import { UserCommandBuffer, UserCommand, kEmptyCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
@@ -345,6 +345,11 @@ export class NetClient extends EventDispatcher {
     getUserCommand(frame: number) {
         this.lastRequestedFrame = frame;
         let cmd = this.userCommands.getUserCommand(frame);
+
+        // If this client is backgrounded, we can't receive messages so always report empty commands 
+        if (this.state === NetClientState.Background) {
+            return kEmptyCommand;
+        }
 
         // If we have not yet received an input for this frame, complain, and use the most recent
         if (!defined(cmd)) {
