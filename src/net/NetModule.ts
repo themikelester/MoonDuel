@@ -71,7 +71,7 @@ export class NetModuleClient {
         // @TODO: I think this should be in NetClient
         this.averageServerFrameDiff = lerp(frameDiff, this.averageServerFrameDiff, 0.95);
 
-        const kTargetServerFrameDiff = 1.5;
+        const kTargetServerFrameDiff = 1.5; // Try to keep 1.5 frames buffered on the server
         const kAdjustSpeed = 0.01; // ClientAhead will move 1% towards its instananeous ideal each frame
 
         // Try to keep clientTime so that kTargetFrameDiff frames are buffered on the server
@@ -82,8 +82,8 @@ export class NetModuleClient {
 
         // RenderTime needs to be handled a bit differently. Since it directly corresponds to the perceived speed 
         // of world objects, even small renderDelay changes can be jarring and should happen has as infrequently as possible.
-        const kTargetClientFrameDiff = 3; // The client wants to buffer 3 server frames for 2 frames of packet loss protection
-        const kClientSlidingAverageWeight = 0.9; // Expontenial sliding average for frame differential
+        const kTargetClientFrameDiff = 3; // Try to keep 3 frames buffered on the client for 2 frames of packet loss protection
+        const kClientSlidingAverageWeight = 0.9; // Lower numbers will give recent values more weight in the average 
         const kMaxRenderDelay = 250 // Maximum delay from serverTime (in ms)
         const kRenderDelayAdjustPeriod = 10000 // Minimum time to wait before adjusting renderTime again
 
@@ -95,6 +95,8 @@ export class NetModuleClient {
         const clientFrameDiff = (snap.frame - this.client.lastRequestedFrame);
         this.averageClientFrameDiff = lerp(clientFrameDiff, this.averageClientFrameDiff, kClientSlidingAverageWeight);
 
+        // If a frame arrives after we needed it (it's late by more than kTargetClientFrameDiff, i.e. super late),
+        // adjust render time immediately so that it would have arrived on time. 
         if (clientFrameDiff < 0) {
             const delayDelta = (kTargetClientFrameDiff - clientFrameDiff) * this.context.clock.simDt;
             
