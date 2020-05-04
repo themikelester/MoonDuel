@@ -25,7 +25,6 @@ interface ServerDependencies {
 export class NetModuleClient {
     context: ClientDependencies;
     client: NetClient = new NetClient();
-    synced: boolean = false;
     graph = new NetGraph();
 
     private clientAhead: number = 125;
@@ -33,7 +32,8 @@ export class NetModuleClient {
 
     private transmitInterval?: number;
 
-    private averageFrameDiff = 0.0;
+    private averageServerFrameDiff = 0.0;
+    private averageClientFrameDiff = 0.0;
 
     initialize(context: ClientDependencies) {
         this.context = context;
@@ -68,23 +68,31 @@ export class NetModuleClient {
     
     onServerFrame(frameDiff: number, snap: Snapshot) {
         // @TODO: I think this should be in NetClient
-        this.averageFrameDiff = lerp(frameDiff, this.averageFrameDiff, 0.95);
+        this.averageServerFrameDiff = lerp(frameDiff, this.averageServerFrameDiff, 0.95);
 
-        const kTargetFrameDiff = 1.5; 
+        const kTargetServerFrameDiff = 1.5;
         const kAdjustSpeed = 0.01; // ClientAhead will move 1% towards its instananeous ideal each frame
 
         // Try to keep clientTime so that kTargetFrameDiff frames are buffered on the server
         // It takes RTT ms to detect feedback from these changes, so modify the clientAhead slow enough to avoid overcompensating
-        const clientTimeDelta = (kTargetFrameDiff - this.averageFrameDiff) * this.context.clock.simDt;
+        const clientTimeDelta = (kTargetServerFrameDiff - this.averageServerFrameDiff) * this.context.clock.simDt;
         this.clientAhead = clamp(this.clientAhead + (clientTimeDelta * kAdjustSpeed), 0, 250);
         this.context.clock.setClientDelay(-this.clientAhead);
 
-        // Once our ping is calculated, adjust client and render times
-        if (!this.synced && this.client.ping) {
-            this.renderDelay = this.client.ping * 0.5 + this.context.clock.simDt * 3;
-            this.context.clock.setRenderDelay(this.renderDelay);
-            this.synced = true;
-        }
+
+
+        // ... and do the same for RenderTime
+        // @TODO: This needs a different algorithm
+        const kTargetClientFrameDiff = 3;
+        const kRenderAdjustSpeed = 0.01; // ClientAhead will move 1% towards its instananeous ideal each frame
+
+        const clientFrameDiff = snap.frame - this.client.lastRequestedFrame;
+        this.averageClientFrameDiff = lerp(clientFrameDiff, this.averageClientFrameDiff, 0.95);
+        
+        const renderTimeDelta = (kTargetClientFrameDiff - this.averageClientFrameDiff) * this.context.clock.simDt;
+        this.renderDelay = clamp(this.renderDelay + (renderTimeDelta * kRenderAdjustSpeed), 0, 250);
+        this.context.clock.setRenderDelay(this.renderDelay);
+        
     }
 
     onServerTimeAdjust(serverTime: number) {
@@ -156,7 +164,6 @@ export class NetModuleServer {
             const client = new NetClient();
             client.on(NetClientEvents.Connected, this.onClientConnected.bind(this, client));
             client.on(NetClientEvents.Disconnected, this.onClientDisconnected.bind(this, client));
-            client.on(NetClientEvents.Message, this.onClientMessage.bind(this, client));
             client.accept(socket);
             this.clients.push(client);
         });
@@ -175,9 +182,6 @@ export class NetModuleServer {
         arrayRemove(this.clients, client);
 
         if (client.graphPanel) { this.graph?.removePanel(client.graphPanel); }
-    }
-
-    onClientMessage(client: NetClient, data: Uint8Array) {
     }
 
     transmitToClients(snap: Snapshot) {

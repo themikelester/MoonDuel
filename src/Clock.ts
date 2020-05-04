@@ -5,10 +5,12 @@ import { clamp } from "./MathHelpers";
 const kDefaultStepDuration = 1000.0 / 60.0;
 const kClientTimeWarpMax = 0.05; // The maximum percentage of regular speed at which clientTime can progress to reach its target.
                                  // I.e. if client time is behind its target, it increase X% faster than real time.
+const kRenderTimeWarpMax = 0.25;
 
 const kClientTimeSnapDelta = 250; // If the difference between clientTime and its target is greater than this (in ms), 
                                   // clientTime will snap to its target rather than warping to reach it smoothly. This
                                   // often occurs upon connection.
+const kRenderTimeSnapDelta = 250;
 
 export class Clock {
     // All times are in milliseconds (ms) and are updated each display frame
@@ -54,10 +56,7 @@ export class Clock {
         this.tick();
 
         const serverTimeDelta = serverTime - this.serverTime;
-
         this.serverTime = serverTime;
-        this.renderTime = serverTime - this.renderDelay;
-
         return serverTimeDelta;
     }
 
@@ -69,7 +68,6 @@ export class Clock {
     setRenderDelay(delayMs: number) {
         assert(delayMs >= 0, 'RenderDelay is expected to be positive');
         this.renderDelay = delayMs;
-        this.renderTime = this.serverTime - delayMs;
     }
 
     tick() {
@@ -102,8 +100,20 @@ export class Clock {
         }
 
         // RenderTime
-        this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
-        this.renderTime += this.renderDt;
+        // Similar logic to client time, but different values
+        const targetRenderTime = this.serverTime - this.renderDelay;
+        const deltaRenderTime = targetRenderTime - this.renderTime;
+        if (deltaRenderTime > kRenderTimeSnapDelta) {
+            this.renderTime = targetRenderTime
+        } else {
+            const minDt = this.realDt * (1 - kRenderTimeWarpMax);
+            const maxDt = this.realDt * (1 + kRenderTimeWarpMax);
+
+            const renderDt = clamp(deltaRenderTime, minDt, maxDt);
+            this.renderDt = this.paused ? this.stepDt : renderDt * this.speed;
+            this.renderTime += this.renderDt;
+        }
+
         this.stepDt = 0.0
     }
 
