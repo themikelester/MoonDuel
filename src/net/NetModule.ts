@@ -67,12 +67,13 @@ export class NetModuleClient {
         // @TODO: I think this should be in NetClient
         this.averageFrameDiff = lerp(frameDiff, this.averageFrameDiff, 0.95);
 
-        const kTargetClientFramesBuffered = 1.5; 
+        const kTargetFrameDiff = 1.5; 
+        const kAdjustSpeed = 0.01; // ClientAhead will move 1% towards its instananeous ideal each frame
 
-        // Try to keep clientTime so that kClientTimeTargetFramesBuffered are buffered on the server
-        const frameDiffDelta = kTargetClientFramesBuffered - this.averageFrameDiff;
-        const clientTimeDelta = frameDiffDelta * this.context.clock.simDt * 0.01;
-        this.clientAhead = clamp(this.clientAhead + clientTimeDelta, 0, 250);
+        // Try to keep clientTime so that kTargetFrameDiff frames are buffered on the server
+        // It takes RTT ms to detect feedback from these changes, so modify the clientAhead slow enough to avoid overcompensating
+        const clientTimeDelta = (kTargetFrameDiff - this.averageFrameDiff) * this.context.clock.simDt;
+        this.clientAhead = clamp(this.clientAhead + (clientTimeDelta * kAdjustSpeed), 0, 250);
         this.context.clock.setClientDelay(-this.clientAhead);
 
         // Once our ping is calculated, adjust client and render times
