@@ -72,7 +72,6 @@ export class NetModuleClient {
         this.averageServerFrameDiff = lerp(frameDiff, this.averageServerFrameDiff, 0.95);
 
         const kTargetServerFrameDiff = 1.5;
-        const kTargetClientFrameDiff = 3;
         const kAdjustSpeed = 0.01; // ClientAhead will move 1% towards its instananeous ideal each frame
 
         // Try to keep clientTime so that kTargetFrameDiff frames are buffered on the server
@@ -83,36 +82,40 @@ export class NetModuleClient {
 
         // RenderTime needs to be handled a bit differently. Since it directly corresponds to the perceived speed 
         // of world objects, even small renderDelay changes can be jarring and should happen has as infrequently as possible.
-        
+        const kTargetClientFrameDiff = 3; // The client wants to buffer 3 server frames for 2 frames of packet loss protection
+        const kClientSlidingAverageWeight = 0.9; // Expontenial sliding average for frame differential
+        const kMaxRenderDelay = 250 // Maximum delay from serverTime (in ms)
+        const kRenderDelayAdjustPeriod = 10000 // Minimum time to wait before adjusting renderTime again
+
         // If a frame arrives late, it also means that we have not received any subsequent frames 
         // (because it would have been discarded at a lower net stack layer). This means that it 
         // wasn't dropped, but the transit time from the server may have increased. If we see 
         // frames consistently coming late (or early) then we consider the transit time changed
         // and adjust the render delay. 
         const clientFrameDiff = (snap.frame - this.client.lastRequestedFrame);
-        this.averageClientFrameDiff = lerp(clientFrameDiff, this.averageClientFrameDiff, 0.9);
+        this.averageClientFrameDiff = lerp(clientFrameDiff, this.averageClientFrameDiff, kClientSlidingAverageWeight);
 
         if (clientFrameDiff < 0) {
             const delayDelta = (kTargetClientFrameDiff - clientFrameDiff) * this.context.clock.simDt;
             
-            this.renderDelay = Math.min(250, this.renderDelay + delayDelta );
+            this.renderDelay = clamp(this.renderDelay + delayDelta, 0, kMaxRenderDelay);
             this.context.clock.setRenderDelay(this.renderDelay);
             this.renderDelayTimestamp = performance.now();
-            this.averageClientFrameDiff = -kTargetClientFrameDiff;
+            this.averageClientFrameDiff = kTargetClientFrameDiff;
         }
 
         const timeSinceRenderDelayChange = performance.now() - this.renderDelayTimestamp;
-        if (timeSinceRenderDelayChange > 3000) {
+        if (timeSinceRenderDelayChange > kRenderDelayAdjustPeriod) {
             const delayDelta = (kTargetClientFrameDiff - this.averageClientFrameDiff) * this.context.clock.simDt;
             if (Math.abs(delayDelta) > this.context.clock.simDt * 1) {
-                this.renderDelay = Math.min(250, this.renderDelay + delayDelta );
+                this.renderDelay = clamp(this.renderDelay + delayDelta, 0, kMaxRenderDelay);
 
                 console.debug(`Adjusting renderTime by ${delayDelta} ms`);
-
                 this.context.clock.setRenderDelay(this.renderDelay);
-                this.averageClientFrameDiff = -kTargetClientFrameDiff;
-                this.renderDelayTimestamp = performance.now();
+                this.averageClientFrameDiff = kTargetClientFrameDiff;
             }
+
+            this.renderDelayTimestamp = performance.now();
         }
     }
 
