@@ -117,8 +117,7 @@ export class Client {
     }
 
     private updateFixed() {
-        while (this.clock.simAccum >= this.clock.simDt) {
-            this.clock.updateFixed();
+        while (this.clock.updateFixed()) {
             this.input.updateFixed(this);
 
             // @TODO: Avatar prediction

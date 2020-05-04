@@ -66,8 +66,7 @@ export class Server {
     }
     
     private updateFixed() {
-        while (this.clock.simAccum >= this.clock.simDt) {
-            this.clock.updateFixed();
+        while (this.clock.updateFixed()) {
             this.avatar.updateFixed(this);
             const snap = this.snapshot.createSnapshot(this);
             this.snapshot.setSnapshot(snap);

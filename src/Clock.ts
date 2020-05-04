@@ -80,8 +80,14 @@ export class Clock {
     }
 
     updateFixed() {
-        this.simAccum -= this.simDt;
-        this.simFrame += 1;
+        const shouldStep = this.simAccum >= this.simDt;
+
+        if (shouldStep) {
+            this.simAccum -= this.simDt;
+            this.simFrame += 1;
+        }
+
+        return shouldStep;
     }
     
     /**
