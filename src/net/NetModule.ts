@@ -9,6 +9,7 @@ import { assert, defined, arrayRemove } from "../util";
 import { NetGraph } from './NetDebug';
 import { DebugMenu } from "../DebugMenu";
 import { AckInfo } from "./NetChannel";
+import { lerp, clamp } from "../MathHelpers";
 
 interface ClientDependencies {
     clock: Clock;
@@ -33,6 +34,8 @@ export class NetModuleClient {
     private fastestAck?: AckInfo;
     private transmitInterval?: number;
 
+    private averageFrameDiff = 0.0;
+
     initialize(context: ClientDependencies) {
         this.context = context;
         const clock = this.context.clock;
@@ -52,27 +55,37 @@ export class NetModuleClient {
     onConnect(serverId: ClientId) {
         // Establish a WebUDP connection with the server
         this.client.on(NetClientEvents.ServerTimeAdjust, this.onServerTimeAdjust.bind(this));
+        this.client.on(NetClientEvents.ReceiveServerFrame, this.onServerFrame.bind(this));
         this.client.connect(serverId);
 
         this.client.on(NetClientEvents.Connected, () => {
             if (this.graph) this.client.setNetGraphPanel(this.graph.addPanel(`Client: ${this.client.id}`));
         })
     }
+    
+    onServerFrame(frameDiff: number, snap: Snapshot) {
+        // @TODO: I think this should be in NetClient
+        this.averageFrameDiff = lerp(frameDiff, this.averageFrameDiff, 0.95);
+
+        const kTargetClientFramesBuffered = 1.5; 
+
+        // Try to keep clientTime so that kClientTimeTargetFramesBuffered are buffered on the server
+        const frameDiffDelta = kTargetClientFramesBuffered - this.averageFrameDiff;
+        const clientTimeDelta = frameDiffDelta * this.context.clock.simDt * 0.01;
+        this.clientAhead = clamp(this.clientAhead + clientTimeDelta, 0, 250);
+        this.context.clock.setClientDelay(-this.clientAhead);
+
+        // Once our ping is calculated, adjust client and render times
+        if (!this.synced && this.client.ping) {
+            this.renderDelay = this.client.ping * 0.5 + this.context.clock.simDt * 3;
+            this.context.clock.setRenderDelay(this.renderDelay);
+            this.synced = true;
+        }
+    }
 
     onServerTimeAdjust(serverTime: number) {
         const serverTimeDelta = this.context.clock.syncToServerTime(serverTime);
         console.debug(`Adjusting serverTime by ${serverTimeDelta.toFixed(2)} ms`);
-
-        // Once our ping is calculated, adjust client and render times
-        if (!this.synced && defined(this.client.ping)) {
-            this.clientAhead = this.client.ping * 0.5 + this.context.clock.simDt * 1;
-            this.renderDelay = this.client.ping * 0.5 + this.context.clock.simDt * 3;
-
-            this.context.clock.setClientDelay(-this.clientAhead);
-            this.context.clock.setRenderDelay(this.renderDelay);
-
-            this.synced = true;
-        }
     }
 
     onVisibility(hidden: boolean) {
