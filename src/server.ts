@@ -58,8 +58,7 @@ export class Server {
     }
 
     private tick() {
-        const time = performance.now();
-        this.clock.tick(time);
+        this.clock.tick();
 
         this.updateFixed();
         this.update();

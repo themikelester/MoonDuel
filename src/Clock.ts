@@ -22,7 +22,7 @@ export class Clock {
     public paused = false;
     public speed = 1.0;
 
-    private platformTime = 0.0;
+    private realTime = 0.0;
     private stepDt = 0.0;
     private clientDelay = 0.0;
     private renderDelay = 0.0;
@@ -63,18 +63,19 @@ export class Clock {
         this.renderTime = this.serverTime - delayMs;
     }
 
-    tick(platformTime: number) {
-        const platformDt = platformTime - this.platformTime;
-        this.platformTime = platformTime;
+    tick() {
+        // Measure the real time since the last tick()
+        const time = performance.now();
+        this.realDt = time - this.realTime;
+        this.realTime = time;
 
-        this.realDt = platformDt;
         this.serverTime += this.realDt;
         this.clientTime += this.realDt;
         
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
         this.renderTime += this.renderDt;
 
-        this.simAccum += platformDt;
+        this.simAccum += this.realDt;
 
         this.stepDt = 0.0
     }

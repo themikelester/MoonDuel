@@ -103,7 +103,7 @@ export class Client {
     }
 
     private tick(time: number) {
-        this.clock.tick(time);
+        this.clock.tick();
         
         this.updateFixed();
         this.update();
