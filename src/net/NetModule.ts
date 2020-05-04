@@ -86,6 +86,7 @@ export class NetModuleClient {
         const kClientSlidingAverageWeight = 0.9; // Lower numbers will give recent values more weight in the average 
         const kMaxRenderDelay = 250 // Maximum delay from serverTime (in ms)
         const kRenderDelayAdjustPeriod = 10000 // Minimum time to wait before adjusting renderTime again
+        const kMinAdjustment = this.context.clock.simDt * 1; // Don't make any adjustments to renderDelay smaller than this
 
         // If a frame arrives late, it also means that we have not received any subsequent frames 
         // (because it would have been discarded at a lower net stack layer). This means that it 
@@ -109,7 +110,7 @@ export class NetModuleClient {
         const timeSinceRenderDelayChange = performance.now() - this.renderDelayTimestamp;
         if (timeSinceRenderDelayChange > kRenderDelayAdjustPeriod) {
             const delayDelta = (kTargetClientFrameDiff - this.averageClientFrameDiff) * this.context.clock.simDt;
-            if (Math.abs(delayDelta) > this.context.clock.simDt * 1) {
+            if (Math.abs(delayDelta) > kMinAdjustment) {
                 this.renderDelay = clamp(this.renderDelay + delayDelta, 0, kMaxRenderDelay);
 
                 console.debug(`Adjusting renderTime by ${delayDelta} ms`);
