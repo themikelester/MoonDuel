@@ -34,6 +34,7 @@ export class NetModuleClient {
 
     private averageServerFrameDiff = 0.0;
     private averageClientFrameDiff = 0.0;
+    private renderDelayTimestamp = 0.0;
 
     initialize(context: ClientDependencies) {
         this.context = context;
@@ -71,6 +72,7 @@ export class NetModuleClient {
         this.averageServerFrameDiff = lerp(frameDiff, this.averageServerFrameDiff, 0.95);
 
         const kTargetServerFrameDiff = 1.5;
+        const kTargetClientFrameDiff = 3;
         const kAdjustSpeed = 0.01; // ClientAhead will move 1% towards its instananeous ideal each frame
 
         // Try to keep clientTime so that kTargetFrameDiff frames are buffered on the server
@@ -79,20 +81,39 @@ export class NetModuleClient {
         this.clientAhead = clamp(this.clientAhead + (clientTimeDelta * kAdjustSpeed), 0, 250);
         this.context.clock.setClientDelay(-this.clientAhead);
 
-
-
-        // ... and do the same for RenderTime
-        // @TODO: This needs a different algorithm
-        const kTargetClientFrameDiff = 3;
-        const kRenderAdjustSpeed = 0.01; // ClientAhead will move 1% towards its instananeous ideal each frame
-
-        const clientFrameDiff = snap.frame - this.client.lastRequestedFrame;
-        this.averageClientFrameDiff = lerp(clientFrameDiff, this.averageClientFrameDiff, 0.95);
+        // RenderTime needs to be handled a bit differently. Since it directly corresponds to the perceived speed 
+        // of world objects, even small renderDelay changes can be jarring and should happen has as infrequently as possible.
         
-        const renderTimeDelta = (kTargetClientFrameDiff - this.averageClientFrameDiff) * this.context.clock.simDt;
-        this.renderDelay = clamp(this.renderDelay + (renderTimeDelta * kRenderAdjustSpeed), 0, 250);
-        this.context.clock.setRenderDelay(this.renderDelay);
-        
+        // If a frame arrives late, it also means that we have not received any subsequent frames 
+        // (because it would have been discarded at a lower net stack layer). This means that it 
+        // wasn't dropped, but the transit time from the server may have increased. If we see 
+        // frames consistently coming late (or early) then we consider the transit time changed
+        // and adjust the render delay. 
+        const clientFrameDiff = (snap.frame - this.client.lastRequestedFrame);
+        this.averageClientFrameDiff = lerp(clientFrameDiff, this.averageClientFrameDiff, 0.9);
+
+        if (clientFrameDiff < 0) {
+            const delayDelta = (kTargetClientFrameDiff - clientFrameDiff) * this.context.clock.simDt;
+            
+            this.renderDelay = Math.min(250, this.renderDelay + delayDelta );
+            this.context.clock.setRenderDelay(this.renderDelay);
+            this.renderDelayTimestamp = performance.now();
+            this.averageClientFrameDiff = -kTargetClientFrameDiff;
+        }
+
+        const timeSinceRenderDelayChange = performance.now() - this.renderDelayTimestamp;
+        if (timeSinceRenderDelayChange > 3000) {
+            const delayDelta = (kTargetClientFrameDiff - this.averageClientFrameDiff) * this.context.clock.simDt;
+            if (Math.abs(delayDelta) > this.context.clock.simDt * 1) {
+                this.renderDelay = Math.min(250, this.renderDelay + delayDelta );
+
+                console.debug(`Adjusting renderTime by ${delayDelta} ms`);
+
+                this.context.clock.setRenderDelay(this.renderDelay);
+                this.averageClientFrameDiff = -kTargetClientFrameDiff;
+                this.renderDelayTimestamp = performance.now();
+            }
+        }
     }
 
     onServerTimeAdjust(serverTime: number) {
