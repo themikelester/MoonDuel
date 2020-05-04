@@ -3,6 +3,12 @@ import { assert } from "./util";
 import { clamp } from "./MathHelpers";
 
 const kDefaultStepDuration = 1000.0 / 60.0;
+const kClientTimeWarpMax = 0.05; // The maximum percentage of regular speed at which clientTime can progress to reach its target.
+                                 // I.e. if client time is behind its target, it increase X% faster than real time.
+
+const kClientTimeSnapDelta = 250; // If the difference between clientTime and its target is greater than this (in ms), 
+                                  // clientTime will snap to its target rather than warping to reach it smoothly. This
+                                  // often occurs upon connection.
 
 export class Clock {
     // All times are in milliseconds (ms) and are updated each display frame
@@ -72,12 +78,24 @@ export class Clock {
         this.serverTime += this.realDt;
 
         // Client time
-        // If it is behind the target time, speed it up by 5%, otherwise slow it by 5%
+        // If it is behind the target time, speed it up by 5%, otherwise slow it by 5%.
+        // Unless the time delta is huge, in which case just snap to the target time.
         const targetClientTime = this.serverTime - this.clientDelay;
         const deltaClientTime = targetClientTime - this.clientTime;
-        const clientDt = clamp(deltaClientTime, this.realDt * 0.95, this.realDt * 1.05);
-        this.clientTime += clientDt;
-        this.simAccum += clientDt;
+        if (deltaClientTime > kClientTimeSnapDelta) {
+            this.clientTime = targetClientTime;
+            const clientFrame = this.clientTime / this.simDt;
+
+            this.simFrame = Math.floor(clientFrame);
+            this.simAccum = clientFrame - this.simFrame;
+        } else {
+            const minDt = this.realDt * (1 - kClientTimeWarpMax);
+            const maxDt = this.realDt * (1 + kClientTimeWarpMax);
+
+            const clientDt = clamp(deltaClientTime, minDt, maxDt);
+            this.clientTime += clientDt;
+            this.simAccum += clientDt;
+        }
 
         // RenderTime
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
