@@ -1,5 +1,6 @@
 import { DebugMenu } from "./DebugMenu";
 import { assert } from "./util";
+import { clamp } from "./MathHelpers";
 
 const kDefaultStepDuration = 1000.0 / 60.0;
 
@@ -47,17 +48,12 @@ export class Clock {
         this.tick()
 
         this.serverTime = serverTime;
-        this.clientTime = serverTime - this.clientDelay;
         this.renderTime = serverTime - this.renderDelay;
-
-        this.simFrame = Math.floor(this.clientTime / this.simDt);
     }
 
     setClientDelay(delayMs: number) {
         assert(delayMs <= 0, 'ClientDelay is expected to be negative');
         this.clientDelay = delayMs;
-        this.clientTime = this.serverTime - delayMs;
-        this.simFrame = Math.floor(this.clientTime / this.simDt); // @HACK: We'll need to dilate time
     }
 
     setRenderDelay(delayMs: number) {
@@ -72,14 +68,20 @@ export class Clock {
         this.realDt = time - this.realTime;
         this.realTime = time;
 
+        // Server time
         this.serverTime += this.realDt;
-        this.clientTime += this.realDt;
-        
+
+        // Client time
+        // If it is behind the target time, speed it up by 5%, otherwise slow it by 5%
+        const targetClientTime = this.serverTime - this.clientDelay;
+        const deltaClientTime = targetClientTime - this.clientTime;
+        const clientDt = clamp(deltaClientTime, this.realDt * 0.95, this.realDt * 1.05);
+        this.clientTime += clientDt;
+        this.simAccum += clientDt;
+
+        // RenderTime
         this.renderDt = this.paused ? this.stepDt : this.realDt * this.speed;
         this.renderTime += this.renderDt;
-
-        this.simAccum += this.realDt;
-
         this.stepDt = 0.0
     }
 
