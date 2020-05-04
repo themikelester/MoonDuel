@@ -51,10 +51,14 @@ export class Clock {
 
     syncToServerTime(serverTime: number) {
         // Update all the timers, so that the next DT will be relative to this time
-        this.tick()
+        this.tick();
+
+        const serverTimeDelta = serverTime - this.serverTime;
 
         this.serverTime = serverTime;
         this.renderTime = serverTime - this.renderDelay;
+
+        return serverTimeDelta;
     }
 
     setClientDelay(delayMs: number) {

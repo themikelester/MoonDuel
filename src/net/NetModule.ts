@@ -60,9 +60,8 @@ export class NetModuleClient {
     }
 
     onServerTimeAdjust(serverTime: number) {
-        const serverTimeDelta = serverTime - this.context.clock.serverTime;
+        const serverTimeDelta = this.context.clock.syncToServerTime(serverTime);
         console.debug(`Adjusting serverTime by ${serverTimeDelta.toFixed(2)} ms`);
-        this.context.clock.syncToServerTime(serverTime);
 
         // Once our ping is calculated, adjust client and render times
         if (!this.synced && defined(this.client.ping)) {
