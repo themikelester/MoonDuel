@@ -28,9 +28,8 @@ export enum NetClientState {
 export enum NetClientEvents {
     Connected = 'con',
     Disconnected = 'dis',
-    Message = 'msg',
-    Acknowledge = 'ack',
     ServerTimeAdjust = 'stime',
+    ReceiveServerFrame = 'rsf',
 }
 
 enum MsgId {
@@ -325,6 +324,8 @@ export class NetClient extends EventDispatcher {
             const status = (snap.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
             this.graphPanel.setPacketStatus(snap.frame, status);
         }
+        
+        this.fire(NetClientEvents.ReceiveServerFrame, frameDiff, snap);
     }
     
     transmitVisibilityChange(visible: boolean) {
@@ -380,8 +381,6 @@ export class NetClient extends EventDispatcher {
         }
 
         this.reliable.ack(ack.tag);
-
-        this.fire(NetClientEvents.Acknowledge, ack);
     }
 
     onMessage(msg: Buf, latestAck: AckInfo) {
@@ -405,7 +404,5 @@ export class NetClient extends EventDispatcher {
 
             if (error) break;
         }
-
-        this.fire(NetClientEvents.Message, msg, latestAck);
     }
 }
