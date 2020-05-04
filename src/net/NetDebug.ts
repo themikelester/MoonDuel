@@ -142,7 +142,7 @@ export class NetGraph {
                     const pingStr = ping.toFixed(1).padStart(5);
 
                     ctx.fillStyle = bg;
-                    ctx.fillRect(kTextX + kWidth * 0.5, kTextY, kWidth * 0.5, kGraphY)
+                    ctx.fillRect(kTextX + kWidth * 0.5, kTextY, kWidth * 0.5, kGraphY - kTextY)
 
                     ctx.fillStyle = fg;
                     ctx.textAlign = 'right';
