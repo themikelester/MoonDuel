@@ -262,8 +262,8 @@ export class NetClient extends EventDispatcher {
 
             if (newlySet) {
                 if (this.graphPanel) {
-                    const received = (frame === cmd.frame) ? NetGraphPacketStatus.Received : NetGraphPacketStatus.Filled;
-                    const status = (frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : received;
+                    const received = (i === 0) ? NetGraphPacketStatus.Received : NetGraphPacketStatus.Filled;
+                    const status = (cmd.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : received;
                     this.graphPanel.setPacketStatus(cmd.frame, status);
                 }
             }
