@@ -28,10 +28,9 @@ export class NetModuleClient {
     synced: boolean = false;
     graph = new NetGraph();
 
-    private clientAhead: number = 0;
-    private renderDelay: number = 0;
+    private clientAhead: number = 125;
+    private renderDelay: number = 125;
 
-    private fastestAck?: AckInfo;
     private transmitInterval?: number;
 
     private averageFrameDiff = 0.0;
@@ -53,6 +52,10 @@ export class NetModuleClient {
     }
 
     onConnect(serverId: ClientId) {
+        // Set the client and render times to their default values for a networked game
+        this.context.clock.setClientDelay(-this.clientAhead);
+        this.context.clock.setRenderDelay(this.renderDelay);
+
         // Establish a WebUDP connection with the server
         this.client.on(NetClientEvents.ServerTimeAdjust, this.onServerTimeAdjust.bind(this));
         this.client.on(NetClientEvents.ReceiveServerFrame, this.onServerFrame.bind(this));
