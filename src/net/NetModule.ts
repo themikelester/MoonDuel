@@ -24,7 +24,7 @@ interface ServerDependencies {
 
 export class NetModuleClient {
     context: ClientDependencies;
-    client: NetClient = new NetClient();
+    client: NetClient;
     graph = new NetGraph();
 
     private clientAhead: number = 125;
@@ -39,6 +39,8 @@ export class NetModuleClient {
     initialize(context: ClientDependencies) {
         this.context = context;
         const clock = this.context.clock;
+
+        this.client = new NetClient(context.clock);
 
         const debugMenu = this.context.debugMenu.addFolder('Net');
         debugMenu.add(this, 'clientAhead', 0, 1000, 16).onChange(() => clock.setClientDelay(-this.clientAhead));
@@ -188,7 +190,7 @@ export class NetModuleServer {
         this.signalSocket = signalSocket;
         const listener = new WebUdpSocketFactory(signalSocket);
         await listener.listen(async (socket: WebUdpSocket) => {
-            const client = new NetClient();
+            const client = new NetClient(this.context.clock);
             client.on(NetClientEvents.Connected, this.onClientConnected.bind(this, client));
             client.on(NetClientEvents.Disconnected, this.onClientDisconnected.bind(this, client));
             client.accept(socket);

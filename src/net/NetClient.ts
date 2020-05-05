@@ -8,6 +8,7 @@ import { SnapshotManager, Snapshot } from "../Snapshot";
 import { NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
 import { Buf } from "../Buf";
 import { clamp } from "../MathHelpers";
+import { Clock } from "../Clock";
 
 export enum NetClientState {
     Free, 
@@ -119,6 +120,10 @@ export class NetClient extends EventDispatcher {
 
     // Debugging
     graphPanel?: NetGraphPanel;
+    
+    constructor(private clock: Clock) {
+        super();
+    }
 
     private initialize(socket: WebUdpSocket) {
         assert(this.state === NetClientState.Free);
@@ -289,8 +294,11 @@ export class NetClient extends EventDispatcher {
         // Write the time that this server held on to the latest acknowledged packet
         // This is used to compute the difference between ping (just transit time) and RTT (full round trip time)
         const procTime = this.lastReceivedTime > 0 ? performance.now() - this.lastReceivedTime : 0;
-        const procByte = clamp(Math.round(procTime / 16.0 * 255), 0, 255);
+        const procByte = clamp(Math.round(procTime / this.clock.simDt * 255), 0, 255); // @TODO: Func for encoding fixed precision floats
         Buf.writeByte(buf, procByte);
+
+        const serverTime = this.clock.getCurrentServerTime();
+        Buf.writeFloat(buf, serverTime);
 
         // Send the latest state
         Snapshot.serialize(buf, snap);
@@ -307,8 +315,10 @@ export class NetClient extends EventDispatcher {
         const frameDiff = (frameNibble >> 3) ? (0xFFFFFFF0 | frameNibble) : frameNibble;
 
         const procByte = Buf.readByte(msg);
-        const procTime = procByte / 255 * 16;
+        const procTime = procByte / 255 * this.clock.simDt;
         const ping = (latestAck && procByte > 0) ? latestAck.rttTime - procTime : undefined;
+
+        const serverTimeFromPacket = Buf.readFloat(msg);
 
         const snap = new Snapshot();
         Snapshot.deserialize(msg, snap);
@@ -320,7 +330,7 @@ export class NetClient extends EventDispatcher {
         if (ping && (!this.fastestAck || latestAck.rttTime < this.fastestAck.rttTime)) {
             this.fastestAck = latestAck;
 
-            const serverTime = snap.frame * 16 + ping * 0.5;
+            const serverTime = serverTimeFromPacket + ping * 0.5;
             this.fire(NetClientEvents.ServerTimeAdjust, serverTime);
         }
 

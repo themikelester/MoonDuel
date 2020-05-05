@@ -127,6 +127,14 @@ export class Clock {
 
         return shouldStep;
     }
+
+    /**
+     * Get the server time as of RIGHT NOW, not as of last tick.
+     */
+    getCurrentServerTime() {
+        const dt = performance.now() - this.realTime;
+        return this.serverTime + dt;
+    }
     
     /**
      * If the fixed simulation timestep is modified, the times must be reset so that the simulation 
