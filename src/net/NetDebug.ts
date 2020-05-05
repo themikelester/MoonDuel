@@ -208,8 +208,16 @@ export class NetClientStats {
 
     initialize() {
         const tbl = document.createElement('table');
+        tbl.id = 'NetStats'
         tbl.style.tableLayout = 'fixed';
         tbl.style.borderSpacing = '9pt';
+
+        // Non-important columns get limited opacity
+        const style = document.styleSheets[0] as CSSStyleSheet;
+        const secondaryOpacity = 0.7;
+        style.insertRule(`#NetStats>tr>:nth-child(2) { opacity: ${secondaryOpacity}; }`);
+        style.insertRule(`#NetStats>tr>:nth-child(4) { opacity: ${secondaryOpacity}; }`);
+        style.insertRule(`#NetStats>tr>:nth-child(5) { opacity: ${secondaryOpacity}; }`);
         
         // Header row
         let tr = document.createElement('tr');
@@ -226,8 +234,8 @@ export class NetClientStats {
 
             let tr = document.createElement('tr');
             tr.style.color = desc.color;
-            tr.appendChild(document.createElement('td')).appendChild(document.createTextNode(desc.name));
-            tr.appendChild(document.createElement('td')).appendChild(document.createTextNode(desc.unit));
+            tr.appendChild(document.createElement('td')).innerText = desc.name;
+            tr.appendChild(document.createElement('td')).innerText = desc.unit;
             this.domMinMaxAve[stat][2] = tr.appendChild(document.createElement('td'));
             this.domMinMaxAve[stat][0] = tr.appendChild(document.createElement('td'));
             this.domMinMaxAve[stat][1] = tr.appendChild(document.createElement('td'));
