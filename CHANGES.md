@@ -15,6 +15,11 @@ I'm going to give myself two more days on networking, and then move on to weapon
 - Text info for RTT, Ping, Interpolation delay, Loss % in/out, Packets per second in/out
 - Warning Icons for packet loss and missing frames (last msg from server older than interpolation delay)
 
+##### Evening
+I knocked out most of the above, except for warning icons. Server clock sync is now rock solid. It's within 0.05 to 1.3ms difference for all network conditions. The issue was that we were using the server frame to compute the server time at which we received the packet, but that can be off by as much as 15.99ms, since fixed frames are "produced" by the server time and therefore always behind. Now we encode the current server time in the frame and use the new accurate ping measurement to get the one way trip time. 
+
+I spent a few hours making the new NetStats panel. It shows average min and max of the stats listed above. 
+
 ### 2020-05-04
 ##### Morning
 I spent a few hours over the weekend finishing all the todo's from Friday (except for the NetClient timeout). I also fixed up the client's server time estimation. There was a bug where it would only be computed from the first ack, instead of the fastest. Now it is properly adjusting. 
