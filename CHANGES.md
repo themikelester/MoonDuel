@@ -6,6 +6,15 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 
+### 2020-05-05
+##### Morning
+I'm going to give myself two more days on networking, and then move on to weapons/attacks. I found a great youtube series yesterday that analyzes netcode of popular games (https://www.youtube.com/playlist?list=PLfOoCUS0PSkXVGjhB63KMDTOT5sJ0vWy8), and learned a ton by looking at the net graphs of other games. I'm going to try to implement some of the things that I saw:
+- RTT and Ping. Compute ping (just network travel time) by subtracting the time that the server held onto the packet from RTT
+- Better server time computation by using ping and not RTT. 
+- Ping variability. Standard deviation?
+- Text info for RTT, Ping, Interpolation delay, Loss % in/out, Packets per second in/out
+- Warning Icons for packet loss and missing frames (last msg from server older than interpolation delay)
+
 ### 2020-05-04
 ##### Morning
 I spent a few hours over the weekend finishing all the todo's from Friday (except for the NetClient timeout). I also fixed up the client's server time estimation. There was a bug where it would only be computed from the first ack, instead of the fastest. Now it is properly adjusting. 
