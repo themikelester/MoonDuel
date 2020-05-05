@@ -223,7 +223,7 @@ export class NetModuleServer {
         if (this.graph) {
             for (const client of this.clients) {
                 const clientServerTime = window.client.clock.serverTime;
-                client.graphPanel?.update(client.ping, clientServerTime, undefined, this.context.clock.serverTime);
+                client.graphPanel?.update(client.ping, clientServerTime, undefined, this.context.clock.getCurrentServerTime());
             }
         }
     }
