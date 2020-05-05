@@ -187,6 +187,8 @@ export class NetClientStats {
 
     domMinMaxAve: HTMLElement[][] = [];
 
+    private enabled = false;
+
     constructor() {
         for (let i = 0; i < NetClientStat._Count; i++) {
             this.minMaxAve[i] = [];
@@ -196,7 +198,7 @@ export class NetClientStats {
 
         const container = document.createElement('div');
         container.style.cssText = `
-            display:inline-block;
+            display:none;
             font-family: Monaco, monospace;
             font-size: 9pt;
             background:rgba(50,50,50,0.8);
@@ -205,6 +207,11 @@ export class NetClientStats {
             pointer-events:none;
             color:white`;
         this.dom = container;
+    }
+
+    setEnabled(enabled: boolean) {
+        this.enabled = enabled;
+        this.dom.style.display = enabled ? 'inline-block' : 'none';
     }
 
     initialize() {
@@ -269,12 +276,14 @@ export class NetClientStats {
     }
 
     update() {
-        // Remote history entries that are now outside the window
+        // Remove history entries that are now outside the window
         for (const statHistory of this.history) {
             while (statHistory.length > this.window) {
                 statHistory.shift();
             }
         }
+
+        if (!this.enabled) return;
 
         let historyLength = this.history[0].length;
         if (historyLength === 0) return; 

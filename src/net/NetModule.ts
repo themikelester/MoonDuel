@@ -8,7 +8,6 @@ import { assert, defined, arrayRemove } from "../util";
 
 import { NetGraph } from './NetDebug';
 import { DebugMenu } from "../DebugMenu";
-import { AckInfo } from "./NetChannel";
 import { lerp, clamp } from "../MathHelpers";
 
 interface ClientDependencies {
@@ -36,6 +35,9 @@ export class NetModuleClient {
     private averageClientFrameDiff = 0.0;
     private renderDelayTimestamp = 0.0;
 
+    private showStats = false;
+    private showGraph = false;
+
     initialize(context: ClientDependencies) {
         this.context = context;
         const clock = this.context.clock;
@@ -45,6 +47,8 @@ export class NetModuleClient {
         const debugMenu = this.context.debugMenu.addFolder('Net');
         debugMenu.add(this, 'clientAhead', 0, 1000, 16).onChange(() => clock.setClientDelay(-this.clientAhead));
         debugMenu.add(this, 'renderDelay', 0, 1000, 16).onChange(() => clock.setRenderDelay(this.renderDelay));
+        debugMenu.add(this, 'showStats').onChange((enabled: boolean) => this.client.stats.setEnabled(enabled));
+        debugMenu.add(this, 'showGraph');
 
         // @HACK:
         this.context.toplevel.appendChild(this.graph.dom);
