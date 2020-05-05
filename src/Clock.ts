@@ -26,8 +26,6 @@ export class Clock {
     public renderDt: number = 0; // The delta for renderTime, which is a modulated form of realDt (can be paused, slowed, sped up).
     private _simDt: number = 16; // The fixed time step of the simulation
 
-    public simAccum: number = 0;
-
     public paused = false;
     public speed = 1.0;
 
@@ -89,14 +87,12 @@ export class Clock {
             const clientFrame = this.clientTime / this.simDt;
 
             this.simFrame = Math.floor(clientFrame);
-            this.simAccum = clientFrame - this.simFrame;
         } else {
             const minDt = this.realDt * (1 - kClientTimeWarpMax);
             const maxDt = this.realDt * (1 + kClientTimeWarpMax);
 
             const clientDt = clamp(deltaClientTime, minDt, maxDt);
             this.clientTime += clientDt;
-            this.simAccum += clientDt;
         }
 
         // RenderTime
@@ -118,10 +114,10 @@ export class Clock {
     }
 
     updateFixed() {
-        const shouldStep = this.simAccum >= this.simDt;
+        const simAccum = this.clientTime - (this.simDt * this.simFrame);
+        const shouldStep = simAccum >= this.simDt;
 
         if (shouldStep) {
-            this.simAccum -= this.simDt;
             this.simFrame += 1;
         }
 
