@@ -297,9 +297,14 @@ export class NetClient extends EventDispatcher {
         const procByte = clamp(Math.round(procTime / this.clock.simDt * 255), 0, 255); // @TODO: Func for encoding fixed precision floats
         Buf.writeByte(buf, procByte);
 
-        const serverTime = this.clock.getCurrentServerTime();
-        Buf.writeFloat(buf, serverTime);
-
+        // Encode the time it took to simulate this frame, as well as the current server time. 
+        // Current server time is computed as `frame * simDt + framePhase + frameCompTime`
+        const currentTime = this.clock.getCurrentServerTime();
+        const frameCompTime = currentTime - this.clock.serverTime;
+        const framePhase = this.clock.serverTime - this.clock.simDt * snap.frame;
+        Buf.writeByte(buf, clamp(Math.round(framePhase / this.clock.simDt * 255), 0, 255));
+        Buf.writeByte(buf, clamp(Math.round(frameCompTime / this.clock.simDt * 255), 0, 255));
+    
         // Send the latest state
         Snapshot.serialize(buf, snap);
 
@@ -318,7 +323,8 @@ export class NetClient extends EventDispatcher {
         const procTime = procByte / 255 * this.clock.simDt;
         const ping = (latestAck && procByte > 0) ? latestAck.rttTime - procTime : undefined;
 
-        const serverTimeFromPacket = Buf.readFloat(msg);
+        const serverPhase = Buf.readByte(msg) / 255 * this.clock.simDt;
+        const compTime = Buf.readByte(msg) / 255 * this.clock.simDt;
 
         const snap = new Snapshot();
         Snapshot.deserialize(msg, snap);
@@ -330,6 +336,7 @@ export class NetClient extends EventDispatcher {
         if (ping && (!this.fastestAck || latestAck.rttTime < this.fastestAck.rttTime)) {
             this.fastestAck = latestAck;
 
+            const serverTimeFromPacket = snap.frame * this.clock.simDt + serverPhase + compTime;
             const serverTime = serverTimeFromPacket + ping * 0.5;
             this.fire(NetClientEvents.ServerTimeAdjust, serverTime);
         }
