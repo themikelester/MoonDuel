@@ -49,7 +49,9 @@ export class Compositor {
     public resize(clientWidth: number, clientHeight: number, devicePixelRatio: number) {
         // Resize the canvas client size to fit the specified dimensions
         // @NOTE: The back buffer will be resized on next render
-        this.canvas.setAttribute('style', `width: ${clientWidth}px; height: ${clientHeight}px;`);
+        this.canvas.style.width = `${clientWidth}px`; 
+        this.canvas.style.height = `${clientHeight}px`;
+        this.canvas.style.position = 'absolute';
     }
 }
 
