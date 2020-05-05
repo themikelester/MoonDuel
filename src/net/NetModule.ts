@@ -48,7 +48,7 @@ export class NetModuleClient {
         debugMenu.add(this, 'clientAhead', 0, 1000, 16).onChange(() => clock.setClientDelay(-this.clientAhead));
         debugMenu.add(this, 'renderDelay', 0, 1000, 16).onChange(() => clock.setRenderDelay(this.renderDelay));
         debugMenu.add(this, 'showStats').onChange((enabled: boolean) => this.client.stats.setEnabled(enabled));
-        debugMenu.add(this, 'showGraph');
+        debugMenu.add(this, 'showGraph').onChange((enabled: boolean) => this.graph.setEnabled(enabled));
 
         // @HACK:
         this.context.toplevel.appendChild(this.graph.dom);

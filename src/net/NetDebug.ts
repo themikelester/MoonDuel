@@ -21,11 +21,17 @@ export interface NetGraphPanelSet {
 
 export class NetGraph {
     dom: HTMLElement;
+    enabled: boolean = false;
 
     constructor() {
         const container = document.createElement('div');
-        container.style.cssText = 'opacity:0.9;z-index:10000;pointer-events:none';
+        container.style.cssText = 'opacity:0.9;z-index:10000;pointer-events:none;display:none';
         this.dom = container;
+    }
+
+    setEnabled(enabled: boolean) {
+        this.enabled = enabled;
+        this.dom.style.display = enabled ? 'inline-block' : 'none';
     }
 
     removePanel(panel: NetGraphPanel) {
@@ -68,8 +74,8 @@ export class NetGraph {
 
         this.dom.appendChild(canvas);
     
+        const parent = this;
         const frameStatus = new Array(kTimeRangeFrames).fill(NetGraphPacketStatus.Missing);
-        const frameIds = new Array(kTimeRangeFrames).fill(-1);
         let lastFrame = 0;
 
         return {
@@ -82,6 +88,8 @@ export class NetGraph {
             },
 
             update(ping: number | undefined, serverTime: number, renderTime: number, clientTime: number): void {
+                if (!parent.enabled) return;
+
                 ctx.fillStyle = bg;
                 ctx.fillRect(kGraphX, kGraphY, kGraphWidth, kGraphHeight);
 
