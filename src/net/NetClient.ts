@@ -5,7 +5,7 @@ import { UserCommandBuffer, UserCommand, kEmptyCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
-import { NetGraphPacketStatus, NetGraphPanel, NetClientStats } from "./NetDebug";
+import { NetGraphPacketStatus, NetGraphPanel, NetClientStats, NetClientStat } from "./NetDebug";
 import { Buf } from "../Buf";
 import { clamp, lerp } from "../MathHelpers";
 import { Clock } from "../Clock";
@@ -100,8 +100,6 @@ export class NetClient extends EventDispatcher {
     id: string;
     state: NetClientState = NetClientState.Free;
 
-    ping?: number = -1;
-
     lastRequestedFrame: number = -1;
     lastReceivedFrame: number = -1;
     lastTransmittedFrame: number = -1;
@@ -111,6 +109,7 @@ export class NetClient extends EventDispatcher {
 
     channel: NetChannel;
     stats: NetClientStats = new NetClientStats();
+    get ping() { return this.stats.minMaxAve[NetClientStat.Ping][2]; }
 
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
@@ -416,8 +415,6 @@ export class NetClient extends EventDispatcher {
     }
 
     onMessage(msg: Buf, latestAck: AckInfo, receiveTime: number) {
-        this.ping = this.channel.ping;
-
         if (this.state === NetClientState.Connected) {
             this.state = NetClientState.Active;
         }

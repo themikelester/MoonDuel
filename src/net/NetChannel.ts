@@ -49,8 +49,7 @@ const kMaxRTT = 1000; // Maximum round-trip-time before a packet is considered l
 export const kPacketMaxPayloadSize = 1024;
 
 /**
- * High level class controlling communication with the server. Handles packet reliability, buffering, and ping measurement.
- * @NOTE: This needs to be kept in sync with its counterpart on the server side, Client.cpp/h
+ * High level class controlling communication with the server. Handles packet reliability, and rtt measurement.
  */
 export class NetChannel extends EventDispatcher {
     public stats = new NetChannelStats();
@@ -65,7 +64,6 @@ export class NetChannel extends EventDispatcher {
     private packetBuffer = new Buf(new Uint8Array(kPacketHeaderSize + kPacketMaxPayloadSize));
 
     get isOpen() { return this.socket.isOpen; }
-    get ping() { return this.stats.averageRtt > 0 ? this.stats.averageRtt : undefined; }
 
     initialize(socket: WebUdpSocket) {
         this.socket = socket;
