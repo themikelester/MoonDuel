@@ -65,12 +65,16 @@ export class Server {
     }
     
     private updateFixed() {
+        let tickCount = 0;
         while (this.clock.updateFixed()) {
+            tickCount += 1;
             this.avatar.updateFixed(this);
             const snap = this.snapshot.createSnapshot(this);
             this.snapshot.setSnapshot(snap);
             this.net.transmitToClients(snap);
         }
+
+        if (tickCount !== 1) { console.warn('[Server] Uneven fixed frame tick:', tickCount); }
     }
 
     private update() {
