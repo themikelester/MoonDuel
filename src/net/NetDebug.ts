@@ -258,7 +258,9 @@ export class NetClientStats {
             tbl.appendChild(tr);
         }
 
-        this.dom.appendChild(tbl)
+        this.dom.appendChild(tbl);
+
+        this.setEnabled(true);
     }
 
     onReceiveFrame(ping: number | undefined, tickDuration: number) {
