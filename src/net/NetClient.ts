@@ -1,13 +1,13 @@
 import { NetChannel, NetChannelEvent, AckInfo } from "./NetChannel";
-import { assert, defined, assertDefined } from "../util";
+import { assert, defined, assertDefined, defaultValue } from "../util";
 import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer, UserCommand, kEmptyCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
 import { SnapshotManager, Snapshot } from "../Snapshot";
-import { NetGraphPacketStatus, NetGraphPanel } from "./NetDebug";
+import { NetGraphPacketStatus, NetGraphPanel, NetClientStats } from "./NetDebug";
 import { Buf } from "../Buf";
-import { clamp } from "../MathHelpers";
+import { clamp, lerp } from "../MathHelpers";
 import { Clock } from "../Clock";
 
 export enum NetClientState {
@@ -110,6 +110,7 @@ export class NetClient extends EventDispatcher {
     lastReceivedTime: number = -1;
 
     channel: NetChannel;
+    stats: NetClientStats = new NetClientStats();
 
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
@@ -146,6 +147,8 @@ export class NetClient extends EventDispatcher {
         this.channel.on(NetChannelEvent.Receive, this.onMessage.bind(this));
         this.channel.on(NetChannelEvent.Acknowledge, this.onAck.bind(this));
         this.channel.initialize(socket);
+
+        this.stats.initialize();
     }
 
     /**
@@ -340,6 +343,8 @@ export class NetClient extends EventDispatcher {
             const serverTime = serverTimeFromPacket + ping * 0.5;
             this.fire(NetClientEvents.ServerTimeAdjust, serverTime);
         }
+
+        this.stats.onReceiveFrame(ping, compTime);
 
         if (this.graphPanel) {
             // Mark non-received frames between the last requested and now as filled

@@ -1,5 +1,5 @@
 import { ClientId } from "./SignalSocket";
-import { assertDefined, defined } from "../util";
+import { assertDefined, defined, defaultValue } from "../util";
 
 export enum NetGraphPacketStatus {
     Missing, // Not yet received
@@ -24,7 +24,7 @@ export class NetGraph {
 
     constructor() {
         const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;top:0;left:0;opacity:0.9;z-index:10000;pointer-events:none';
+        container.style.cssText = 'opacity:0.9;z-index:10000;pointer-events:none';
         this.dom = container;
     }
 
@@ -150,5 +150,125 @@ export class NetGraph {
                 }
             }
         };
+    }
+}
+
+
+
+export enum NetClientStat {
+    Ping,  // Two-way network transit time of a packet. RTT - processing time
+    Vrtn,  // Variation in ping
+    Dur,   // Duration that a server tick takes to complete
+    Delay, // Interpolation delay (in ms) of the client
+    Ahead, // Client ahead time. Difference between clientTime and serverTime
+
+    // NetChannel Stats
+    // Loss,  // Percentage of packets lost
+    // Down,  // Download bandwidth in Kbps
+    // Up,    // Upload bandwidth in Kbps
+    // Rtt,   // Round-trip-time of a packet, including server/client processing
+
+    _Count,
+};
+
+const kStatDesc: Partial<Record<NetClientStat, { name: string, unit: string }>> = {
+    [NetClientStat.Ping]: { name: 'Ping', unit: 'ms' },
+    [NetClientStat.Dur]: { name: 'Srv Tick', unit: 'ms' },
+};
+
+export class NetClientStats {
+    minMaxAve: number[][] = [];
+    history: number[][] = [];
+    window: number = 3000 / 16; // 3 seconds at 63hz
+    dom: HTMLElement;
+
+    domMinMaxAve: HTMLElement[][] = [];
+
+    constructor() {
+        for (let i = 0; i < NetClientStat._Count; i++) {
+            this.minMaxAve[i] = [];
+            this.history[i] = [];
+            this.domMinMaxAve[i] = [];
+        }
+
+        const container = document.createElement('div');
+        container.style.cssText = `
+            display:inline-block;
+            font-family: Monaco, monospace;
+            font-size: 9pt;
+            background:rgba(50,50,50,0.8);
+            opacity:0.9;
+            z-index:10000;
+            pointer-events:none;
+            color:white`;
+        this.dom = container;
+    }
+
+    initialize() {
+        const tbl = document.createElement('table');
+        
+        // Header row
+        let tr = document.createElement('tr');
+        tr.appendChild(document.createElement('th'));
+        tr.appendChild(document.createElement('th'));
+        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('avg'));
+        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('min'));
+        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('max'));
+        tbl.appendChild(tr);
+
+        for (const statf in kStatDesc) {
+            let tr = document.createElement('tr');
+
+            const stat = Number.parseInt(statf) as NetClientStat;
+            const desc = assertDefined(kStatDesc[stat]);
+    
+            const name = desc.name;
+            const unit = desc.unit;
+
+            tr.appendChild(document.createElement('td')).appendChild(document.createTextNode(name));
+            tr.appendChild(document.createElement('td')).appendChild(document.createTextNode(unit));
+            this.domMinMaxAve[stat][2] = tr.appendChild(document.createElement('td'));
+            this.domMinMaxAve[stat][0] = tr.appendChild(document.createElement('td'));
+            this.domMinMaxAve[stat][1] = tr.appendChild(document.createElement('td'));
+            tbl.appendChild(tr);
+        }
+
+        this.dom.appendChild(tbl)
+    }
+
+    onReceiveFrame(ping: number | undefined, tickDuration: number) {
+        if (!defined(ping)) {
+            const pingHistory = this.history[NetClientStat.Ping];
+            ping = defaultValue(pingHistory[pingHistory.length-1], 0);
+        }
+        this.history[NetClientStat.Ping].push(ping);
+        this.history[NetClientStat.Dur].push(tickDuration);
+    }
+
+    update() {
+        let historyLength = this.history[0].length;
+        if (historyLength === 0) return; 
+        
+        // Remote history entries that are now outside the window
+        while (historyLength > this.window) {
+            for (const statHistory of this.history) {
+                statHistory.shift();
+            }
+            historyLength -= 1;
+        }   
+
+        for (const stat of [NetClientStat.Ping, NetClientStat.Dur]) {
+            this.minMaxAve[stat][0] = Math.min(...this.history[stat]);
+            this.minMaxAve[stat][1] = Math.max(...this.history[stat]);
+            this.minMaxAve[stat][2] = this.history[stat].reduce((a, c) => a + c, 0) / historyLength;
+
+            const min = defaultValue(this.minMaxAve[stat][0]?.toFixed(1), '');
+            const max = defaultValue(this.minMaxAve[stat][1]?.toFixed(1), '');
+            const ave = defaultValue(this.minMaxAve[stat][2]?.toFixed(1), '');
+
+            this.domMinMaxAve[stat][0].innerText = min;
+            this.domMinMaxAve[stat][1].innerText = max;
+            this.domMinMaxAve[stat][2].innerText = ave;
+        }
     }
 }

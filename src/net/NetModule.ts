@@ -48,6 +48,7 @@ export class NetModuleClient {
 
         // @HACK:
         this.context.toplevel.appendChild(this.graph.dom);
+        this.context.toplevel.appendChild(this.client.stats.dom);
     }
 
     terminate() {
@@ -157,6 +158,7 @@ export class NetModuleClient {
     }
 
     update({ }) {
+        this.client.stats.update();
         this.updateNetGraph();
     }
 
