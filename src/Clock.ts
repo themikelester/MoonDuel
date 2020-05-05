@@ -69,8 +69,16 @@ export class Clock {
     }
 
     tick() {
-        // Measure the real time since the last tick()
         const time = performance.now();
+
+        // Attempt to prevent the case where the tick starts exactly on a frame boundary, in which case a short tick
+        // followed by a long tick could produce 0 and then two simulation frames. So set the tick phase two be right
+        // in the middle of a sim frame. 
+        if (this.realTime === 0.0) {
+            this.realTime = time - this.simDt * 0.5;
+        }
+
+        // Measure the real time since the last tick()
         this.realDt = time - this.realTime;
         this.realTime = time;
 
