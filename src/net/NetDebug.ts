@@ -172,6 +172,7 @@ export enum NetClientStat {
 const kStatDesc: Partial<Record<NetClientStat, { name: string, unit: string, color: string }>> = {
     [NetClientStat.Ping]: { name: 'Ping', unit: 'ms', color: 'aqua' },
     [NetClientStat.Rtt]: { name: 'RTT', unit: 'ms', color: 'cornflowerblue' },
+    [NetClientStat.Vrtn]: { name: 'Net Vrtn', unit: 'ms', color: 'white' },
     [NetClientStat.Dur]: { name: 'Srv Tick', unit: 'ms', color: 'mediumpurple' },
     [NetClientStat.Loss]: { name: 'Pkt Loss', unit: '%', color: 'darkorange' },
     [NetClientStat.Down]: { name: 'Down', unit: 'Kbps', color: 'greenyellow' },
@@ -250,6 +251,12 @@ export class NetClientStats {
             const pingHistory = this.history[NetClientStat.Ping];
             ping = defaultValue(pingHistory[pingHistory.length-1], 0);
         }
+
+        // Network variation is ping's standard deviation from the mean
+        const pingAve = this.minMaxAve[NetClientStat.Ping][2];
+        const vrtn = !defined(pingAve) ? 0 : (ping - pingAve) ** 2;
+        
+        this.history[NetClientStat.Vrtn].push(vrtn);
         this.history[NetClientStat.Ping].push(ping);
         this.history[NetClientStat.Dur].push(tickDuration);
     }
@@ -262,22 +269,28 @@ export class NetClientStats {
     }
 
     update() {
-        let historyLength = this.history[0].length;
-        if (historyLength === 0) return; 
-        
         // Remote history entries that are now outside the window
-        while (historyLength > this.window) {
-            for (const statHistory of this.history) {
+        for (const statHistory of this.history) {
+            while (statHistory.length > this.window) {
                 statHistory.shift();
             }
-            historyLength -= 1;
-        }   
+        }
+
+        let historyLength = this.history[0].length;
+        if (historyLength === 0) return; 
 
         for (const statId in kStatDesc) {
             const stat = Number.parseInt(statId) as NetClientStat;
             this.minMaxAve[stat][0] = Math.min(...this.history[stat]);
             this.minMaxAve[stat][1] = Math.max(...this.history[stat]);
-            this.minMaxAve[stat][2] = this.history[stat].reduce((a, c) => a + c, 0) / historyLength;
+            this.minMaxAve[stat][2] = this.history[stat].reduce((a, c) => a + c, 0) / this.history[stat].length;
+
+            if (stat === NetClientStat.Vrtn) {
+                // Finish computing standard deviation
+                this.minMaxAve[stat][0] = Math.sqrt(this.minMaxAve[stat][0]);
+                this.minMaxAve[stat][1] = Math.sqrt(this.minMaxAve[stat][1]);
+                this.minMaxAve[stat][2] = Math.sqrt(this.minMaxAve[stat][2]);
+            }
 
             const min = defaultValue(this.minMaxAve[stat][0]?.toFixed(1), '');
             const max = defaultValue(this.minMaxAve[stat][1]?.toFixed(1), '');
