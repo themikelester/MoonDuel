@@ -230,7 +230,7 @@ export class NetChannel extends EventDispatcher {
 
             // Notify listeners 
             Buf.skip(buf, kPacketHeaderSize);
-            this.fire(NetChannelEvent.Receive, buf, latestAck);
+            this.fire(NetChannelEvent.Receive, buf, latestAck, packet.rcvdTime);
         } else {
             // Ignore the packet
             console.debug('NetChannel: Ignoring stale packet with sequence number', sequence);

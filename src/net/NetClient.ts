@@ -106,14 +106,14 @@ export class NetClient extends EventDispatcher {
     lastTransmittedFrame: number = -1;
     lastAcknowledgedFrame: number = -1;
 
+    lastReceivedTime: number = -1;
+
     channel: NetChannel;
 
     private snapshot: SnapshotManager = new SnapshotManager();
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
     
     private fastestAck?: AckInfo;
-    private serverTimeDelta: number;
-    get serverTime() { return performance.now() + this.serverTimeDelta; }
 
     private reliable = new ReliableMessageManager();
 
@@ -246,7 +246,7 @@ export class NetClient extends EventDispatcher {
         buf.data[idByteOffset] = idByte;
     }
 
-    receiveClientFrame(msg: Buf) {
+    receiveClientFrame(msg: Buf, receiveTime: number) {
         const count = Buf.readByte(msg) >> 4;
         const frame = Buf.readInt(msg);
 
@@ -269,6 +269,7 @@ export class NetClient extends EventDispatcher {
         }
 
         this.lastReceivedFrame = frame;
+        this.lastReceivedTime = receiveTime;
     }
 
     transmitServerFrame(snap: Snapshot) {
@@ -285,6 +286,12 @@ export class NetClient extends EventDispatcher {
         idByte |= (clamp(frameDiff, -8, 7) & 0b1111) << 4;
         Buf.writeByte(buf, idByte);
 
+        // Write the time that this server held on to the latest acknowledged packet
+        // This is used to compute the difference between ping (just transit time) and RTT (full round trip time)
+        const procTime = this.lastReceivedTime > 0 ? performance.now() - this.lastReceivedTime : 0;
+        const procByte = clamp(Math.round(procTime / 16.0 * 255), 0, 255);
+        Buf.writeByte(buf, procByte);
+
         // Send the latest state
         Snapshot.serialize(buf, snap);
 
@@ -299,6 +306,10 @@ export class NetClient extends EventDispatcher {
         const frameNibble = (idByte >> 4);
         const frameDiff = (frameNibble >> 3) ? (0xFFFFFFF0 | frameNibble) : frameNibble;
 
+        const procByte = Buf.readByte(msg);
+        const procTime = procByte / 255 * 16;
+        const ping = (latestAck && procByte > 0) ? latestAck.rttTime - procTime : undefined;
+
         const snap = new Snapshot();
         Snapshot.deserialize(msg, snap);
         this.snapshot.setSnapshot(snap);
@@ -306,11 +317,10 @@ export class NetClient extends EventDispatcher {
         this.lastReceivedFrame = snap.frame;
 
         // Compute server time based on the packet with the lowest RTT, which should yield the most accurate result
-        if (latestAck && (!this.fastestAck || latestAck.rttTime < this.fastestAck.rttTime)) {
+        if (ping && (!this.fastestAck || latestAck.rttTime < this.fastestAck.rttTime)) {
             this.fastestAck = latestAck;
 
-            const serverTime = snap.frame * 16 + latestAck.rttTime * 0.5;
-            this.serverTimeDelta = serverTime - performance.now();
+            const serverTime = snap.frame * 16 + ping * 0.5;
             this.fire(NetClientEvents.ServerTimeAdjust, serverTime);
         }
 
@@ -383,7 +393,7 @@ export class NetClient extends EventDispatcher {
         this.reliable.ack(ack.tag);
     }
 
-    onMessage(msg: Buf, latestAck: AckInfo) {
+    onMessage(msg: Buf, latestAck: AckInfo, receiveTime: number) {
         this.ping = this.channel.ping;
 
         if (this.state === NetClientState.Connected) {
@@ -397,7 +407,7 @@ export class NetClient extends EventDispatcher {
 
             switch(msgId) {
                 case MsgId.ServerFrame: this.receiveServerFrame(msg, latestAck); break;
-                case MsgId.ClientFrame: this.receiveClientFrame(msg); break;
+                case MsgId.ClientFrame: this.receiveClientFrame(msg, receiveTime); break;
                 case MsgId.VisChange: this.receiveVisibilityChange(msg); break;
                 default: console.warn('Received unknown message. Ignoring.'); error = true; break; 
             }
