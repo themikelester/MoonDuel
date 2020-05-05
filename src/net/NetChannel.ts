@@ -3,6 +3,7 @@ import { WebUdpSocket, WebUdpEvent } from './WebUdp';
 import { EventDispatcher } from '../EventDispatcher';
 import { defined, defaultValue, assert } from '../util';
 import { Buf } from '../Buf';
+import { NetClientStats } from './NetDebug';
 
 export enum NetChannelEvent {
     Receive = "rec",
@@ -14,13 +15,6 @@ export interface AckInfo {
     rttTime: number;
     sentTime: number;
     ackTime: number;
-}
-
-export class NetChannelStats {
-    averageRtt: number = 0;
-    packetLoss: number = 0;
-    inKbps: number = 0;
-    outKbps: number = 0;
 }
 
 type SequenceNumber = number;
@@ -52,8 +46,6 @@ export const kPacketMaxPayloadSize = 1024;
  * High level class controlling communication with the server. Handles packet reliability, and rtt measurement.
  */
 export class NetChannel extends EventDispatcher {
-    public stats = new NetChannelStats();
-
     private socket: WebUdpSocket;
 
     private remoteSequence = -1;
@@ -92,7 +84,7 @@ export class NetChannel extends EventDispatcher {
         this.socket.close();
     }
 
-    computeStats() {
+    computeStats(stats: NetClientStats) {
         const now = performance.now();
         let ackd = 0;
         let lost = 0;
@@ -143,12 +135,14 @@ export class NetChannel extends EventDispatcher {
             oldestRcvdTime = Math.min(oldestRcvdTime, packet.rcvdTime);
         }
 
-        this.stats.packetLoss = (lost + ackd) > 0 ? lost / (lost + ackd) : 0;
-        this.stats.averageRtt = rttCount > 0 ? rttAccum / rttCount : 0;
-        this.stats.outKbps = sentSize / (now - oldestSentTime) * 8;
-        this.stats.inKbps = rcvdSize / (now - oldestRcvdTime) * 8;
+        const packetLoss = (lost + ackd) > 0 ? lost / (lost + ackd) * 100.0 : 0;
+        const averageRtt = rttCount > 0 ? rttAccum / rttCount : 0;
+        const outKbps = sentSize / (now - oldestSentTime) * 8;
+        const inKbps = rcvdSize / (now - oldestRcvdTime) * 8;
 
-        return this.stats;
+        stats.onNetChannelSample(packetLoss, averageRtt, outKbps, inKbps);
+
+        return stats;
     }
 
     allocatePacket(): Buf {

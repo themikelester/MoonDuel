@@ -225,7 +225,7 @@ export class NetClient extends EventDispatcher {
         this.channel.send(buf, frame);
         this.lastTransmittedFrame = frame;
 
-        this.channel.computeStats();
+        this.channel.computeStats(this.stats);
     }
 
     sendClientFrame(buf: Buf, frame: number, cmd: UserCommand) {
@@ -313,7 +313,7 @@ export class NetClient extends EventDispatcher {
         this.channel.send(buf, snap.frame);
         this.lastTransmittedFrame = snap.frame;
 
-        this.channel.computeStats();
+        this.channel.computeStats(this.stats);
     }
 
     receiveServerFrame(msg: Buf, latestAck: AckInfo) {

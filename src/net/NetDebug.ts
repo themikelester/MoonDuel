@@ -157,23 +157,25 @@ export class NetGraph {
 
 export enum NetClientStat {
     Ping,  // Two-way network transit time of a packet. RTT - processing time
+    Rtt,   // Round-trip-time of a packet, including server/client processing
     Vrtn,  // Variation in ping
+    Loss,  // Percentage of packets lost
     Dur,   // Duration that a server tick takes to complete
     Delay, // Interpolation delay (in ms) of the client
     Ahead, // Client ahead time. Difference between clientTime and serverTime
-
-    // NetChannel Stats
-    // Loss,  // Percentage of packets lost
-    // Down,  // Download bandwidth in Kbps
-    // Up,    // Upload bandwidth in Kbps
-    // Rtt,   // Round-trip-time of a packet, including server/client processing
+    Down,  // Download bandwidth in Kbps
+    Up,    // Upload bandwidth in Kbps
 
     _Count,
 };
 
-const kStatDesc: Partial<Record<NetClientStat, { name: string, unit: string }>> = {
-    [NetClientStat.Ping]: { name: 'Ping', unit: 'ms' },
-    [NetClientStat.Dur]: { name: 'Srv Tick', unit: 'ms' },
+const kStatDesc: Partial<Record<NetClientStat, { name: string, unit: string, color: string }>> = {
+    [NetClientStat.Ping]: { name: 'Ping', unit: 'ms', color: 'aqua' },
+    [NetClientStat.Rtt]: { name: 'RTT', unit: 'ms', color: 'cornflowerblue' },
+    [NetClientStat.Dur]: { name: 'Srv Tick', unit: 'ms', color: 'mediumpurple' },
+    [NetClientStat.Loss]: { name: 'Pkt Loss', unit: '%', color: 'darkorange' },
+    [NetClientStat.Down]: { name: 'Down', unit: 'Kbps', color: 'greenyellow' },
+    [NetClientStat.Up]: { name: 'Up', unit: 'Kbps', color: 'hotpink' },
 };
 
 export class NetClientStats {
@@ -206,27 +208,26 @@ export class NetClientStats {
 
     initialize() {
         const tbl = document.createElement('table');
+        tbl.style.tableLayout = 'fixed';
+        tbl.style.borderSpacing = '9pt';
         
         // Header row
         let tr = document.createElement('tr');
         tr.appendChild(document.createElement('th'));
         tr.appendChild(document.createElement('th'));
-        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('avg'));
-        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('min'));
-        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('max'));
+        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('   avg   '));
+        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('   min   '));
+        tr.appendChild(document.createElement('th')).appendChild(document.createTextNode('   max   '));
         tbl.appendChild(tr);
 
-        for (const statf in kStatDesc) {
-            let tr = document.createElement('tr');
-
-            const stat = Number.parseInt(statf) as NetClientStat;
+        for (const statId in kStatDesc) {
+            const stat = Number.parseInt(statId) as NetClientStat;
             const desc = assertDefined(kStatDesc[stat]);
-    
-            const name = desc.name;
-            const unit = desc.unit;
 
-            tr.appendChild(document.createElement('td')).appendChild(document.createTextNode(name));
-            tr.appendChild(document.createElement('td')).appendChild(document.createTextNode(unit));
+            let tr = document.createElement('tr');
+            tr.style.color = desc.color;
+            tr.appendChild(document.createElement('td')).appendChild(document.createTextNode(desc.name));
+            tr.appendChild(document.createElement('td')).appendChild(document.createTextNode(desc.unit));
             this.domMinMaxAve[stat][2] = tr.appendChild(document.createElement('td'));
             this.domMinMaxAve[stat][0] = tr.appendChild(document.createElement('td'));
             this.domMinMaxAve[stat][1] = tr.appendChild(document.createElement('td'));
@@ -245,6 +246,13 @@ export class NetClientStats {
         this.history[NetClientStat.Dur].push(tickDuration);
     }
 
+    onNetChannelSample(packetLoss: number, averageRTT: number, outKbps: number, inKbps: number) {
+        this.history[NetClientStat.Loss].push(packetLoss);
+        this.history[NetClientStat.Rtt].push(averageRTT);
+        this.history[NetClientStat.Up].push(outKbps);
+        this.history[NetClientStat.Down].push(inKbps);
+    }
+
     update() {
         let historyLength = this.history[0].length;
         if (historyLength === 0) return; 
@@ -257,7 +265,8 @@ export class NetClientStats {
             historyLength -= 1;
         }   
 
-        for (const stat of [NetClientStat.Ping, NetClientStat.Dur]) {
+        for (const statId in kStatDesc) {
+            const stat = Number.parseInt(statId) as NetClientStat;
             this.minMaxAve[stat][0] = Math.min(...this.history[stat]);
             this.minMaxAve[stat][1] = Math.max(...this.history[stat]);
             this.minMaxAve[stat][2] = this.history[stat].reduce((a, c) => a + c, 0) / historyLength;
