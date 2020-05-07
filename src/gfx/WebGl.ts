@@ -494,11 +494,7 @@ function defined<T>(x: (T | undefined | null)): x is T {
 }
 
 function isImage(v: any): v is (HTMLImageElement | HTMLCanvasElement | ImageBitmap) {
-  return (
-    v instanceof HTMLImageElement ||
-    v instanceof HTMLCanvasElement ||
-    v instanceof ImageBitmap
-  );
+  return v.height !== undefined;
 }
 
 function checkErrors() {
