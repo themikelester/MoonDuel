@@ -191,6 +191,7 @@ export class AvatarSystemClient {
             if (window.client.net.client.state === NetClientState.Active) {
                 if (state.clientId === window.client.net.client.id) {
                     this.localAvatar = avatar;
+                    avatar.local = true;
                 }
             }
 
