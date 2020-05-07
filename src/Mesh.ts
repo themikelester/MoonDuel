@@ -157,12 +157,30 @@ export class Model extends Object3D {
 export class SkinnedModel extends Model {
     skeleton: Skeleton;
     ibms: mat4[];
+    boneTex: Gfx.Id;
 
     constructor(device: Gfx.Renderer, renderList: RenderList, mesh: Mesh, material: Material) {
         super(device, renderList, mesh, material);
     }
 
-    bindSkeleton(skeleton: Skeleton) {
+    bindSkeleton(device: Gfx.Renderer, skeleton: Skeleton) {
         this.skeleton = skeleton;
+
+        const desc: Gfx.TextureDescriptor = {
+            type: Gfx.TextureType.Texture2D,
+            format: Gfx.TexelFormat.F32x4,
+            usage: Gfx.Usage.Dynamic,
+            width: 4,
+            height: skeleton.bones.length,
+            defaultMinFilter: Gfx.TextureFilter.Nearest,
+            defaultMagFilter: Gfx.TextureFilter.Nearest,
+        };
+
+        this.boneTex = device.createTexture('BoneTex', desc, this.skeleton.boneMatrices);
+    }
+
+    writeBonesToTex(device: Gfx.Renderer) {
+        device.writeTextureData(this.boneTex, this.skeleton.boneMatrices);
+        return this.boneTex;
     }
 }

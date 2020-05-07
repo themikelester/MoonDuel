@@ -122,7 +122,8 @@ export class AvatarRender {
         for (let prim of gltfMesh.primitives) {
             const material = this.createMaterial(gfxDevice, prim, gltf);
             const model = new SkinnedModel(gfxDevice, renderLists.opaque, prim.mesh, material);
-            model.bindSkeleton(skeleton);
+            model.bindSkeleton(gfxDevice, skeleton);
+            material.setTexture(gfxDevice, 'u_jointTex', model.boneTex);
             this.data[avatarIdx].skinnedModels.push(model);
             parent.add(model);
         }
@@ -147,9 +148,8 @@ export class AvatarRender {
             for (let i = 0; i < data.skinnedModels.length; i++) {
                 const model = data.skinnedModels[i];
                 const uniforms = model.material.getUniformBuffer('uniforms');
-
-                const boneFloats = uniforms.getFloatArray('u_joints');
-                boneFloats.set(model.skeleton.boneMatrices);
+                
+                model.writeBonesToTex(gfxDevice);
 
                 const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
 
