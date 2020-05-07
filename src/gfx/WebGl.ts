@@ -1203,7 +1203,7 @@ export class WebGlRenderer implements Gfx.Renderer {
     this.shaders.delete(shaderId);
   }
 
-  createTexture(name: string, desc: Gfx.TextureDescriptor, image: HTMLImageElement | HTMLCanvasElement | ArrayBufferView | ImageBitmap): Gfx.Id {
+  createTexture(name: string, desc: Gfx.TextureDescriptor, image?: HTMLImageElement | HTMLCanvasElement | ArrayBufferView | ImageBitmap): Gfx.Id {
     const isArrayBuffer = !image || (image as ArrayBufferView).buffer instanceof ArrayBuffer && (image as ArrayBufferView).byteLength !== undefined;
     const translateFormat = this.webGlVersion === 1 ? TranslateGfxTexelFormatWebGl1 : TranslateGfxTexelFormat;
 

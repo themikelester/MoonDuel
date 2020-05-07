@@ -343,7 +343,7 @@ export interface Renderer {
     createVertexTable(pipelineId: Id): Id;
     createRenderPipeline(shaderId: Id, renderFormat: RenderFormat, vertexLayout: VertexLayout, resourceLayout: ResourceLayout): Id;
     createShader(desc: ShaderDescriptor): number;
-    createTexture(name: string, desc: TextureDescriptor, image: HTMLImageElement | HTMLCanvasElement | ArrayBufferView | ImageBitmap): Id;
+    createTexture(name: string, desc: TextureDescriptor, image?: HTMLImageElement | HTMLCanvasElement | ArrayBufferView | ImageBitmap): Id;
     createBuffer(name: string, type: BufferType, usage: Usage, dataOrSize: (ArrayBuffer | number)): number;
     removeBuffer(bufferId: Id): void;
     removeTexture(textureId: Id): void;
