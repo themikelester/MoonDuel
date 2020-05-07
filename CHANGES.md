@@ -5,6 +5,11 @@ Change Log
 * Pivot around whichever foot is grounded, or lerp between them if in the air
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
+* Trickle ICE for WebUDP connections. Waiting for all candidates to complete makes connecting take forever.
+
+### 2020-05-07
+##### Morning
+Now that it's been a month on networking, I'm going to push forward in other areas. I'm going to spend cleaning up iOS and Safari support, and then move on to weapons and an attack system. iOS doesn't seem to be able to load anything at all, so I'll debug that first. 
 
 ### 2020-05-05
 ##### Morning
