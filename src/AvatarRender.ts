@@ -100,6 +100,8 @@ export class AvatarRender {
                 if (uniform.type === Gfx.Type.Texture2D) {
                     const texId = gltf.textures[value.index].id;
                     material.setTexture(gfxDevice, name, texId);
+                } else if (uniform.type === Gfx.Type.Float) {
+                    ubo.setFloat(name, value);
                 } else {
                     ubo.setFloats(name, value);
                 }
