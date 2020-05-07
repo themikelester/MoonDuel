@@ -7,9 +7,16 @@ Change Log
 * Skidding 180 when about facing along the vertical axis
 * Trickle ICE for WebUDP connections. Waiting for all candidates to complete makes connecting take forever.
 
+### 2020-05-08
+##### Morning
+Today I'm going to start working on implementing attacks and weapons. I might do a bit of exploring around a scripting/entity system. The naive way to approach this would just be to implement attacking animations in the Avatar subsystem and see where that leads, which may not be a bad idea. I should go hunt down a simple sword model to use as a placeholder first. 
+
 ### 2020-05-07
 ##### Morning
 Now that it's been a month on networking, I'm going to push forward in other areas. I'm going to spend cleaning up iOS and Safari support, and then move on to weapons and an attack system. iOS doesn't seem to be able to load anything at all, so I'll debug that first. 
+
+##### Next Morning
+It turned out that iOS Safari was broken because the avatar vertex shader was using too many uniforms. Surprisingly, while most devices support at least 512 (and my laptop supports 1024), the iPhone 6 only supports 128 vec4 uniforms. Since we were using up to 44 mat4's to represent the bones, the glsl shader compile was failing on 128-limit devices. I now store the bones in a texture (each row is 4 RGBA F32s representing each of the 4 columns of the matrix), which is sampled in the vertex shader to construct each joint matrix. The texture size is currently 4xBoneCount. This could be reduced by storing the matrices as row major and only having it be 3 texels wide, or by using keeping column-major and using RGB format. But both of those would require swizzling the data each frame before upload, which probably isn't worth it since CPU is such a hot commodity. 
 
 ### 2020-05-05
 ##### Morning
