@@ -22,6 +22,8 @@ import { Snapshot } from './Snapshot';
 import { NetClientState } from './net/NetClient';
 import { assertDefined } from './util';
 
+import { World } from './World';
+
 export const enum InitErrorCode {
     SUCCESS,
     NO_WEBGL_GENERIC,
@@ -36,6 +38,8 @@ export class Client {
     public displaySnapshot: Snapshot = new Snapshot();
 
     public debugMenu: DebugMenu = new DebugMenu();
+
+    public world: World = new World([]);
 
     // Modules
     public avatar = new AvatarSystemClient();
@@ -70,6 +74,7 @@ export class Client {
         this.onResize();
 
         // Initialize Modules
+        this.world.initialize();
         this.resources.initialize(this.gfxDevice);
         this.clock.initialize(this);
         this.input.initialize(this);
@@ -104,6 +109,10 @@ export class Client {
 
     private tick(time: number) {
         this.clock.tick();
+
+        this.world.updateFixed();
+        this.world.update();
+        this.world.render();
         
         this.updateFixed();
         this.update();
@@ -165,6 +174,7 @@ export class Client {
     }
 
     private onUnload() {
+        this.world.terminate();
         this.net.terminate();
     }
 }
