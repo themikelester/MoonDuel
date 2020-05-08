@@ -12,7 +12,7 @@ import { Camera } from './Camera';
 
 export class Weapon {
     model: Model;
-
+    transform: Object3D;
 }
 
 export class Sword extends Weapon {
@@ -107,12 +107,13 @@ export class Sword extends Weapon {
 
         // Clone the node hierarchy (so that we can manipulate without modifying other instances)
         let lastAncestor: Object3D = sword.model;
-        Sword.meshNode.traverseAncestors(ancestor => {
-            const a = ancestor.clone(false);
-            a.add(lastAncestor);
+        Sword.meshNode.traverseAncestors(a => {
+            const ancestor = a.clone(false);
+            ancestor.add(lastAncestor);
             lastAncestor = ancestor;
         });
         sword.model.updateWorldMatrix(true, false);
+        sword.transform = lastAncestor;
 
         // Set shared resources
         Object.keys(this.matTextures).forEach(name => sword.material.setTexture(gfxDevice, name, this.matTextures[name]));
@@ -128,6 +129,7 @@ export class Sword extends Weapon {
 
     render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera }) {
         const model = this.model;
+        this.transform.updateWorldMatrix(false, true);
         const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
 
         const uniforms = model.material.getUniformBuffer('model');
