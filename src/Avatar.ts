@@ -17,6 +17,7 @@ import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Buf } from "./Buf";
+import { Weapon, Sword } from "./Weapon";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -44,6 +45,8 @@ export class Avatar extends Object3D {
     nodes: GltfNode[];
     animationMixer: AnimationMixer;
     skeleton: Skeleton;
+    
+    weapon: Weapon;
 }
 
 export enum AvatarFlags {
@@ -118,6 +121,7 @@ export class AvatarState {
 }
 
 const kGltfFilename = 'data/Tn.glb';
+const kWeaponFilename = 'data/Tkwn.glb';
 
 export class AvatarSystemClient {
     public localAvatar: Avatar; // @HACK:
@@ -143,6 +147,14 @@ export class AvatarSystemClient {
             if (error) { return console.error(`Failed to load resource`, error); }
             this.gltf = resource as GltfResource;
             this.onResourcesLoaded(game);
+        });
+
+        // @HACK:
+        const sword = new Sword();
+        game.resources.load(kWeaponFilename, 'gltf', (error, resource) => {
+            if (error) { return console.error(`Failed to load resource`, error); }
+            Sword.onResourcesLoaded(assertDefined(resource), game);
+            this.localAvatar.weapon = Sword.create(game.gfxDevice);
         });
 
         this.animation.initialize(this.avatars);
@@ -217,6 +229,9 @@ export class AvatarSystemClient {
     }
 
     render(game: ClientDependencies) {
+        if (this.localAvatar && this.localAvatar.weapon) {
+            (this.localAvatar.weapon as Sword).render(game);
+        }
         this.renderer.render(game.gfxDevice, game.camera);
     }
 }
