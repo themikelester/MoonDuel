@@ -105,15 +105,9 @@ export class Sword extends Weapon {
         sword.material = new Material(gfxDevice, name, this.shader, this.resourceLayout);
         sword.model = new Model(gfxDevice, renderLists.opaque, this.mesh, sword.material);
 
-        // Clone the node hierarchy (so that we can manipulate without modifying other instances)
-        let lastAncestor: Object3D = sword.model;
-        Sword.meshNode.traverseAncestors(a => {
-            const ancestor = a.clone(false);
-            ancestor.add(lastAncestor);
-            lastAncestor = ancestor;
-        });
+        // Ignore the parent node, which only centers the model. The current origin is the avatar's grab point.
         sword.model.updateWorldMatrix(true, false);
-        sword.transform = lastAncestor;
+        sword.transform = sword.model;
 
         // Set shared resources
         Object.keys(this.matTextures).forEach(name => sword.material.setTexture(gfxDevice, name, this.matTextures[name]));
