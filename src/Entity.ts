@@ -4,27 +4,30 @@ import { assertDefined, assert, defined } from "./util";
 export type EntityId = number;
 export type ResourceHandle = null;
 
-type EntityPrototype = ComponentClass<Component>[];
-
-
-class SampleComponentA implements Component { a = 0.0 }
-class SampleComponentB implements Component { b = 0.0 }
-const SampleEntity: EntityPrototype = [
-    SampleComponentA,
-    SampleComponentB
-]
+/**
+ * Used to create a new Entity with a given set of Components
+ * @example
+ * const SampleEntity = new class SampleEntity extends EntityPrototype {} ([
+ *   SomeComponentA,
+ *   SomeComponentB
+ * ]);
+ * const mySampleEntity = new Entity(SampleEntity);
+ */
+export class EntityPrototype {
+    constructor(public components: ComponentClass<Component>[]) {}
+}
 
 export class Entity {
-    private id: EntityId;
-    private readonly components: Record<string, Component>;
+    private id: Nullable<EntityId>;
+    private readonly components: Record<string, Component> = {};
     private prototype: EntityPrototype;
 
-    constructor(id: EntityId, prototype: EntityPrototype) {
-        this.id = id;
+    constructor(prototype: EntityPrototype, id?: EntityId) {
+        if (defined(id)) this.id = id;
         this.prototype = prototype;
 
         // Create a new instance of each component from the prototype
-        for (const component of prototype) {
+        for (const component of prototype.components) {
             this.components[component.name] = new component();
         }
     }

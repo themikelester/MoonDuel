@@ -1,5 +1,5 @@
 import { Component } from "./Component";
-import { EntityId, Entity } from "./Entity";
+import { Entity } from "./Entity";
 import { EventDispatcher } from './EventDispatcher';
 
 interface System {
