@@ -150,11 +150,9 @@ export class AvatarSystemClient {
         });
 
         // @HACK:
-        const sword = new Sword();
         game.resources.load(kWeaponFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
             Sword.onResourcesLoaded(assertDefined(resource), game);
-            this.localAvatar.weapon = Sword.create(game.gfxDevice);
         });
 
         this.animation.initialize(this.avatars);
@@ -190,6 +188,9 @@ export class AvatarSystemClient {
 
         this.animation.onResourcesLoaded(this.gltf, game.debugMenu);
         this.renderer.onResourcesLoaded(this.gltf, game.gfxDevice);
+
+        // @HACK:
+        equipWeapon(this.localAvatar, Sword.create(game.gfxDevice));
     }
 
     update(game: ClientDependencies) {
@@ -234,6 +235,12 @@ export class AvatarSystemClient {
         }
         this.renderer.render(game.gfxDevice, game.camera);
     }
+}
+
+function equipWeapon(avatar: Avatar, weapon: Weapon) {
+    const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+    joint.add(weapon.transform);
+    avatar.weapon = weapon;
 }
 
 export class AvatarSystemServer {
