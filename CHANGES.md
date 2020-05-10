@@ -6,6 +6,11 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 * Trickle ICE for WebUDP connections. Waiting for all candidates to complete makes connecting take forever.
+* Use EXT_disjoint_timer_query for GPU profiling
+
+### 2020-05-11
+##### Morning
+I'm giving myself until the end of this week to have a sword implemented and have the avatar swinging it in reaction to an attack input from the user. I did a lot of research into Entity Component Systems over the weekend, mainly studying the architecture that Overwatch used (https://youtu.be/W3aieHjyNvw). I was having trouble fitting weapons and attacks in the current architecture, so I've started a branch where I'm trying to implement ECS. If I can get it working and have the attack finished by the end of the week, I'll keep it.
 
 ### 2020-05-08
 ##### Morning
