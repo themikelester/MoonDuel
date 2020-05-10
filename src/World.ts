@@ -1,6 +1,7 @@
 import { Component } from "./Component";
 import { Entity } from "./Entity";
 import { EventDispatcher } from './EventDispatcher';
+import { Renderer } from "./gfx/GfxTypes";
 
 interface System {
     initialize?: (world: World) => void;
@@ -14,8 +15,8 @@ interface System {
     // onVisibility?: (visible: boolean, world: World) => void;
 }
 
-enum Singleton {
-    Input
+export enum Singleton {
+    Renderer,
 }
 
 export class World extends EventDispatcher {
@@ -45,7 +46,8 @@ export class World extends EventDispatcher {
     }
 
     // Singleton components
-    getSingletonInput() { return this.singletons[Singleton.Input]; }
+    addSingleton(singleton: Singleton, component: Component) { this.singletons[singleton] = component; }
+    getSingletonRenderer() { return this.singletons[Singleton.Renderer] as Renderer; }
 
     // Lifecycle
     initialize() { for (const system of this.systems) { if (system.initialize) system.initialize(this); } }

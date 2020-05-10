@@ -22,7 +22,8 @@ import { Snapshot } from './Snapshot';
 import { NetClientState } from './net/NetClient';
 import { assertDefined } from './util';
 
-import { World } from './World';
+import { World, Singleton } from './World';
+import { ModelSystem } from './Mesh';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -39,7 +40,9 @@ export class Client {
 
     public debugMenu: DebugMenu = new DebugMenu();
 
-    public world: World = new World([]);
+    public world: World = new World([
+        new ModelSystem(),
+    ]);
 
     // Modules
     public avatar = new AvatarSystemClient();
@@ -73,8 +76,10 @@ export class Client {
         else return InitErrorCode.NO_WEBGL_GENERIC;
         this.onResize();
 
-        // Initialize Modules
         this.world.initialize();
+        this.world.addSingleton(Singleton.Renderer, this.gfxDevice);
+
+        // Initialize Modules
         this.resources.initialize(this.gfxDevice);
         this.clock.initialize(this);
         this.input.initialize(this);
