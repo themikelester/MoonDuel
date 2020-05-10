@@ -188,9 +188,6 @@ export class AvatarSystemClient {
 
         this.animation.onResourcesLoaded(this.gltf, game.debugMenu);
         this.renderer.onResourcesLoaded(this.gltf, game.gfxDevice);
-
-        // @HACK:
-        equipWeapon(this.localAvatar, Sword.create(game.gfxDevice));
     }
 
     update(game: ClientDependencies) {
@@ -230,9 +227,6 @@ export class AvatarSystemClient {
     }
 
     render(game: ClientDependencies) {
-        if (this.localAvatar && this.localAvatar.weapon) {
-            (this.localAvatar.weapon as Sword).render(game);
-        }
         this.renderer.render(game.gfxDevice, game.camera);
     }
 }

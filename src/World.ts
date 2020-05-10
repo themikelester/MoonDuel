@@ -2,6 +2,7 @@ import { Component } from "./Component";
 import { Entity } from "./Entity";
 import { EventDispatcher } from './EventDispatcher';
 import { Renderer } from "./gfx/GfxTypes";
+import { Camera } from "./Camera";
 
 interface System {
     initialize?: (world: World) => void;
@@ -17,13 +18,14 @@ interface System {
 
 export enum Singleton {
     Renderer,
+    Camera
 }
 
 export class World extends EventDispatcher {
     systems: System[] = [];
     entities: Entity[] = [];
     components: Component[] = [];
-    private singletons: Record<Singleton, Component>;
+    private singletons: Partial<Record<Singleton, Component>> = {};
 
     static Events = {
         EntityAdded: 'ea',
@@ -48,6 +50,7 @@ export class World extends EventDispatcher {
     // Singleton components
     addSingleton(singleton: Singleton, component: Component) { this.singletons[singleton] = component; }
     getSingletonRenderer() { return this.singletons[Singleton.Renderer] as Renderer; }
+    getSingletonCamera() { return this.singletons[Singleton.Camera] as Camera; }
 
     // Lifecycle
     initialize() { for (const system of this.systems) { if (system.initialize) system.initialize(this); } }

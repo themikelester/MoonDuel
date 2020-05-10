@@ -24,6 +24,7 @@ import { assertDefined } from './util';
 
 import { World, Singleton } from './World';
 import { ModelSystem } from './Mesh';
+import { WeaponSystem } from './Weapon';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -41,6 +42,7 @@ export class Client {
     public debugMenu: DebugMenu = new DebugMenu();
 
     public world: World = new World([
+        new WeaponSystem(),
         new ModelSystem(),
     ]);
 
@@ -78,6 +80,7 @@ export class Client {
 
         this.world.initialize();
         this.world.addSingleton(Singleton.Renderer, this.gfxDevice);
+        this.world.addSingleton(Singleton.Camera, this.camera);
 
         // Initialize Modules
         this.resources.initialize(this.gfxDevice);

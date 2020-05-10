@@ -1,4 +1,4 @@
-import { Model } from "./Mesh";
+import { Model, CModel, ModelSystem } from "./Mesh";
 import { Resource } from "./resources/Resource";
 import { GltfResource, GltfPrimitive, GltfTechnique, GltfNode } from "./resources/Gltf";
 import { BufferPackedLayout, computePackedBufferLayout, UniformBuffer } from "./UniformBuffer";
@@ -9,11 +9,19 @@ import { Material, Mesh } from './Mesh';
 import { renderLists } from "./RenderList";
 import { Object3D } from './Object3D';
 import { Camera } from './Camera';
+import { EntityPrototype, Entity } from "./Entity";
+import { World } from "./World";
+import { CTransform } from "./Transform";
 
 export class Weapon {
     model: Model;
     transform: Object3D;
 }
+
+const WeaponEntity = new class WeaponEntity extends EntityPrototype {} ([
+    CTransform,
+    CModel
+]);
 
 export class Sword extends Weapon {
     static shader: Gfx.Id;
@@ -22,10 +30,6 @@ export class Sword extends Weapon {
     static matUniformBuf: UniformBuffer;
     static matTextures: Record<string, Gfx.Id> = {};
     static meshNode: GltfNode;
-
-    model: Model;
-    material: Material;
-    uniforms: UniformBuffer;
 
     static onResourcesLoaded(resource: Resource, { gfxDevice }: { gfxDevice: Gfx.Renderer }) {
         const gltf = resource as GltfResource;
@@ -39,30 +43,30 @@ export class Sword extends Weapon {
 
         // @TODO: Depth/Cull modes?
 
-        const kModelUniforms = [
+        const kAutoUniforms = [
             //'u_LightColors', 'u_LightCosAttens', 'u_LightDistAttens', 'u_LightTransforms',
             'u_model', 'u_modelViewProjection'];
 
         // Separate GLTF uniforms into:
         // - Static material uniforms (which can be shared between instances)
-        // - Dynamic model uniforms (set per frame based on model data)
+        // - Dynamic auto uniforms (set per frame based on transform data)
         // - Textures
         const matUniforms: BufferPackedLayout = {};
-        const modelUniforms: BufferPackedLayout = {};
+        const autoUniforms: BufferPackedLayout = {};
         const textures: string[] = [];
         for (const name of Object.keys(technique.uniforms)) {
             const uni = technique.uniforms[name];
 
-            if (kModelUniforms.includes(name)) { modelUniforms[name] = uni; }
+            if (kAutoUniforms.includes(name)) { autoUniforms[name] = uni; }
             else if (uni.type === Gfx.Type.Texture2D) { textures.push(name); }
             else { matUniforms[name] = uni; }
         }
 
         // Build a resource layout based on the required uniforms
         const matUniLayout: Gfx.BufferLayout = computePackedBufferLayout(matUniforms);
-        const modelUniLayout: Gfx.BufferLayout = computePackedBufferLayout(modelUniforms);
+        const autoUniLayout: Gfx.BufferLayout = computePackedBufferLayout(autoUniforms);
         const resourceLayout: Gfx.ShaderResourceLayout = {
-            model: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: modelUniLayout },
+            auto: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: autoUniLayout },
             material: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: matUniLayout },
         };
         for (let i = 0; i < textures.length; i++) {
@@ -96,41 +100,37 @@ export class Sword extends Weapon {
         // @HACK:
         this.matUniformBuf.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
     }
+}
 
-    static create(gfxDevice: Gfx.Renderer) {
-        // @TODO: Defer resource creation until onResourceLoaded is called (which triggers callbacks at the end).
-        assertDefined(this.shader);
-
-        const sword = new Sword();
-        sword.material = new Material(gfxDevice, name, this.shader, this.resourceLayout);
-        sword.model = new Model(gfxDevice, renderLists.opaque, this.mesh, sword.material);
-
-        // Ignore the parent node, which only centers the model. The current origin is the avatar's grab point.
-        sword.model.updateWorldMatrix(true, false);
-        sword.transform = sword.model;
-
-        // Set shared resources
-        Object.keys(this.matTextures).forEach(name => sword.material.setTexture(gfxDevice, name, this.matTextures[name]));
-        sword.material.setUniformBuffer(gfxDevice, 'material', this.matUniformBuf);
-
-        // Create a new uniform buffer for the per-instance data
-        const bufLayout = (this.resourceLayout['model'] as Gfx.UniformBufferResourceBinding).layout;
-        sword.uniforms = new UniformBuffer('SwordModelUniforms', gfxDevice, bufLayout);
-        sword.material.setUniformBuffer(gfxDevice, 'model', sword.uniforms);
-
-        return sword;
+export class WeaponSystem {
+    initialize(world: World) {
     }
 
-    render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera }) {
-        const model = this.model;
-        this.transform.updateWorldMatrix(false, true);
-        const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
+    update(world: World) {
+        // @HACK:
+        if (Sword.mesh) {
+            this.create(world);
+        }
+    }
 
-        const uniforms = model.material.getUniformBuffer('model');
-        uniforms.setMat4('u_model', matrixWorld);
-        uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
-        uniforms.write(gfxDevice);
+    create(world: World) {
+        const modelSystem = world.systems[1] as ModelSystem; // @TODO
+        const gfxDevice = world.getSingletonRenderer();
 
-        model.renderList.push(model.primitive);
+        const material = new Material(gfxDevice, name, Sword.shader, Sword.resourceLayout);
+
+        const entity = new Entity(WeaponEntity);
+        const model = modelSystem.create(entity, gfxDevice, renderLists.opaque, Sword.mesh, material);
+
+        // Set shared resources
+        Object.keys(Sword.matTextures).forEach(name => material.setTexture(gfxDevice, name, Sword.matTextures[name]));
+        material.setUniformBuffer(gfxDevice, 'material', Sword.matUniformBuf);
+
+        // Create a new uniform buffer for the per-instance data
+        const bufLayout = (Sword.resourceLayout['auto'] as Gfx.UniformBufferResourceBinding).layout;
+        const uniforms = new UniformBuffer('SwordModelUniforms', gfxDevice, bufLayout);
+        material.setUniformBuffer(gfxDevice, 'auto', uniforms);
+
+        return world.addEntity(entity);
     }
 }

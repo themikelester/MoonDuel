@@ -6,6 +6,11 @@ import { vec3, quat, mat4 } from 'gl-matrix';
 import { Skeleton } from './Skeleton';
 import { Object3D } from './Object3D';
 import { UniformBuffer } from './UniformBuffer';
+import { Component } from './Component';
+import { Entity } from './Entity';
+import { FamilyBuilder, Family } from './Family';
+import { World } from './World';
+import { CTransform } from './Transform';
 
 type BufferOrBufferView = Gfx.BufferView | Gfx.Id;
 function toBufferView(val: BufferOrBufferView): Gfx.BufferView {
@@ -182,5 +187,91 @@ export class SkinnedModel extends Model {
     writeBonesToTex(device: Gfx.Renderer) {
         device.writeTextureData(this.boneTex, this.skeleton.boneMatrices);
         return this.boneTex;
+    }
+}
+
+export class CModel implements Component {
+    mesh: IMesh;
+    material: Material;
+
+    pipeline: Gfx.Id = -1;
+    vertexTable: Gfx.Id = -1;
+    renderList: RenderList;
+
+    primitive: RenderPrimitive;
+    enabled: boolean = false;
+}
+
+export class CSkinnedModel extends CModel {
+    skeleton: Skeleton;
+    ibms: mat4[];
+    boneTex: Gfx.Id;
+}
+
+export class ModelSystem {
+    family: Family;
+
+    initialize(world: World) {
+        this.family = new FamilyBuilder(world).require(CModel, CTransform).build();
+    }
+
+    render(world: World) {
+        const camera = world.getSingletonCamera();
+        const renderer = world.getSingletonRenderer();
+        
+        // @TODO: Frustum/Distance culling
+        for (const entity of this.family.entities) {
+            const model = assertDefined(entity.getComponent(CModel));
+
+            if (model.material.bindings['auto']) {
+                const transform = assertDefined(entity.getComponent(CTransform));
+
+                const uniforms = model.material.getUniformBuffer('auto');
+                uniforms.setMat4('u_model', transform.transform);
+                uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, transform.transform));
+                uniforms.write(renderer);
+            }
+    
+            model.renderList.push(model.primitive);
+        }
+    }
+
+    create(entity: Entity, device: Gfx.Renderer, renderList: RenderList, mesh: IMesh, material: Material) {
+        const model = assertDefined(entity.getComponent(CModel));
+        
+        model.renderList = renderList;
+        model.mesh = mesh;
+        model.material = material;
+
+        // @TODO: Pipeline caching
+        model.pipeline = device.createRenderPipeline(material.shader, renderList.renderFormat, mesh.vertexLayout, material.layout);
+        
+        model.vertexTable = device.createVertexTable(model.pipeline);
+        mesh.vertexBuffers.forEach((buf, i) => {
+            device.setVertexBuffer(model.vertexTable, i, buf);
+        });
+
+        model.primitive = {
+            renderPipeline: model.pipeline,
+            resourceTable: model.material.resources,
+            vertexTable: model.vertexTable,
+            
+            elementCount: model.mesh.elementCount,
+            type: model.mesh.primitiveType,
+
+            indexBuffer: model.mesh.indexBuffer,
+            indexType: model.mesh.indexType,
+        }
+
+        model.enabled = true;
+
+        return model;
+    }
+
+    destroy(entity: Entity, device: Gfx.Renderer) {
+        const model = assertDefined(entity.getComponent(CModel));
+        
+        device.removeVertexTable(model.vertexTable);
+        device.removeRenderPipeline(model.pipeline);
     }
 }
