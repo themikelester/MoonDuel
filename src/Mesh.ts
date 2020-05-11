@@ -9,7 +9,7 @@ import { UniformBuffer } from './UniformBuffer';
 import { Component } from './Component';
 import { Entity } from './Entity';
 import { FamilyBuilder, Family } from './Family';
-import { World } from './World';
+import { World, System } from './World';
 import { CTransform } from './Transform';
 
 type BufferOrBufferView = Gfx.BufferView | Gfx.Id;
@@ -208,27 +208,28 @@ export class CSkinnedModel extends CModel {
     boneTex: Gfx.Id;
 }
 
-export class ModelSystem {
-    family: Family;
-
-    initialize(world: World) {
-        this.family = new FamilyBuilder(world).require(CModel, CTransform).build();
+export abstract class ModelSystem implements System {
+    static initialize(world: World) {
+        world.addFamily('model', CModel, CTransform);
     }
 
-    render(world: World) {
+    static render(world: World) {
         const camera = world.getSingletonCamera();
         const renderer = world.getSingletonRenderer();
-        
+
         // @TODO: Frustum/Distance culling
-        for (const entity of this.family.entities) {
+        const family = world.getFamily('model');
+        for (const entity of family.entities) {
             const model = assertDefined(entity.getComponent(CModel));
 
             if (model.material.bindings['auto']) {
                 const transform = assertDefined(entity.getComponent(CTransform));
+                
+                const modelViewProj = mat4.multiply(mat4.create(), camera.viewProjMatrix, transform.localToWorld);
 
                 const uniforms = model.material.getUniformBuffer('auto');
-                uniforms.setMat4('u_model', transform.transform);
-                uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, transform.transform));
+                uniforms.setMat4('u_model', transform.localToWorld);
+                uniforms.setMat4('u_modelViewProjection', modelViewProj);
                 uniforms.write(renderer);
             }
     
@@ -236,7 +237,7 @@ export class ModelSystem {
         }
     }
 
-    create(entity: Entity, device: Gfx.Renderer, renderList: RenderList, mesh: IMesh, material: Material) {
+    static create(entity: Entity, device: Gfx.Renderer, renderList: RenderList, mesh: IMesh, material: Material) {
         const model = assertDefined(entity.getComponent(CModel));
         
         model.renderList = renderList;
@@ -268,7 +269,7 @@ export class ModelSystem {
         return model;
     }
 
-    destroy(entity: Entity, device: Gfx.Renderer) {
+    static destroy(entity: Entity, device: Gfx.Renderer) {
         const model = assertDefined(entity.getComponent(CModel));
         
         device.removeVertexTable(model.vertexTable);

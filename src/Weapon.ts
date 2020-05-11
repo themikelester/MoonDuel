@@ -10,7 +10,7 @@ import { renderLists } from "./RenderList";
 import { Object3D } from './Object3D';
 import { Camera } from './Camera';
 import { EntityPrototype, Entity } from "./Entity";
-import { World } from "./World";
+import { World, System } from "./World";
 import { CTransform } from "./Transform";
 
 export class Weapon {
@@ -102,25 +102,24 @@ export class Sword extends Weapon {
     }
 }
 
-export class WeaponSystem {
-    initialize(world: World) {
+export abstract class WeaponSystem implements System {
+    static initialize(world: World) {
     }
 
-    update(world: World) {
+    static update(world: World) {
         // @HACK:
         if (Sword.mesh) {
             this.create(world);
         }
     }
 
-    create(world: World) {
-        const modelSystem = world.systems[1] as ModelSystem; // @TODO
+    static create(world: World) {
         const gfxDevice = world.getSingletonRenderer();
 
         const material = new Material(gfxDevice, name, Sword.shader, Sword.resourceLayout);
 
         const entity = new Entity(WeaponEntity);
-        const model = modelSystem.create(entity, gfxDevice, renderLists.opaque, Sword.mesh, material);
+        const model = ModelSystem.create(entity, gfxDevice, renderLists.opaque, Sword.mesh, material);
 
         // Set shared resources
         Object.keys(Sword.matTextures).forEach(name => material.setTexture(gfxDevice, name, Sword.matTextures[name]));

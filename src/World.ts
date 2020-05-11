@@ -1,10 +1,11 @@
-import { Component } from "./Component";
+import { Component, ComponentClass } from "./Component";
 import { Entity } from "./Entity";
 import { EventDispatcher } from './EventDispatcher';
 import { Renderer } from "./gfx/GfxTypes";
 import { Camera } from "./Camera";
+import { Family, FamilyBuilder } from "./Family";
 
-interface System {
+export interface System {
     initialize?: (world: World) => void;
     terminate?: (world: World) => void;
 
@@ -24,6 +25,7 @@ export enum Singleton {
 export class World extends EventDispatcher {
     systems: System[] = [];
     entities: Entity[] = [];
+    private families: Record<string, Family> = {};
     private singletons: Partial<Record<Singleton, Component>> = {};
 
     static Events = {
@@ -34,6 +36,14 @@ export class World extends EventDispatcher {
     constructor(systems: System[]) {
         super();
         this.systems = systems;
+    }
+
+    addFamily(name: string, ...classes: ComponentClass<Component>[]) {
+        this.families[name] = new FamilyBuilder(this).require(...classes).build();
+    }
+
+    getFamily(name: string) {
+        return this.families[name];
     }
 
     addEntity(entity: Entity) {

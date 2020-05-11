@@ -42,8 +42,8 @@ export class Client {
     public debugMenu: DebugMenu = new DebugMenu();
 
     public world: World = new World([
-        new WeaponSystem(),
-        new ModelSystem(),
+        WeaponSystem,
+        ModelSystem,
     ]);
 
     // Modules
