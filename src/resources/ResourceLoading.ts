@@ -55,6 +55,11 @@ export class ResourceManager {
         this.messages.push(msg);
     }
 
+    get(uri: string, type: string): Resource | undefined {
+        const key = uri + type;
+        return this.cache[key];
+    }
+
     load<T extends Resource>(uriObj: string | UriWithHeaders, type: string, callback: ResourceLoadedCallback<T>): void {
         if (!defined(loaders[type])) {
             callback('Invalid resource type', undefined);

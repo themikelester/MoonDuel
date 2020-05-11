@@ -6,7 +6,7 @@ import { Camera } from './Camera';
 import { DebugMenu } from './DebugMenu';
 
 // Modules
-import { AvatarSystemClient } from './Avatar';
+import { AvatarSystemClient, AvatarSystem } from './Avatar';
 import { CameraSystem } from './CameraSystem';
 import { Clock } from './Clock';
 import { Compositor } from './Compositor';
@@ -44,6 +44,7 @@ export class Client {
     public world: World = new World([
         WeaponSystem,
         ModelSystem,
+        AvatarSystem,
     ]);
     private worldContext: SystemContext;
 

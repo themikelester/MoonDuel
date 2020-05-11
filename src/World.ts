@@ -5,6 +5,7 @@ import { Renderer } from "./gfx/GfxTypes";
 import { Camera } from "./Camera";
 import { Family, FamilyBuilder } from "./Family";
 import { ResourceManager } from "./resources/ResourceLoading";
+import { AvatarSingleton } from "./Avatar";
 
 export interface SystemContext {
     resources: ResourceManager;
@@ -24,7 +25,8 @@ export interface System {
 
 export enum Singleton {
     Renderer,
-    Camera
+    Camera,
+    Avatar,
 }
 
 export class World extends EventDispatcher {
@@ -65,6 +67,7 @@ export class World extends EventDispatcher {
     addSingleton(singleton: Singleton, component: Component) { this.singletons[singleton] = component; }
     getSingletonRenderer() { return this.singletons[Singleton.Renderer] as Renderer; }
     getSingletonCamera() { return this.singletons[Singleton.Camera] as Camera; }
+    getSingletonAvatar() { return this.singletons[Singleton.Avatar] as AvatarSingleton; }
 
     // Lifecycle
     initialize(context: SystemContext) { for (const system of this.systems) { if (system.initialize) system.initialize(this, context); } }

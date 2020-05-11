@@ -8,7 +8,7 @@ import { Object3D, Matrix4, Vector3 } from "./Object3D";
 import { AnimationMixer } from "./Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
 import { assertDefined } from "./util";
-import { Skeleton, Bone } from "./Skeleton";
+import { Skeleton, Bone, SkeletonComponent } from "./Skeleton";
 import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
 import { SnapshotManager, Snapshot } from "./Snapshot";
@@ -18,6 +18,9 @@ import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Buf } from "./Buf";
 import { Weapon, Sword } from "./Weapon";
+import { System, World, SystemContext, Singleton } from "./World";
+import { Component } from "./Component";
+import { Entity, EntityPrototype } from "./Entity";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -336,5 +339,61 @@ export class AvatarSystemServer {
 
     getSnapshot() {
         return this.states;
+    }
+}
+
+export class AvatarSingleton implements Component{
+    avatars: Entity[] = [];
+}
+
+const AvatarEntity = new class SampleEntity extends EntityPrototype {} ([
+    SkeletonComponent,    
+]);
+
+export abstract class AvatarSystem implements System {
+    static initialize(world: World, context: SystemContext) {
+        world.addSingleton(Singleton.Avatar, new AvatarSingleton());
+
+        // Start loading all necessary resources
+        context.resources.load(kGltfFilename, 'gltf', (error, resource) => {
+            if (error) { return console.error(`Failed to load resource`, error); }
+            this.createAvatar(world, context.resources);
+        });
+    }
+
+    static createAvatar(world: World, resources: ResourceManager) {
+        const singleton = world.getSingletonAvatar();
+        const entity = new Entity(AvatarEntity);
+
+        const gltf = assertDefined(resources.get(kGltfFilename, 'gltf')) as GltfResource;
+
+        // Load the skeleton
+        {
+            // Clone all nodes
+            const nodes = gltf.nodes.map(src => src.clone(false));
+            for (let i = 0; i < nodes.length; i++) {
+                const src = gltf.nodes[i];
+                const node = nodes[i];
+                for (const child of src.children) {
+                    const childIdx = gltf.nodes.indexOf(child as GltfNode);
+                    node.add(nodes[childIdx]);
+                }
+            }
+
+            const skin = assertDefined(gltf.skins[0]);
+            const bones = skin.joints.map(jointId => nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
+            const ibms = skin.inverseBindMatrices?.map(ibm => new Matrix4().fromArray(ibm));
+
+            const skeletonComp = entity.getComponent(SkeletonComponent);
+            SkeletonComponent.create(skeletonComp, bones as Object3D[] as Bone[], ibms);
+        }
+        
+        
+        singleton.avatars.push(entity);
+        world.addEntity(entity);
+    }
+
+    static deleteAvatar() {
+
     }
 }
