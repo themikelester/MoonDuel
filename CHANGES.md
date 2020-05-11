@@ -12,6 +12,9 @@ Change Log
 ##### Morning
 I'm giving myself until the end of this week to have a sword implemented and have the avatar swinging it in reaction to an attack input from the user. I did a lot of research into Entity Component Systems over the weekend, mainly studying the architecture that Overwatch used (https://youtu.be/W3aieHjyNvw). I was having trouble fitting weapons and attacks in the current architecture, so I've started a branch where I'm trying to implement ECS. If I can get it working and have the attack finished by the end of the week, I'll keep it.
 
+#### Evening 
+I was able to get the Avatar skeleton and models loading and rendering in the new ECS system. It feels very sloppy and I definitely haven't fully grokked the patterns that I should be using. Tomorrow I'll work on getting the animations working (via some kind of animation component).
+
 ### 2020-05-08
 ##### Morning
 Today I'm going to start working on implementing attacks and weapons. I might do a bit of exploring around a scripting/entity system. The naive way to approach this would just be to implement attacking animations in the Avatar subsystem and see where that leads, which may not be a bad idea. I should go hunt down a simple sword model to use as a placeholder first. 
