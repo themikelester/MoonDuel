@@ -22,7 +22,7 @@ import { Snapshot } from './Snapshot';
 import { NetClientState } from './net/NetClient';
 import { assertDefined } from './util';
 
-import { World, Singleton } from './World';
+import { World, Singleton, SystemContext } from './World';
 import { ModelSystem } from './Mesh';
 import { WeaponSystem } from './Weapon';
 
@@ -45,6 +45,7 @@ export class Client {
         WeaponSystem,
         ModelSystem,
     ]);
+    private worldContext: SystemContext;
 
     // Modules
     public avatar = new AvatarSystemClient();
@@ -90,7 +91,11 @@ export class Client {
         this.debugGrid.initialize(this);
         this.state.initialize(this);
 
-        this.world.initialize(this.resources);
+        this.worldContext = {
+            resources: this.resources,
+        }
+
+        this.world.initialize(this.worldContext);
         this.world.addSingleton(Singleton.Renderer, this.gfxDevice);
         this.world.addSingleton(Singleton.Camera, this.camera);
         

@@ -10,7 +10,7 @@ import { renderLists } from "./RenderList";
 import { Object3D } from './Object3D';
 import { Camera } from './Camera';
 import { EntityPrototype, Entity } from "./Entity";
-import { World, System } from "./World";
+import { World, System, SystemContext } from "./World";
 import { CTransform } from "./Transform";
 import { ResourceManager } from "./resources/ResourceLoading";
 
@@ -106,9 +106,9 @@ export class Sword extends Weapon {
 export abstract class WeaponSystem implements System {
     static kWeaponFilename = 'data/Tkwn.glb';
 
-    static initialize(world: World, resources: ResourceManager) {
+    static initialize(world: World, context: SystemContext) {
         // @HACK:
-        resources.load(this.kWeaponFilename, 'gltf', (error, resource) => {
+        context.resources.load(this.kWeaponFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
             Sword.onResourcesLoaded(assertDefined(resource), world.getSingletonRenderer());
             
