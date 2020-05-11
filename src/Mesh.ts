@@ -3,14 +3,14 @@ import { RenderList, renderLists } from './RenderList';
 import { RenderPrimitive } from './RenderPrimitive';
 import { assertDefined, assert, defined, defaultValue } from './util';
 import { vec3, quat, mat4 } from 'gl-matrix';
-import { Skeleton } from './Skeleton';
+import { Skeleton, SkeletonComponent, SkinComponent } from './Skeleton';
 import { Object3D } from './Object3D';
 import { UniformBuffer } from './UniformBuffer';
 import { Component } from './Component';
 import { Entity } from './Entity';
 import { FamilyBuilder, Family } from './Family';
 import { World, System } from './World';
-import { CTransform } from './Transform';
+import { CTransform, Transform } from './Transform';
 
 type BufferOrBufferView = Gfx.BufferView | Gfx.Id;
 function toBufferView(val: BufferOrBufferView): Gfx.BufferView {
@@ -191,80 +191,96 @@ export class SkinnedModel extends Model {
 }
 
 export class CModel implements Component {
-    mesh: IMesh;
-    material: Material;
-
-    pipeline: Gfx.Id = -1;
-    vertexTable: Gfx.Id = -1;
+    enabled: boolean = false;
     renderList: RenderList;
 
-    primitive: RenderPrimitive;
-    enabled: boolean = false;
+    meshes: Array<{
+        mesh: IMesh;
+        pipeline: Gfx.Id;
+        vertexTable: Gfx.Id;
+        primitive: RenderPrimitive;
+        material: Material;
+        parent?: Transform;
+    }> = []
 }
 
-export class CSkinnedModel extends CModel {
-    skeleton: Skeleton;
-    ibms: mat4[];
-    boneTex: Gfx.Id;
-}
+const scratchMat4 = mat4.create();
 
 export abstract class ModelSystem implements System {
     static initialize(world: World) {
         world.addFamily('model', CModel, CTransform);
+        world.addFamily('skinnedModel', CModel, CTransform, SkeletonComponent, SkinComponent);
     }
 
     static render(world: World) {
         const camera = world.getSingletonCamera();
         const renderer = world.getSingletonRenderer();
 
+        // Updated textures that store bone matrices
+        const skinned = world.getFamily('skinnedModel');
+        for (const entity of skinned.entities) {
+            const skin = entity.getComponent(SkinComponent);
+            const skeleton = entity.getComponent(SkeletonComponent);
+            renderer.writeTextureData(skin.boneTex, skeleton.boneMatrices);
+        }
+
         // @TODO: Frustum/Distance culling
         const family = world.getFamily('model');
         for (const entity of family.entities) {
             const model = assertDefined(entity.getComponent(CModel));
+            const transform = assertDefined(entity.getComponent(CTransform));
 
-            if (model.material.bindings['auto']) {
-                const transform = assertDefined(entity.getComponent(CTransform));
-                
-                const modelViewProj = mat4.multiply(mat4.create(), camera.viewProjMatrix, transform.localToWorld);
+            for (const mesh of model.meshes) {
+                if (mesh.material.bindings['auto']) {
+                    const matrixWorld = mesh.parent ? mesh.parent.matrixWorld : transform.matrixWorld;
+                    (scratchMat4 as Float32Array).set(matrixWorld.elements);
+                    const localToWorld = scratchMat4;
 
-                const uniforms = model.material.getUniformBuffer('auto');
-                uniforms.setMat4('u_model', transform.localToWorld);
-                uniforms.setMat4('u_modelViewProjection', modelViewProj);
-                uniforms.write(renderer);
+                    const modelViewProj = mat4.multiply(mat4.create(), camera.viewProjMatrix, localToWorld);
+
+                    const uniforms = mesh.material.getUniformBuffer('auto');
+                    uniforms.setMat4('u_model', localToWorld);
+                    uniforms.setMat4('u_modelViewProjection', modelViewProj);
+                    uniforms.write(renderer);
+                }
+
+                model.renderList.push(mesh.primitive);
             }
-    
-            model.renderList.push(model.primitive);
         }
     }
 
-    static create(entity: Entity, device: Gfx.Renderer, renderList: RenderList, mesh: IMesh, material: Material) {
+    static create(entity: Entity, renderList: RenderList) {
         const model = assertDefined(entity.getComponent(CModel));
-        
+        model.enabled = true;
         model.renderList = renderList;
-        model.mesh = mesh;
-        model.material = material;
+        return model;
+    }
+
+    static addMesh(model: CModel, device: Gfx.Renderer, mesh: IMesh, material: Material, parent?: Transform) {
+        assertDefined(model.renderList);
 
         // @TODO: Pipeline caching
-        model.pipeline = device.createRenderPipeline(material.shader, renderList.renderFormat, mesh.vertexLayout, material.layout);
+        const pipeline = device.createRenderPipeline(material.shader, model.renderList.renderFormat, 
+            mesh.vertexLayout, material.layout);
         
-        model.vertexTable = device.createVertexTable(model.pipeline);
+        const vertexTable = device.createVertexTable(pipeline);
         mesh.vertexBuffers.forEach((buf, i) => {
-            device.setVertexBuffer(model.vertexTable, i, buf);
+            device.setVertexBuffer(vertexTable, i, buf);
         });
 
-        model.primitive = {
-            renderPipeline: model.pipeline,
-            resourceTable: model.material.resources,
-            vertexTable: model.vertexTable,
+        const primitive = {
+            renderPipeline: pipeline,
+            resourceTable: material.resources,
+            vertexTable: vertexTable,
             
-            elementCount: model.mesh.elementCount,
-            type: model.mesh.primitiveType,
+            elementCount: mesh.elementCount,
+            type: mesh.primitiveType,
 
-            indexBuffer: model.mesh.indexBuffer,
-            indexType: model.mesh.indexType,
+            indexBuffer: mesh.indexBuffer,
+            indexType: mesh.indexType,
         }
 
-        model.enabled = true;
+        model.meshes.push({ mesh, pipeline, vertexTable, primitive, material, parent });
 
         return model;
     }
@@ -272,7 +288,9 @@ export abstract class ModelSystem implements System {
     static destroy(entity: Entity, device: Gfx.Renderer) {
         const model = assertDefined(entity.getComponent(CModel));
         
-        device.removeVertexTable(model.vertexTable);
-        device.removeRenderPipeline(model.pipeline);
+        for (const mesh of model.meshes) {
+            device.removeVertexTable(mesh.vertexTable);            
+            device.removeRenderPipeline(mesh.pipeline);
+        }
     }
 }

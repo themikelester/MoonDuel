@@ -6,21 +6,27 @@ import { Clock } from "./Clock";
 import { Camera } from "./Camera";
 import { Object3D, Matrix4, Vector3 } from "./Object3D";
 import { AnimationMixer } from "./Animation";
-import { GltfResource, GltfNode } from "./resources/Gltf";
-import { assertDefined } from "./util";
-import { Skeleton, Bone, SkeletonComponent } from "./Skeleton";
+import { GltfResource, GltfNode, GltfPrimitive, GltfTechnique } from "./resources/Gltf";
+import { assertDefined, defaultValue, defined, assert } from "./util";
+import { Skeleton, Bone, SkeletonComponent, SkinComponent } from "./Skeleton";
 import { AvatarAnim } from "./AvatarAnim";
-import { vec3 } from "gl-matrix";
+import { vec3, vec4 } from "gl-matrix";
 import { SnapshotManager, Snapshot } from "./Snapshot";
 import { UserCommandBuffer } from "./UserCommand";
 import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Buf } from "./Buf";
-import { Weapon, Sword } from "./Weapon";
+import { Weapon } from "./Weapon";
 import { System, World, SystemContext, Singleton } from "./World";
 import { Component } from "./Component";
 import { Entity, EntityPrototype } from "./Entity";
+import { CModel, Material, ModelSystem } from "./Mesh";
+import { CTransform, Transform } from "./Transform";
+
+import * as Gfx from './gfx/GfxTypes';
+import { BufferPackedLayout, computePackedBufferLayout, UniformBuffer } from "./UniformBuffer";
+import { renderLists } from "./RenderList";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -346,8 +352,11 @@ export class AvatarSingleton implements Component{
     avatars: Entity[] = [];
 }
 
-const AvatarEntity = new class SampleEntity extends EntityPrototype {} ([
-    SkeletonComponent,    
+const AvatarEntity = new class AvatarEntity extends EntityPrototype {} ([
+    CTransform,
+    SkeletonComponent,
+    SkinComponent,
+    CModel,
 ]);
 
 export abstract class AvatarSystem implements System {
@@ -363,31 +372,52 @@ export abstract class AvatarSystem implements System {
 
     static createAvatar(world: World, resources: ResourceManager) {
         const singleton = world.getSingletonAvatar();
+        const renderer = world.getSingletonRenderer();
         const entity = new Entity(AvatarEntity);
 
         const gltf = assertDefined(resources.get(kGltfFilename, 'gltf')) as GltfResource;
 
+        // Clone all nodes
+        const nodes = gltf.nodes.map(src => src.clone(false));
+        for (let i = 0; i < nodes.length; i++) {
+            const src = gltf.nodes[i];
+            const node = nodes[i];
+            for (const child of src.children) {
+                const childIdx = gltf.nodes.indexOf(child as GltfNode);
+                node.add(nodes[childIdx]);
+            }
+        }
+
         // Load the skeleton
-        {
-            // Clone all nodes
-            const nodes = gltf.nodes.map(src => src.clone(false));
-            for (let i = 0; i < nodes.length; i++) {
-                const src = gltf.nodes[i];
-                const node = nodes[i];
-                for (const child of src.children) {
-                    const childIdx = gltf.nodes.indexOf(child as GltfNode);
-                    node.add(nodes[childIdx]);
+        const gltfSkin = assertDefined(gltf.skins[0]);
+        const bones = gltfSkin.joints.map(jointId => nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
+        const ibms = gltfSkin.inverseBindMatrices?.map(ibm => new Matrix4().fromArray(ibm));
+        const skeleton = entity.getComponent(SkeletonComponent);
+        SkeletonComponent.create(skeleton, bones as Object3D[] as Bone[], ibms);
+        const skin = SkinComponent.create(entity.getComponent(SkinComponent), renderer, skeleton);
+    
+        // Load the models
+        const model = ModelSystem.create(entity, renderLists.opaque);
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            
+            if (defined(node.meshId)) {
+                const gltfMesh = gltf.meshes[node.meshId];
+        
+                for (let prim of gltfMesh.primitives) {
+                    const material = createMaterial(renderer, prim, gltf);
+
+                    if (defined(node.skinId)) {
+                        assert(node.skinId === 0);
+                        ModelSystem.addMesh(model, renderer, prim.mesh, material);
+                        material.setTexture(renderer, 'u_jointTex', skin.boneTex);
+                    } else {
+                        const parent = assertDefined(node.parent);
+                        ModelSystem.addMesh(model, renderer, prim.mesh, material, parent);
+                    }
                 }
             }
-
-            const skin = assertDefined(gltf.skins[0]);
-            const bones = skin.joints.map(jointId => nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
-            const ibms = skin.inverseBindMatrices?.map(ibm => new Matrix4().fromArray(ibm));
-
-            const skeletonComp = entity.getComponent(SkeletonComponent);
-            SkeletonComponent.create(skeletonComp, bones as Object3D[] as Bone[], ibms);
         }
-        
         
         singleton.avatars.push(entity);
         world.addEntity(entity);
@@ -396,4 +426,68 @@ export abstract class AvatarSystem implements System {
     static deleteAvatar() {
 
     }
+}
+
+function createMaterial(gfxDevice: Gfx.Renderer, prim: GltfPrimitive, gltf: GltfResource) {
+    function buildResourceLayout(technique: GltfTechnique): Gfx.ShaderResourceLayout {
+        // Split textures from uniforms
+        const uniforms: BufferPackedLayout = {};
+        const textures: string[] = [];
+        for (const name of Object.keys(technique.uniforms)) {
+            const uni = technique.uniforms[name];
+            if (uni.type === Gfx.Type.Texture2D) { textures.push(name); }
+            else { uniforms[name] = uni; }
+        }
+
+        // Build a resource layout based on the required uniforms
+        const uniformLayout: Gfx.BufferLayout = computePackedBufferLayout(uniforms);
+        const resourceLayout: Gfx.ShaderResourceLayout = {
+            auto: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: uniformLayout }
+        };
+        for (let i = 0; i < textures.length; i++) {
+            const texName = textures[i];
+            resourceLayout[texName] = { index: i, type: Gfx.BindingType.Texture };
+        }
+
+        return resourceLayout;
+    }
+
+    const primMaterial = gltf.materials[prim.materialIndex];
+    const technique = assertDefined(primMaterial.technique);
+
+    const shader = technique.shaderId;
+    const resourceLayout = buildResourceLayout(technique);
+    const material = new Material(gfxDevice, primMaterial.name, shader, resourceLayout);
+
+    // Bind resources to the material
+    const uniformLayout = (resourceLayout.auto as Gfx.UniformBufferResourceBinding).layout;
+    const ubo = new UniformBuffer(primMaterial.name, gfxDevice, uniformLayout);
+    material.setUniformBuffer(gfxDevice, 'auto', ubo);
+
+    if (technique) {
+        const values = assertDefined(primMaterial.values);
+
+        // Set static uniforms from the values provided in the GLTF material
+        for (const name of Object.keys(technique.uniforms)) {
+            const uniform = technique.uniforms[name];
+            const value = defaultValue(values[name], uniform.value);
+            if (!defined(value)) continue;
+
+            if (uniform.type === Gfx.Type.Texture2D) {
+                const texId = gltf.textures[value.index].id;
+                material.setTexture(gfxDevice, name, texId);
+            } else if (uniform.type === Gfx.Type.Float) {
+                ubo.setFloat(name, value);
+            } else {
+                ubo.setFloats(name, value);
+            }
+        }
+
+        // @HACK:
+        ubo.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
+    } else {
+        ubo.setVec4('u_color', vec4.fromValues(0, 1, 0, 1));
+    }
+
+    return material;
 }

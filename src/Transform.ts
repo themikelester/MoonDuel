@@ -1,8 +1,12 @@
 import { Component } from "./Component";
 import { mat4 } from "gl-matrix";
-import { assert } from "./util";
+import { Object3D } from "three/src/core/Object3D";
 
-export class CTransform implements Component {
-  localToParent: mat4 = mat4.create(); // To Parent Space
-  localToWorld: mat4 = mat4.create(); // To World space
+// @TODO: Don't extend Object3D
+export class Transform extends Object3D {
+  // localToParent: mat4 = mat4.create(); // To Parent Space
+  // localToWorld: mat4 = mat4.create(); // To World space
+}
+
+export class CTransform extends Transform implements Component {
 }

@@ -25,6 +25,7 @@ import { assertDefined } from './util';
 import { World, Singleton, SystemContext } from './World';
 import { ModelSystem } from './Mesh';
 import { WeaponSystem } from './Weapon';
+import { SkeletonSystem } from './Skeleton';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -44,6 +45,7 @@ export class Client {
     public world: World = new World([
         WeaponSystem,
         ModelSystem,
+        SkeletonSystem,
         AvatarSystem,
     ]);
     private worldContext: SystemContext;
