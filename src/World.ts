@@ -24,7 +24,6 @@ export enum Singleton {
 export class World extends EventDispatcher {
     systems: System[] = [];
     entities: Entity[] = [];
-    components: Component[] = [];
     private singletons: Partial<Record<Singleton, Component>> = {};
 
     static Events = {
