@@ -6,6 +6,17 @@ Change Log
 * Improve stopping from running. Maybe a small skid?
 * Skidding 180 when about facing along the vertical axis
 * Trickle ICE for WebUDP connections. Waiting for all candidates to complete makes connecting take forever.
+* Use EXT_disjoint_timer_query for GPU profiling
+
+### 2020-05-11
+##### Morning
+I'm giving myself until the end of this week to have a sword implemented and have the avatar swinging it in reaction to an attack input from the user. I did a lot of research into Entity Component Systems over the weekend, mainly studying the architecture that Overwatch used (https://youtu.be/W3aieHjyNvw). I was having trouble fitting weapons and attacks in the current architecture, so I've started a branch where I'm trying to implement ECS. If I can get it working and have the attack finished by the end of the week, I'll keep it.
+
+#### Evening 
+I was able to get the Avatar skeleton and models loading and rendering in the new ECS system. It feels very sloppy and I definitely haven't fully grokked the patterns that I should be using. Tomorrow I'll work on getting the animations working (via some kind of animation component).
+
+#### Later that evening
+After sitting on it for a while, I think I'm going to abandon ECS, at least for now. I am just too unfamiliar with it to make the kind of progress I need to feel productive and stay motivated. It may be useful for replicating objects via netcode in the future. Tomorrow I'll try implementing weapons using the traditional system based approach. The weapon is an object which has a model and a transform, the transform gets parented to the hand joint on equip. Now that I'm writing it, that sounds an awful lot like ECS. Separating transform out of the Model is definitely a good idea. Perhaps I'll try it again with more relaxed restrictions. Previously I was trying to mimic Overwatch, which strives for "pure" systems with no state. Without that, I almost have ECS already. The client/server would just keep an entities array, the existing systems stay, and I add new components one by one. The first two components would be model and transform. The weapon system would create an entity to represent the weapon, and set the transform's parent to the correct avatar joint (which is not a component). That would be a pretty minimal change from what is in master. Systems are allowed to have state, they just share a common method interface. 
 
 ### 2020-05-08
 ##### Morning
