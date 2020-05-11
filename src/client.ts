@@ -78,10 +78,6 @@ export class Client {
         else return InitErrorCode.NO_WEBGL_GENERIC;
         this.onResize();
 
-        this.world.initialize();
-        this.world.addSingleton(Singleton.Renderer, this.gfxDevice);
-        this.world.addSingleton(Singleton.Camera, this.camera);
-
         // Initialize Modules
         this.resources.initialize(this.gfxDevice);
         this.clock.initialize(this);
@@ -93,6 +89,10 @@ export class Client {
         this.avatar.initialize(this);
         this.debugGrid.initialize(this);
         this.state.initialize(this);
+
+        this.world.initialize(this.resources);
+        this.world.addSingleton(Singleton.Renderer, this.gfxDevice);
+        this.world.addSingleton(Singleton.Camera, this.camera);
         
         // Events
         window.onresize = this.onResize.bind(this);

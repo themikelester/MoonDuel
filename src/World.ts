@@ -4,9 +4,10 @@ import { EventDispatcher } from './EventDispatcher';
 import { Renderer } from "./gfx/GfxTypes";
 import { Camera } from "./Camera";
 import { Family, FamilyBuilder } from "./Family";
+import { ResourceManager } from "./resources/ResourceLoading";
 
 export interface System {
-    initialize?: (world: World) => void;
+    initialize?: (world: World, resources: ResourceManager) => void;
     terminate?: (world: World) => void;
 
     update?: (world: World) => void;
@@ -62,7 +63,7 @@ export class World extends EventDispatcher {
     getSingletonCamera() { return this.singletons[Singleton.Camera] as Camera; }
 
     // Lifecycle
-    initialize() { for (const system of this.systems) { if (system.initialize) system.initialize(this); } }
+    initialize(resources: ResourceManager) { for (const system of this.systems) { if (system.initialize) system.initialize(this, resources); } }
     terminate() { for (const system of this.systems) { if (system.terminate) system.terminate(this); } }
     update() { for (const system of this.systems) { if (system.update) system.update(this); } }
     updateFixed() { for (const system of this.systems) { if (system.updateFixed) system.updateFixed(this); } }

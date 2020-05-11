@@ -121,7 +121,6 @@ export class AvatarState {
 }
 
 const kGltfFilename = 'data/Tn.glb';
-const kWeaponFilename = 'data/Tkwn.glb';
 
 export class AvatarSystemClient {
     public localAvatar: Avatar; // @HACK:
@@ -147,12 +146,6 @@ export class AvatarSystemClient {
             if (error) { return console.error(`Failed to load resource`, error); }
             this.gltf = resource as GltfResource;
             this.onResourcesLoaded(game);
-        });
-
-        // @HACK:
-        game.resources.load(kWeaponFilename, 'gltf', (error, resource) => {
-            if (error) { return console.error(`Failed to load resource`, error); }
-            Sword.onResourcesLoaded(assertDefined(resource), game);
         });
 
         this.animation.initialize(this.avatars);

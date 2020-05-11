@@ -12,6 +12,7 @@ import { Camera } from './Camera';
 import { EntityPrototype, Entity } from "./Entity";
 import { World, System } from "./World";
 import { CTransform } from "./Transform";
+import { ResourceManager } from "./resources/ResourceLoading";
 
 export class Weapon {
     model: Model;
@@ -31,7 +32,7 @@ export class Sword extends Weapon {
     static matTextures: Record<string, Gfx.Id> = {};
     static meshNode: GltfNode;
 
-    static onResourcesLoaded(resource: Resource, { gfxDevice }: { gfxDevice: Gfx.Renderer }) {
+    static onResourcesLoaded(resource: Resource, gfxDevice: Gfx.Renderer) {
         const gltf = resource as GltfResource;
 
         const prim = gltf.meshes[0].primitives[0];
@@ -103,22 +104,28 @@ export class Sword extends Weapon {
 }
 
 export abstract class WeaponSystem implements System {
-    static initialize(world: World) {
+    static kWeaponFilename = 'data/Tkwn.glb';
+
+    static initialize(world: World, resources: ResourceManager) {
+        // @HACK:
+        resources.load(this.kWeaponFilename, 'gltf', (error, resource) => {
+            if (error) { return console.error(`Failed to load resource`, error); }
+            Sword.onResourcesLoaded(assertDefined(resource), world.getSingletonRenderer());
+            
+            this.create(world);
+        });
     }
 
     static update(world: World) {
-        // @HACK:
-        if (Sword.mesh) {
-            this.create(world);
-        }
     }
 
     static create(world: World) {
         const gfxDevice = world.getSingletonRenderer();
 
-        const material = new Material(gfxDevice, name, Sword.shader, Sword.resourceLayout);
-
         const entity = new Entity(WeaponEntity);
+        
+        // @TODO: Defer model loading until after resources are ready
+        const material = new Material(gfxDevice, name, Sword.shader, Sword.resourceLayout);
         const model = ModelSystem.create(entity, gfxDevice, renderLists.opaque, Sword.mesh, material);
 
         // Set shared resources
