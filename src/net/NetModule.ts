@@ -228,7 +228,7 @@ export class NetModuleServer {
 
     onClientDisconnected(client: NetClient) {
         console.log('Client disconnected:', client);
-        // this.context.avatar.removeAvatar(client.id);
+        this.context.avatar.removeAvatar(this.context.world, client.clientIndex);
         const idx = this.clients.indexOf(client);
         this.clients[idx] = null;
 

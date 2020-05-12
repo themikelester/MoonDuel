@@ -64,7 +64,15 @@ export class AvatarState {
     flags: AvatarFlags = 0;
 
     constructor(isActive: boolean = false) {
+        AvatarState.clear(this);
         this.flags = isActive ? AvatarFlags.IsActive : 0;
+    }
+
+    static clear(state: AvatarState) {
+        vec3.zero(state.origin);
+        vec3.zero(state.velocity);
+        vec3.set(state.orientation, 0, 0, 1);
+        state.flags = 0;
     }
 
     static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
@@ -340,5 +348,11 @@ export class AvatarSystemServer {
         const state = world.get(clientIndex).data as AvatarState;
         assert(!(state.flags & AvatarFlags.IsActive));
         state.flags |= AvatarFlags.IsActive;
+    }
+
+    removeAvatar(world: World, clientIndex: number) {
+        const state = world.get(clientIndex).data as AvatarState;
+        assert((state.flags & AvatarFlags.IsActive) > 0);
+        AvatarState.clear(state);
     }
 }
