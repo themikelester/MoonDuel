@@ -7,6 +7,8 @@ Change Log
 * Skidding 180 when about facing along the vertical axis
 * Trickle ICE for WebUDP connections. Waiting for all candidates to complete makes connecting take forever.
 * Use EXT_disjoint_timer_query for GPU profiling
+* Swords get thrown when two attacks collide
+* Hit-stop when attacks land
 
 ### 2020-05-12
 ##### Morning

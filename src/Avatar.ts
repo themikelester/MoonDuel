@@ -7,7 +7,7 @@ import { Camera } from "./Camera";
 import { Object3D, Matrix4, Vector3 } from "./Object3D";
 import { AnimationMixer } from "./Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
-import { assertDefined, assert } from "./util";
+import { assertDefined, assert, defined } from "./util";
 import { Skeleton, Bone } from "./Skeleton";
 import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
@@ -17,7 +17,7 @@ import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Buf } from "./Buf";
-import { Weapon, Sword } from "./Weapon";
+import { Weapon, Sword, WeaponObject } from "./Weapon";
 import { World } from "./World";
 
 interface ServerDependencies {
@@ -62,6 +62,7 @@ export class AvatarState {
     velocity: vec3 = vec3.create();
     orientation: vec3 = vec3.fromValues(0, 0, 1);
     flags: AvatarFlags = 0;
+    weapon: number;
 
     constructor(isActive: boolean = false) {
         AvatarState.clear(this);
@@ -73,6 +74,7 @@ export class AvatarState {
         vec3.zero(state.velocity);
         vec3.set(state.orientation, 0, 0, 1);
         state.flags = 0;
+        state.weapon = -1;
     }
 
     static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
@@ -80,6 +82,7 @@ export class AvatarState {
         vec3.lerp(result.velocity, a.velocity, b.velocity, t);
         vec3.lerp(result.orientation, a.orientation, b.orientation, t);
         result.flags = a.flags & b.flags;
+        result.weapon = b.weapon;
     }
 
     static copy(result: AvatarState, a: AvatarState) {
@@ -87,6 +90,7 @@ export class AvatarState {
         vec3.copy(result.velocity, a.velocity);
         vec3.copy(result.orientation, a.orientation);
         result.flags = a.flags;
+        result.weapon = a.weapon;
     }
 
     static serialize(buf: Buf, state: AvatarState) {
@@ -103,6 +107,7 @@ export class AvatarState {
         Buf.writeFloat(buf, state.orientation[2]);
 
         Buf.writeByte(buf, state.flags);
+        Buf.writeShort(buf, state.weapon);
     }
     
     static deserialize(buf: Buf, state: AvatarState) {
@@ -119,6 +124,7 @@ export class AvatarState {
         state.orientation[2] = Buf.readFloat(buf);
 
         state.flags = Buf.readByte(buf);
+        state.weapon = Buf.readShort(buf);
     }
 }
 
@@ -329,7 +335,6 @@ export class AvatarSystemServer {
     updateFixed(game: ServerDependencies) {
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
             const state = game.world.get(i).data as AvatarState;
-            const avatar = this.avatars[i];
 
             if (!(state.flags & AvatarFlags.IsActive)) continue;
 
@@ -348,11 +353,23 @@ export class AvatarSystemServer {
         const state = world.get(clientIndex).data as AvatarState;
         assert(!(state.flags & AvatarFlags.IsActive));
         state.flags |= AvatarFlags.IsActive;
+
+        // @HACK:
+        const weapon = new WeaponObject();
+        const weaponId = world.add(weapon);
+        weapon.parent = clientIndex;
+        state.weapon = weaponId;
     }
 
     removeAvatar(world: World, clientIndex: number) {
         const state = world.get(clientIndex).data as AvatarState;
         assert((state.flags & AvatarFlags.IsActive) > 0);
+
+        // @HACK:
+        if (defined(state.weapon)) {
+            world.remove(state.weapon);
+        }
+        
         AvatarState.clear(state);
     }
 }

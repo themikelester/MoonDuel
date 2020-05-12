@@ -4,15 +4,22 @@ import { GltfResource, GltfPrimitive, GltfTechnique, GltfNode } from "./resource
 import { BufferPackedLayout, computePackedBufferLayout, UniformBuffer } from "./UniformBuffer";
 import { assertDefined, defaultValue, assert } from "./util";
 import * as Gfx from './gfx/GfxTypes';
-import { vec4, mat4 } from "gl-matrix";
+import { vec4, mat4, vec3 } from "gl-matrix";
 import { Material, Mesh } from './Mesh';
 import { renderLists } from "./RenderList";
 import { Object3D } from './Object3D';
 import { Camera } from './Camera';
+import { GameObject } from "./World";
 
 export class Weapon {
     model: Model;
     transform: Object3D;
+}
+
+export class WeaponObject implements GameObject {
+    origin: vec3 = vec3.create();
+    orientation: vec3 = vec3.create();
+    parent: number;
 }
 
 export class Sword extends Weapon {
