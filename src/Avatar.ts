@@ -337,14 +337,8 @@ export class AvatarSystemServer {
     }
 
     addAvatar(world: World, clientIndex: number) {
-        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            const state = world.get(i).data as AvatarState;
-            if (!(state.flags & AvatarFlags.IsActive)) {
-                state.flags |= AvatarFlags.IsActive;
-                return i;
-            }
-        }
-
-        return -1;
+        const state = world.get(clientIndex).data as AvatarState;
+        assert(!(state.flags & AvatarFlags.IsActive));
+        state.flags |= AvatarFlags.IsActive;
     }
 }
