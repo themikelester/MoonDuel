@@ -21,6 +21,7 @@ import { SignalSocket } from './net/SignalSocket';
 import { Snapshot } from './Snapshot';
 import { NetClientState } from './net/NetClient';
 import { assertDefined } from './util';
+import { World } from './World';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -36,6 +37,8 @@ export class Client {
     public displaySnapshot: Snapshot = new Snapshot();
 
     public debugMenu: DebugMenu = new DebugMenu();
+
+    public world = new World();
 
     // Modules
     public avatar = new AvatarSystemClient();
