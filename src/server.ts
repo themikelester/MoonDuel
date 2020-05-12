@@ -10,6 +10,7 @@ import { SnapshotManager, Snapshot } from './Snapshot';
 import { UserCommandBuffer } from './UserCommand';
 import { SignalSocket, SignalSocketEvents, ClientId } from './net/SignalSocket';
 import { DebugMenu } from './DebugMenu';
+import { World } from './World';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -17,6 +18,7 @@ export const enum InitErrorCode {
 
 export class Server {
     public debugMenu: DebugMenu = new DebugMenu();
+    public world = new World();
 
     // Modules
     public avatar = new AvatarSystemServer();

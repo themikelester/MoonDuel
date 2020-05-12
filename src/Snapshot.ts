@@ -3,6 +3,7 @@ import { AvatarState, AvatarSystemServer } from "./Avatar";
 import { defined, assert } from "./util";
 import { delerp } from "./MathHelpers";
 import { Buf } from "./Buf";
+import { World } from "./World";
 
 export class Snapshot {
     frame: number;
@@ -115,13 +116,19 @@ export class SnapshotManager {
     /**
      * Sample all necessary systems to create a new snapshot of the current state of the world
      */
-    createSnapshot({ clock, avatar }: { clock: Clock, avatar: AvatarSystemServer }) {
+    createSnapshot({ clock, avatar, world }: { clock: Clock, avatar: AvatarSystemServer, world: World }) {
         const lastSnapshot = this.buffer[this.latestFrame % this.bufferFrameCount];
         const snapshot = new Snapshot();
         if (lastSnapshot) Snapshot.copy(snapshot, lastSnapshot);
 
         snapshot.frame = clock.simFrame;
-        snapshot.avatars = avatar.getSnapshot();
+
+        const states: AvatarState[] = [];
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            states[i] = world.get(i).data as AvatarState;
+        }
+
+        snapshot.avatars = states;
 
         return snapshot;
     }

@@ -7,7 +7,7 @@ import { Camera } from "./Camera";
 import { Object3D, Matrix4, Vector3 } from "./Object3D";
 import { AnimationMixer } from "./Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
-import { assertDefined } from "./util";
+import { assertDefined, assert } from "./util";
 import { Skeleton, Bone } from "./Skeleton";
 import { AvatarAnim } from "./AvatarAnim";
 import { vec3 } from "gl-matrix";
@@ -18,13 +18,15 @@ import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Buf } from "./Buf";
 import { Weapon, Sword } from "./Weapon";
+import { World } from "./World";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
     resources: ResourceManager;
     clock: Clock;
-    snapshot: SnapshotManager;
+    world: World;
 
+    snapshot: SnapshotManager;
     net: NetModuleServer;
 }
 
@@ -56,8 +58,7 @@ export enum AvatarFlags {
 }
 
 export class AvatarState {
-    clientId?: string;
-    pos: vec3 = vec3.create();
+    origin: vec3 = vec3.create();
     velocity: vec3 = vec3.create();
     orientation: vec3 = vec3.fromValues(0, 0, 1);
     flags: AvatarFlags = 0;
@@ -67,27 +68,23 @@ export class AvatarState {
     }
 
     static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
-        result.clientId = b.clientId;
-        vec3.lerp(result.pos, a.pos, b.pos, t);
+        vec3.lerp(result.origin, a.origin, b.origin, t);
         vec3.lerp(result.velocity, a.velocity, b.velocity, t);
         vec3.lerp(result.orientation, a.orientation, b.orientation, t);
         result.flags = a.flags & b.flags;
     }
 
     static copy(result: AvatarState, a: AvatarState) {
-        result.clientId = a.clientId;
-        vec3.copy(result.pos, a.pos);
+        vec3.copy(result.origin, a.origin);
         vec3.copy(result.velocity, a.velocity);
         vec3.copy(result.orientation, a.orientation);
         result.flags = a.flags;
     }
 
     static serialize(buf: Buf, state: AvatarState) {
-        Buf.writeString(buf, state.clientId || '');
-
-        Buf.writeFloat(buf, state.pos[0]);
-        Buf.writeFloat(buf, state.pos[1]);
-        Buf.writeFloat(buf, state.pos[2]);
+        Buf.writeFloat(buf, state.origin[0]);
+        Buf.writeFloat(buf, state.origin[1]);
+        Buf.writeFloat(buf, state.origin[2]);
         
         Buf.writeFloat(buf, state.velocity[0]);
         Buf.writeFloat(buf, state.velocity[1]);
@@ -101,12 +98,9 @@ export class AvatarState {
     }
     
     static deserialize(buf: Buf, state: AvatarState) {
-        const clientId = Buf.readString(buf);
-        state.clientId = clientId === '' ? undefined : clientId;
-
-        state.pos[0] = Buf.readFloat(buf);
-        state.pos[1] = Buf.readFloat(buf);
-        state.pos[2] = Buf.readFloat(buf);
+        state.origin[0] = Buf.readFloat(buf);
+        state.origin[1] = Buf.readFloat(buf);
+        state.origin[2] = Buf.readFloat(buf);
         
         state.velocity[0] = Buf.readFloat(buf);
         state.velocity[1] = Buf.readFloat(buf);
@@ -210,12 +204,12 @@ export class AvatarSystemClient {
 
             avatar.active = !!(state.flags & AvatarFlags.IsActive);
 
-            const pos = new Vector3(state.pos);
+            const pos = new Vector3(state.origin);
             avatar.position.copy(pos);
             avatar.lookAt(
-                state.pos[0] + state.orientation[0],
-                state.pos[1] + state.orientation[1],
-                state.pos[2] + state.orientation[2],
+                state.origin[0] + state.orientation[0],
+                state.origin[1] + state.orientation[1],
+                state.origin[2] + state.orientation[2],
             )
 
             avatar.updateMatrix();
@@ -244,7 +238,6 @@ function equipWeapon(avatar: Avatar, weapon: Weapon) {
 }
 
 export class AvatarSystemServer {
-    private states: AvatarState[] = [];
     private avatars: Avatar[] = [];
     private controllers: AvatarController[] = [];
 
@@ -253,13 +246,18 @@ export class AvatarSystemServer {
 
     constructor() {
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            this.states[i] = new AvatarState();
             this.avatars[i] = new Avatar();
             this.controllers[i] = new AvatarController();
         }
     }
 
     initialize(game: ServerDependencies) {
+        // Create GameObjects for each possible client
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            const id = game.world.add(new AvatarState());
+            assert(id === i);
+        }
+
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -326,28 +324,31 @@ export class AvatarSystemServer {
 
     updateFixed(game: ServerDependencies) {
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            const state = this.states[i];
+            const state = game.world.get(i).data as AvatarState;
             const avatar = this.avatars[i];
 
             if (!(state.flags & AvatarFlags.IsActive)) continue;
 
-            const client = game.net.clients.find(c => c.id === state.clientId);
-            if (client) {
+            const client = game.net.clients[i];
+            if (client.state === NetClientState.Active) {
                 const inputCmd = client.getUserCommand(game.clock.simFrame);
                 const dtSec = game.clock.simDt / 1000.0;
         
-                this.states[i] = this.controllers[i].update(state, dtSec, inputCmd);
+                const newState = this.controllers[i].update(state, dtSec, inputCmd);
+                Object.assign(state, newState);
             }
         }
     }
 
-    addAvatar(clientId: string) {
-        const state = assertDefined(this.states.find(s => !(s.flags & AvatarFlags.IsActive)), "Out of avatars");
-        state.flags |= AvatarFlags.IsActive;
-        state.clientId = clientId;
-    }
+    addAvatar(world: World, clientId: string) {
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            const state = world.get(i).data as AvatarState;
+            if (!(state.flags & AvatarFlags.IsActive)) {
+                state.flags |= AvatarFlags.IsActive;
+                return i;
+            }
+        }
 
-    getSnapshot() {
-        return this.states;
+        return -1;
     }
 }

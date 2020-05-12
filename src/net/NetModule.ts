@@ -9,6 +9,7 @@ import { assert, defined, arrayRemove } from "../util";
 import { NetGraph } from './NetDebug';
 import { DebugMenu } from "../DebugMenu";
 import { lerp, clamp } from "../MathHelpers";
+import { World } from "../World";
 
 interface ClientDependencies {
     clock: Clock;
@@ -19,6 +20,7 @@ interface ClientDependencies {
 interface ServerDependencies {
     avatar: AvatarSystemServer;
     clock: Clock;
+    world: World;
 }
 
 export class NetModuleClient {
@@ -206,7 +208,7 @@ export class NetModuleServer {
 
     onClientConnected(client: NetClient) {
         console.log('Client connected:', client);
-        this.context.avatar.addAvatar(client.id);
+        this.context.avatar.addAvatar(this.context.world, client.id);
 
         if (this.graph) client.setNetGraphPanel(this.graph.addPanel(`Server: ${client.id}`));
     }

@@ -5,14 +5,14 @@ class NetState {
   id: number; // Index into the World's object array
 
   origin: vec3;
-  angles: vec3;
+  orientation: vec3;
   modelId: number;
   flags: number;
 }
 
 interface GameObject {
   origin: vec3,
-  angles: vec3,
+  orientation: vec3,
   modelId?: number,
 }
 
@@ -30,7 +30,7 @@ export class World {
     baseline = defaultValue(baseline, {
       id: -1,
       origin: vec3.create(),
-      angles: vec3.create(),
+      orientation: vec3.create(),
       modelId: -1,
       flags: 0
     });
@@ -51,5 +51,11 @@ export class World {
     const obj = assertDefined(this.objects[id]);
     assert(obj.baseline.id === id);
     obj.free = true;
+  }
+
+  get(id: number) {
+    const obj = assertDefined(this.objects[id]);
+    assert(obj.free === false);
+    return obj;
   }
 }

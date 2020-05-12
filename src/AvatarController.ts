@@ -43,7 +43,7 @@ export class AvatarController {
         const velocity = vec3.scale(vec3.create(), prevState.orientation, speed);
 
         // Position
-        const pos = vec3.scaleAndAdd(vec3.create(), prevState.pos, velocity, dtSec);
+        const pos = vec3.scaleAndAdd(vec3.create(), prevState.origin, velocity, dtSec);
 
         // Orientation
         let shouldTurn = inputActive;
@@ -95,7 +95,7 @@ export class AvatarController {
         if (inputShouldWalk) flags |= AvatarFlags.IsWalking;
         if (uTurning) flags |= AvatarFlags.IsUTurning;
         const state: AvatarState = {...prevState, 
-            pos,
+            origin: pos,
             velocity,
             orientation,
             flags
