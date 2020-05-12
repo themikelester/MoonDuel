@@ -8,6 +8,10 @@ Change Log
 * Trickle ICE for WebUDP connections. Waiting for all candidates to complete makes connecting take forever.
 * Use EXT_disjoint_timer_query for GPU profiling
 
+### 2020-05-12
+##### Morning
+I went back and reviewed some of the QuakeWorld netcode. In addition to the player data which is serialized and transmitted, they also store a list of entities. The entity struct is shared by every non-character entity, and is basically just indexes for mesh, skin, texture, etc. The characters have one entity as well, stored at the start of the "entity dictionary", but these are transmitted separately. Each frame the entities that a) have a model and b) are visible to the client's entity are sent to that client. If the client new about the entity previously, a delta is sent. This feels very simple. I can store all game objects in the entity list (which would currently only be a camera and weapon, characters are separate). Since the camera does not have a model it would not be replicated over the net, but it could be serialized locally for hotloading. 
+
 ### 2020-05-11
 ##### Morning
 I'm giving myself until the end of this week to have a sword implemented and have the avatar swinging it in reaction to an attack input from the user. I did a lot of research into Entity Component Systems over the weekend, mainly studying the architecture that Overwatch used (https://youtu.be/W3aieHjyNvw). I was having trouble fitting weapons and attacks in the current architecture, so I've started a branch where I'm trying to implement ECS. If I can get it working and have the attack finished by the end of the week, I'll keep it.
