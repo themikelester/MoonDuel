@@ -330,7 +330,7 @@ export class AvatarSystemServer {
             if (!(state.flags & AvatarFlags.IsActive)) continue;
 
             const client = game.net.clients[i];
-            if (client.state === NetClientState.Active) {
+            if (client && client.state === NetClientState.Active) {
                 const inputCmd = client.getUserCommand(game.clock.simFrame);
                 const dtSec = game.clock.simDt / 1000.0;
         

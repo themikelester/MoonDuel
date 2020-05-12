@@ -179,7 +179,7 @@ export class NetModuleClient {
 export class NetModuleServer {
     context: ServerDependencies;
     signalSocket: SignalSocket;
-    clients: NetClient[] = [];
+    clients: Nullable<NetClient>[] = [];
     graph?: NetGraph;
 
     initialize(deps: ServerDependencies) {
@@ -190,7 +190,7 @@ export class NetModuleServer {
     terminate() {
         if (this.signalSocket) this.signalSocket.close();
         for (const client of this.clients) {
-            client.close();
+            if (client) client.close();
         }
     }
 
@@ -202,7 +202,10 @@ export class NetModuleServer {
             client.on(NetClientEvents.Connected, this.onClientConnected.bind(this, client));
             client.on(NetClientEvents.Disconnected, this.onClientDisconnected.bind(this, client));
             client.accept(socket);
-            this.clients.push(client);
+
+            let idx = this.clients.indexOf(null);
+            if (idx < 0) idx = this.clients.length;
+            this.clients[idx] = client;
         });
     }
 
@@ -216,14 +219,15 @@ export class NetModuleServer {
     onClientDisconnected(client: NetClient) {
         console.log('Client disconnected:', client);
         // this.context.avatar.removeAvatar(client.id);
-        arrayRemove(this.clients, client);
+        const idx = this.clients.indexOf(client);
+        this.clients[idx] = null;
 
         if (client.graphPanel) { this.graph?.removePanel(client.graphPanel); }
     }
 
     transmitToClients(snap: Snapshot) {
         for (const client of this.clients) {
-            client.transmitServerFrame(snap);
+            if (client) client.transmitServerFrame(snap);
         }
     }
 
@@ -231,7 +235,7 @@ export class NetModuleServer {
         if (this.graph) {
             for (const client of this.clients) {
                 const clientServerTime = window.client.clock.serverTime;
-                client.graphPanel?.update(client.ping, clientServerTime, undefined, this.context.clock.getCurrentServerTime());
+                if (client) client.graphPanel?.update(client.ping, clientServerTime, undefined, this.context.clock.getCurrentServerTime());
             }
         }
     }
