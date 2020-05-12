@@ -21,6 +21,7 @@ import { SignalSocket } from './net/SignalSocket';
 import { Snapshot } from './Snapshot';
 import { NetClientState } from './net/NetClient';
 import { assertDefined } from './util';
+import { WeaponSystem } from './Weapon';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -49,6 +50,7 @@ export class Client {
     public resources = new ResourceManager();
     public state = new StateManager();
     public userCommands = new UserCommandBuffer();
+    public weapons = new WeaponSystem();
     
     constructor() {
         this.init();
@@ -78,6 +80,7 @@ export class Client {
         this.compositor.initialize(this);
         this.globalUniforms.initialize();
         this.avatar.initialize(this);
+        this.weapons.initialize(this);
         this.debugGrid.initialize(this);
         this.state.initialize(this);
         
@@ -150,6 +153,7 @@ export class Client {
 
     private render() {
         this.avatar.render(this);
+        this.weapons.render(this);
         this.debugGrid.render(this);
         this.compositor.render();
     };

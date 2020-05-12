@@ -129,7 +129,6 @@ export class AvatarState {
 }
 
 const kGltfFilename = 'data/Tn.glb';
-const kWeaponFilename = 'data/Tkwn.glb';
 
 export class AvatarSystemClient {
     public localAvatar: Avatar; // @HACK:
@@ -155,12 +154,6 @@ export class AvatarSystemClient {
             if (error) { return console.error(`Failed to load resource`, error); }
             this.gltf = resource as GltfResource;
             this.onResourcesLoaded(game);
-        });
-
-        // @HACK:
-        game.resources.load(kWeaponFilename, 'gltf', (error, resource) => {
-            if (error) { return console.error(`Failed to load resource`, error); }
-            Sword.onResourcesLoaded(assertDefined(resource), game);
         });
 
         this.animation.initialize(this.avatars);
@@ -200,9 +193,6 @@ export class AvatarSystemClient {
 
         this.animation.onResourcesLoaded(this.gltf, game.debugMenu);
         this.renderer.onResourcesLoaded(this.gltf, game.gfxDevice);
-
-        // @HACK:
-        equipWeapon(this.localAvatar, Sword.create(game.gfxDevice));
     }
 
     update(game: ClientDependencies) {
@@ -234,17 +224,17 @@ export class AvatarSystemClient {
     }
 
     render(game: ClientDependencies) {
-        if (this.localAvatar && this.localAvatar.weapon) {
-            (this.localAvatar.weapon as Sword).render(game);
-        }
         this.renderer.render(game.gfxDevice, game.camera);
     }
-}
-
-function equipWeapon(avatar: Avatar, weapon: Weapon) {
-    const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
-    joint.add(weapon.transform);
-    avatar.weapon = weapon;
+    
+    equipWeapon(avatarIndex: number, weapon: Weapon) {
+        const avatar = this.avatars[avatarIndex];
+        if (avatar.weapon !== weapon) {
+            const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+            joint.add(weapon.transform);
+            avatar.weapon = weapon;
+        }
+    }
 }
 
 export class AvatarSystemServer {

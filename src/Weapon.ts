@@ -2,14 +2,23 @@ import { Model } from "./Mesh";
 import { Resource } from "./resources/Resource";
 import { GltfResource, GltfPrimitive, GltfTechnique, GltfNode } from "./resources/Gltf";
 import { BufferPackedLayout, computePackedBufferLayout, UniformBuffer } from "./UniformBuffer";
-import { assertDefined, defaultValue, assert } from "./util";
+import { assertDefined, defaultValue, assert, defined } from "./util";
 import * as Gfx from './gfx/GfxTypes';
 import { vec4, mat4, vec3 } from "gl-matrix";
 import { Material, Mesh } from './Mesh';
 import { renderLists } from "./RenderList";
 import { Object3D } from './Object3D';
 import { Camera } from './Camera';
-import { GameObject } from "./World";
+import { GameObject, World } from "./World";
+import { ResourceManager } from "./resources/ResourceLoading";
+import { Snapshot } from "./Snapshot";
+import { AvatarSystemClient } from "./Avatar";
+
+
+export enum WeaponType {
+    None = 0,
+    Sword
+};
 
 export class Weapon {
     model: Model;
@@ -21,6 +30,8 @@ export class WeaponObject implements GameObject {
     orientation: vec3 = vec3.create();
     parent: number;
 }
+
+const kWeaponFilename = 'data/Tkwn.glb';
 
 export class Sword extends Weapon {
     static shader: Gfx.Id;
@@ -34,7 +45,7 @@ export class Sword extends Weapon {
     material: Material;
     uniforms: UniformBuffer;
 
-    static onResourcesLoaded(resource: Resource, { gfxDevice }: { gfxDevice: Gfx.Renderer }) {
+    static onResourcesLoaded(resource: Resource, gfxDevice: Gfx.Renderer) {
         const gltf = resource as GltfResource;
 
         const prim = gltf.meshes[0].primitives[0];
@@ -139,5 +150,52 @@ export class Sword extends Weapon {
         uniforms.write(gfxDevice);
 
         model.renderList.push(model.primitive);
+    }
+}
+
+export class WeaponSystem {
+    gfxDevice: Gfx.Renderer;
+    weapons: Record<number, Weapon> = {};
+
+    initialize({ resources, gfxDevice }: { resources: ResourceManager, gfxDevice: Gfx.Renderer }) {
+        this.gfxDevice = gfxDevice;
+
+        resources.load(kWeaponFilename, 'gltf', (error, resource) => {
+            if (error) { return console.error(`Failed to load resource`, error); }
+            Sword.onResourcesLoaded(assertDefined(resource), gfxDevice);
+
+            // @HACK: Really we should wait until the server adds new entities to the snapshot
+            for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+                this.weapons[Snapshot.kAvatarCount + i] = Sword.create(gfxDevice);
+            }
+        });
+    }
+
+    render({ gfxDevice, camera, displaySnapshot, avatar }: { gfxDevice: Gfx.Renderer, camera: Camera, displaySnapshot: Snapshot, avatar: AvatarSystemClient }) {
+        const entities = displaySnapshot.entities;
+        
+        for (const entity of entities) {
+            const weapon = this.weapons[entity.id];
+            if (!defined(weapon)) continue;
+
+            // @HACK: Nasty coupling
+            if (defined(entity.parent)) {
+                assert(entity.parent < Snapshot.kAvatarCount);
+                const avatarIdx = entity.parent;
+                avatar.equipWeapon(avatarIdx, weapon);
+            }
+
+            const model = weapon.model;
+            weapon.transform.updateWorldMatrix(false, true);
+
+            const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
+
+            const uniforms = model.material.getUniformBuffer('model');
+            uniforms.setMat4('u_model', matrixWorld);
+            uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
+            uniforms.write(gfxDevice);
+
+            model.renderList.push(model.primitive);
+        }
     }
 }
