@@ -153,6 +153,10 @@ export class AvatarSystemClient {
         this.renderer.initialize(this.avatars);
     }
 
+    onJoined(clientIndex: number) {
+        this.localAvatar = this.avatars[clientIndex];
+    }
+
     onResourcesLoaded(game: ClientDependencies) {
         for (const avatar of this.avatars) {
             // Clone all nodes
@@ -193,14 +197,6 @@ export class AvatarSystemClient {
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
             const avatar = this.avatars[i];
             const state = states[i];
-
-            // @HACK: If we're connected, update the localAvatar to point at the one this client controls
-            if (window.client.net.client.state === NetClientState.Active) {
-                if (state.clientId === window.client.net.client.id) {
-                    this.localAvatar = avatar;
-                    avatar.local = true;
-                }
-            }
 
             avatar.active = !!(state.flags & AvatarFlags.IsActive);
 
@@ -340,7 +336,7 @@ export class AvatarSystemServer {
         }
     }
 
-    addAvatar(world: World, clientId: string) {
+    addAvatar(world: World, clientIndex: number) {
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
             const state = world.get(i).data as AvatarState;
             if (!(state.flags & AvatarFlags.IsActive)) {

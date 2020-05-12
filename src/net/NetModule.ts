@@ -1,7 +1,7 @@
 import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
 import { NetClient, NetClientEvents } from "./NetClient";
-import { AvatarSystemServer } from "../Avatar";
+import { AvatarSystemServer, AvatarSystemClient } from "../Avatar";
 import { Snapshot } from "../Snapshot";
 import { Clock } from "../Clock";
 import { assert, defined, arrayRemove } from "../util";
@@ -15,6 +15,7 @@ interface ClientDependencies {
     clock: Clock;
     toplevel: HTMLElement;
     debugMenu: DebugMenu;
+    avatar: AvatarSystemClient;
 }
 
 interface ServerDependencies {
@@ -69,11 +70,16 @@ export class NetModuleClient {
         // Establish a WebUDP connection with the server
         this.client.on(NetClientEvents.ServerTimeAdjust, this.onServerTimeAdjust.bind(this));
         this.client.on(NetClientEvents.ReceiveServerFrame, this.onServerFrame.bind(this));
+        this.client.on(NetClientEvents.Activated, this.onJoined.bind(this));
         this.client.connect(serverId);
 
         this.client.on(NetClientEvents.Connected, () => {
             if (this.graph) this.client.setNetGraphPanel(this.graph.addPanel(`Client: ${this.client.id}`));
         })
+    }
+
+    onJoined() {
+        this.context.avatar.onJoined(this.client.clientIndex);
     }
     
     onServerFrame(frameDiff: number, snap: Snapshot) {
@@ -205,13 +211,17 @@ export class NetModuleServer {
 
             let idx = this.clients.indexOf(null);
             if (idx < 0) idx = this.clients.length;
+            
             this.clients[idx] = client;
+            client.clientIndex = idx;
+
+            client.transmitConnectionInfo(idx);
         });
     }
 
     onClientConnected(client: NetClient) {
         console.log('Client connected:', client);
-        this.context.avatar.addAvatar(this.context.world, client.id);
+        this.context.avatar.addAvatar(this.context.world, client.clientIndex);
 
         if (this.graph) client.setNetGraphPanel(this.graph.addPanel(`Server: ${client.id}`));
     }

@@ -29,6 +29,7 @@ export enum NetClientState {
 export enum NetClientEvents {
     Connected = 'con',
     Disconnected = 'dis',
+    Activated = 'act',
     ServerTimeAdjust = 'stime',
     ReceiveServerFrame = 'rsf',
 }
@@ -37,6 +38,7 @@ enum MsgId {
     ServerFrame = 0,
     ClientFrame = 1,
     VisChange = 2,
+    ConnectInfo = 3,
 
     _Count
 }
@@ -98,6 +100,7 @@ class ReliableMessageManager {
 
 export class NetClient extends EventDispatcher {
     id: string;
+    clientIndex: number;
     state: NetClientState = NetClientState.Free;
 
     lastRequestedFrame: number = -1;
@@ -287,7 +290,11 @@ export class NetClient extends EventDispatcher {
         const frameDiff = this.lastReceivedFrame - this.lastRequestedFrame;
 
         const buf = this.channel.allocatePacket();
-        
+
+        // Write any reliable messages
+        const reliableMsg = this.reliable.getMessageForTransmission(snap.frame);
+        if (reliableMsg) buf.write(reliableMsg);
+
         // Pass the frameDiff as a signed 4-bit in the upper nibble of the idByte
         let idByte = MsgId.ServerFrame;
         idByte |= (clamp(frameDiff, -8, 7) & 0b1111) << 4;
@@ -359,6 +366,21 @@ export class NetClient extends EventDispatcher {
         this.fire(NetClientEvents.ReceiveServerFrame, frameDiff, snap);
     }
     
+    transmitConnectionInfo(clientIndex: number) {
+        let bits = 0;
+        assert(clientIndex < 8);
+        bits |= clientIndex << 4;
+        bits |= MsgId.ConnectInfo & kMsgIdMask;
+
+        const data = new Uint8Array([bits]); 
+        this.reliable.send(data);
+    }
+
+    receiveConnectionInfo(msg: Buf) {
+        const ignore = this.reliable.receive(msg);
+        this.clientIndex = Buf.readByte(msg) >> 4;
+    }
+    
     transmitVisibilityChange(visible: boolean) {
         let bits = 0;
         if (visible) bits |= 0xF0;
@@ -415,10 +437,6 @@ export class NetClient extends EventDispatcher {
     }
 
     onMessage(msg: Buf, latestAck: AckInfo, receiveTime: number) {
-        if (this.state === NetClientState.Connected) {
-            this.state = NetClientState.Active;
-        }
-
         while (msg.offset < msg.data.byteLength) {
             const idByte = Buf.peekByte(msg)
             const msgId = idByte & kMsgIdMask;
@@ -428,10 +446,17 @@ export class NetClient extends EventDispatcher {
                 case MsgId.ServerFrame: this.receiveServerFrame(msg, latestAck); break;
                 case MsgId.ClientFrame: this.receiveClientFrame(msg, receiveTime); break;
                 case MsgId.VisChange: this.receiveVisibilityChange(msg); break;
+                case MsgId.ConnectInfo: this.receiveConnectionInfo(msg); break;
                 default: console.warn('Received unknown message. Ignoring.'); error = true; break; 
             }
 
             if (error) break;
+        }
+
+        if (this.state === NetClientState.Connected) {
+            assertDefined(this.clientIndex);
+            this.state = NetClientState.Active;
+            this.fire(NetClientEvents.Activated);
         }
     }
 }
