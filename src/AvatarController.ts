@@ -40,6 +40,10 @@ export class AvatarController {
                 nextState.attackStartFrame = frame;
                 nextState.attackType = AvatarAttackType.Side;
             }
+            if (input.actions & InputAction.AttackVert) {
+                nextState.attackStartFrame = frame;
+                nextState.attackType = AvatarAttackType.Vertical;
+            }
         }
         
         // Velocity

@@ -156,10 +156,12 @@ export class AvatarAnim {
             let attackWeight = 0.0;
             if (state.attackType !== AvatarAttackType.None) {
                 const attackTime = (clock.renderTime - state.attackStartFrame * clock.simDt) * 0.001;
-                if (!data.aAttackSide.isRunning()) {
-                    data.aAttackSide.reset();
-                    data.aAttackSide.time = attackTime;
-                    data.aAttackSide.play();
+                const anim = state.attackType === AvatarAttackType.Side ? data.aAttackSide : data.aAttackVert;
+
+                if (!anim.isRunning()) {
+                    anim.reset();
+                    anim.time = attackTime;
+                    anim.play();
                 }
                 attackWeight = Math.min(
                     saturate(delerp(0.0, 0.2, attackTime)),
@@ -167,6 +169,7 @@ export class AvatarAnim {
                 );
             } else {
                 data.aAttackSide.stop();
+                data.aAttackVert.stop();
                 attackWeight = 0.0;
             }
 
@@ -189,7 +192,8 @@ export class AvatarAnim {
             }
 
             {
-                data.aAttackSide.weight = attackWeight * 1.0;
+                if (state.attackType === AvatarAttackType.Side) data.aAttackSide.weight = attackWeight * 1.0;
+                else data.aAttackVert.weight = attackWeight * 1.0;
             }
 
             // if (isUTurning) {
