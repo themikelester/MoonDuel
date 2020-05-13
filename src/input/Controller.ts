@@ -152,7 +152,7 @@ export class Controller {
         if (!defined(this.actions[actionName])) { this.actions[actionName] = new Action(name); }
 
         const action = this.actions[actionName];
-        assert(!defined(action.keys), 'Action already has mouse bindings');
+        assert(!defined(action.mouseButtons), 'Action already has mouse bindings');
         action.mouseButtons = buttons;
     };
 
@@ -166,7 +166,7 @@ export class Controller {
         if (!defined(this.actions[actionName])) { this.actions[actionName] = new Action(name); }
 
         const action = this.actions[actionName];
-        assert(!defined(action.keys), 'Action already has mouse bindings');
+        assert(!defined(action.padButtons), 'Action already has mouse bindings');
         action.padButtons = buttons;
         action.padIndexes = indices;
     };
