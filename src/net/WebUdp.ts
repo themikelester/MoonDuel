@@ -1,6 +1,7 @@
 import { EventDispatcher } from "../EventDispatcher";
 import { SignalSocket, SignalSocketEvents, ClientId } from "./SignalSocket";
 import { assert, assertDefined, defined } from "../util";
+import { IS_DEVELOPMENT } from "../version";
 
 export enum WebUdpEvent {
     Open = "open",
@@ -70,7 +71,8 @@ export class WebUdpSocket extends EventDispatcher {
 
         // Begin the WebRTC handshake
         connectedToSignalServer.then(async () => {
-            const iceServers = await signalSocket.requestIceServers();
+            // Don't ping any STUN/TURN servers during development
+            const iceServers = IS_DEVELOPMENT ? {} : await signalSocket.requestIceServers();
     
             this.peer = this.createPeer(iceServers);
             
@@ -131,7 +133,7 @@ export class WebUdpSocket extends EventDispatcher {
         this.clientId = signalSocket.clientId;
 
         // @TODO: This only needs to happen once on the server
-        const iceServers = await signalSocket.requestIceServers();
+        const iceServers = IS_DEVELOPMENT ? {} : await signalSocket.requestIceServers();
 
         this.peer = this.createPeer(iceServers);
 
