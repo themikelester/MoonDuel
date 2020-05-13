@@ -45,7 +45,8 @@ export class AvatarController {
         // Velocity
         let speed = vec3.length(prevState.velocity);
         const accel = inputShouldWalk ? kWalkAcceleration : kRunAcceleration;
-        const maxSpeed = inputShouldWalk ? kAvatarWalkSpeed : kAvatarRunSpeed;
+        let maxSpeed = inputShouldWalk ? kAvatarWalkSpeed : kAvatarRunSpeed;
+        if (nextState.attackType !== AvatarAttackType.None) maxSpeed = 10;
 
         const dSpeed = (inputActive ? accel : -accel) * dtSec;
         const targetSpeed = clamp(speed + dSpeed, 0, maxSpeed); 
