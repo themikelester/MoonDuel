@@ -9,6 +9,11 @@ Change Log
 * Use EXT_disjoint_timer_query for GPU profiling
 * Swords get thrown when two attacks collide
 * Hit-stop when attacks land
+* Pause and Step in the debug menu pause server time as well. (Useful for animation debugging)
+  * Render time should then be scrubbable for all saved frames
+  * Separate steps for render (configurable dt) and sim 
+* Start in offline mode. Don't wait for connection before becoming playable. This may mean implementing prediction.
+* Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 
 ### 2020-05-13
 ##### Morning
