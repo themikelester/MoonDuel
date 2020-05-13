@@ -162,6 +162,7 @@ export class AvatarSystemClient {
 
     onJoined(clientIndex: number) {
         this.localAvatar = this.avatars[clientIndex];
+        this.localAvatar.local = true;
     }
 
     onResourcesLoaded(game: ClientDependencies) {
