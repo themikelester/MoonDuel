@@ -5,6 +5,7 @@ import { defined } from "./util";
 import { Camera } from "./Camera";
 import { Clock } from "./Clock";
 import { UserCommand, UserCommandBuffer } from "./UserCommand";
+import { MouseButtons } from "./input/Mouse";
 
 const fullscreen = (screenfull.isEnabled) ? screenfull as Screenfull : undefined;
 
@@ -13,6 +14,8 @@ const kCommandBufferLength = 64;
 export enum InputAction {
     Walk = 1 << 0,
     Fullscreen = 1 << 1,
+    AttackSide = 1 << 2,
+    AttackVert = 1 << 3,
 }
 
 interface ActionInfo {
@@ -24,6 +27,8 @@ interface ActionInfo {
 const Keymap: Record<InputAction, ActionInfo> = {
     [InputAction.Walk]: { id: 'walk', name: 'Walk', desc: 'Hold to walk instead of run' },
     [InputAction.Fullscreen]: { id: 'fullscreen', name: 'Toggle Fullscreen', desc: 'Toggle fullscreen mode' },
+    [InputAction.AttackSide]: { id: 'attackSide', name: 'Horizontal Attack', desc: 'Attack horizontally' },
+    [InputAction.AttackVert]: { id: 'attackVert', name: 'Vertical Attack', desc: 'Attack vertically' },
 };
 
 export class InputManager {
@@ -59,6 +64,12 @@ export class InputManager {
 
         this.controller.registerKeys(Keymap[InputAction.Walk].id, ['ShiftLeft', 'ShiftRight']);
         this.controller.registerKeys(Keymap[InputAction.Fullscreen].id, ['Backslash']);
+
+        this.controller.registerKeys(Keymap[InputAction.AttackSide].id, ['KeyQ']);
+        this.controller.registerKeys(Keymap[InputAction.AttackVert].id, ['KeyE']);
+
+        this.controller.registerMouse(Keymap[InputAction.AttackSide].id, [MouseButtons.Left]);
+        this.controller.registerMouse(Keymap[InputAction.AttackVert].id, [MouseButtons.Right]);
 
         this.controller.disableContextMenu();
     }
