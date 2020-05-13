@@ -1,13 +1,14 @@
 
 import { DebugMenu, IDebugMenu } from "./DebugMenu";
-import { delerp, saturate } from "./MathHelpers";
+import { delerp, saturate, smoothstep } from "./MathHelpers";
 import { AnimationClip, AnimationMixer, AnimationAction } from "./Animation";
 import { assertDefined, defined } from "./util";
-import { Avatar, AvatarState, AvatarFlags } from "./Avatar";
+import { Avatar, AvatarState, AvatarFlags, AvatarAttackType } from "./Avatar";
 import { GltfResource } from "./resources/Gltf";
 import { Clock } from "./Clock";
 import { vec3 } from "gl-matrix";
 import { kAvatarWalkSpeed, kAvatarRunSpeed } from "./AvatarController";
+import { AnimationActionLoopStyles, LoopOnce } from "three/src/constants";
 
 const kWalkStartStopTimes = [0.25, 0.75]; // Normalized times at which one foot is on the ground and the body is centered over its position
 const kRunStartStopTimes = [0.15, 0.65];
@@ -73,6 +74,8 @@ interface AvatarAnimData {
     aIdle: AnimationAction;
     aWalk: AnimationAction;
     aRun: AnimationAction;
+    aAttackSide: AnimationAction;
+    aAttackVert: AnimationAction;
     startingFoot: number;
 }
 
@@ -92,6 +95,8 @@ export class AvatarAnim {
         const idleClip = assertDefined(gltf.animations.find(a => a.name === 'await1'));
         const walkClip = assertDefined(gltf.animations.find(a => a.name === 'awalk1'));
         const runClip = assertDefined(gltf.animations.find(a => a.name === 'brun1'));
+        const attackSideClip = assertDefined(gltf.animations.find(a => a.name === 'aat_yoko1'));
+        const attackVertClip = assertDefined(gltf.animations.find(a => a.name === 'aat_tate1'));
 
         for (let i = 0; i < this.avatars.length; i++) {
             const avatar = this.avatars[i];
@@ -101,6 +106,8 @@ export class AvatarAnim {
                 aIdle: avatar.animationMixer.clipAction(idleClip),
                 aWalk: avatar.animationMixer.clipAction(walkClip),
                 aRun: avatar.animationMixer.clipAction(runClip),
+                aAttackSide: avatar.animationMixer.clipAction(attackSideClip),
+                aAttackVert: avatar.animationMixer.clipAction(attackVertClip),
                 startingFoot: 0,
             };
 
@@ -108,6 +115,10 @@ export class AvatarAnim {
             data.aIdle.play().setEffectiveWeight(1.0);
             data.aWalk.play().setEffectiveWeight(0.0);
             data.aRun.play().setEffectiveWeight(0.0);
+
+            // Attacks don't loop
+            data.aAttackSide.setLoop(LoopOnce, 1);
+            data.aAttackVert.setLoop(LoopOnce, 1);
 
             // Give each avatar a different idle phase, so their animations don't appear to sync
             data.aIdle.time = i * (data.aIdle.getClip().duration / (this.avatars.length + 1)); 
@@ -140,14 +151,46 @@ export class AvatarAnim {
             }
 
             const speed = vec3.length(state.velocity);
-            const isWalking = state.flags & AvatarFlags.IsWalking;
-            const isUTurning = state.flags & AvatarFlags.IsUTurning;
 
-            data.aIdle.weight = saturate(1.0 - speed / kAvatarWalkSpeed);
-            data.aRun.weight = saturate(delerp(isWalking ? kAvatarWalkSpeed : 0, kAvatarRunSpeed, speed));
-            data.aRun.timeScale = data.aRun.weight;
-            data.aWalk.weight = saturate(delerp(0, kAvatarWalkSpeed, speed)) - data.aRun.weight;
-            data.aWalk.timeScale = data.aWalk.weight;
+            // Attack 
+            let attackWeight = 0.0;
+            if (state.attackType !== AvatarAttackType.None) {
+                const attackTime = (clock.renderTime - state.attackStartFrame * clock.simDt) * 0.001;
+                if (!data.aAttackSide.isRunning()) {
+                    data.aAttackSide.reset();
+                    data.aAttackSide.time = attackTime;
+                    data.aAttackSide.play();
+                }
+                attackWeight = Math.min(
+                    saturate(delerp(0.0, 0.2, attackTime)),
+                    1.0 - saturate(delerp(0.8, 1.1, attackTime)),
+                );
+            } else {
+                data.aAttackSide.stop();
+                attackWeight = 0.0;
+            }
+
+            // Blend tree
+            const movementWeight = 1.0 - attackWeight; 
+            {
+                const isWalking = state.flags & AvatarFlags.IsWalking;
+                const isUTurning = state.flags & AvatarFlags.IsUTurning;
+                
+                const idleWeight = saturate(1.0 - speed / kAvatarWalkSpeed);
+                const runWeight = saturate(delerp(isWalking ? kAvatarWalkSpeed : 0, kAvatarRunSpeed, speed));
+                const walkWeight = saturate(delerp(0, kAvatarWalkSpeed, speed)) - data.aRun.weight;
+
+                data.aIdle.weight = movementWeight * idleWeight;
+                data.aRun.weight = movementWeight * runWeight
+                data.aWalk.weight = movementWeight * walkWeight;
+                
+                data.aRun.timeScale = runWeight;
+                data.aWalk.timeScale = walkWeight;
+            }
+
+            {
+                data.aAttackSide.weight = attackWeight * 1.0;
+            }
 
             // if (isUTurning) {
             //     this.aWalk.timeScale = -1.0;

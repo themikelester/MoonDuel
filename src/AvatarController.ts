@@ -31,7 +31,7 @@ export class AvatarController {
         // Attacking
         if (prevState.attackType !== AvatarAttackType.None) {
             const duration = frame - prevState.attackStartFrame;
-            if (duration >= 63) { // @HACK: Need to set up proper exiting
+            if (duration >= 69) { // @HACK: Need to set up proper exiting
                 nextState.attackType = AvatarAttackType.None;
                 nextState.attackStartFrame = 0;
             }
