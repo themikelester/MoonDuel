@@ -10,12 +10,10 @@ export enum WebUdpEvent {
 
 interface ClientOffer {
     offer: RTCSessionDescriptionInit,
-    iceCandidates: RTCIceCandidate[],
 }
 
 interface ClientAnswer {
     answer: RTCSessionDescriptionInit,
-    iceCandidates: RTCIceCandidate[],
 }
 
 export class WebUdpSocketFactory extends EventDispatcher {
@@ -101,10 +99,10 @@ export class WebUdpSocket extends EventDispatcher {
             await this.peer.setLocalDescription(rtcOffer);
     
             // Wait for all ICE candidates to be created
-            const iceCandidates = await iceCandidatesPromise;
+            await iceCandidatesPromise;
     
             // Send the SDP and ICE candidates in one message
-            const offer: ClientOffer = { offer: rtcOffer, iceCandidates };
+            const offer: ClientOffer = { offer: assertDefined(this.peer.localDescription) };
             signalSocket.send(this.peerId, offer);
     
             signalSocket.once(SignalSocketEvents.Message, (msg: ClientAnswer, from: ClientId) => {
@@ -113,11 +111,6 @@ export class WebUdpSocket extends EventDispatcher {
     
                 // Accept the answer
                 this.peer!.setRemoteDescription(msg.answer);
-    
-                // And accept all of the remote's ICE candidates
-                for (const candidate of msg.iceCandidates) {
-                    this.peer!.addIceCandidate(candidate);
-                }
     
                 // @TODO: Also close after timeout, or on error
                 signalSocket.close();
@@ -150,14 +143,9 @@ export class WebUdpSocket extends EventDispatcher {
         const answer = await this.peer.createAnswer();
         this.peer.setLocalDescription(answer);
 
-        // Accept all the remote's ICE candidates
-        for (const candidate of offer.iceCandidates) {
-            this.peer.addIceCandidate(candidate);
-        }
-
         // Wait for all of our ICE candidates to generate, then send them back with the answer
-        const iceCandidates = await iceCandidatesPromise;
-        signalSocket.send(this.peerId, { answer, iceCandidates });
+        await iceCandidatesPromise;
+        signalSocket.send(this.peerId, { answer: this.peer.localDescription });
 
         // Once the remote accepts the answer, WebRTC will construct the data channel and we'll be good to go
         this.peer.ondatachannel = evt => {
