@@ -121,8 +121,9 @@ export class AvatarAnim {
         this.ready = true;
     }
 
-    update(states: AvatarState[], dtSec: number) {
+    update(states: AvatarState[], clock: Clock) {
         if (!this.ready) return;
+        const dtSec = clock.renderDt * 0.001;
 
         for (let i = 0; i < states.length; i++) {
             const data = this.data[i];

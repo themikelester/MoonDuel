@@ -57,12 +57,22 @@ export enum AvatarFlags {
     IsUTurning = 1 << 2,
 }
 
+export enum AvatarAttackType {
+    None,
+    Side,
+    Vertical,
+    Throw
+}
+
 export class AvatarState {
     origin: vec3 = vec3.create();
     velocity: vec3 = vec3.create();
     orientation: vec3 = vec3.fromValues(0, 0, 1);
     flags: AvatarFlags = 0;
+    
     weapon: number;
+    attackStartFrame: number;
+    attackType: AvatarAttackType; 
 
     constructor(isActive: boolean = false) {
         AvatarState.clear(this);
@@ -75,6 +85,8 @@ export class AvatarState {
         vec3.set(state.orientation, 0, 0, 1);
         state.flags = 0;
         state.weapon = -1;
+        state.attackStartFrame = 0;
+        state.attackType = AvatarAttackType.None;
     }
 
     static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
@@ -83,6 +95,16 @@ export class AvatarState {
         vec3.lerp(result.orientation, a.orientation, b.orientation, t);
         result.flags = a.flags & b.flags;
         result.weapon = b.weapon;
+        
+        // Attacks must be separated by at least one frame where attackType is None, and attackTime is 0
+        // This means that we can always safely take the max for both time and type
+        const timeDiff = a.attackStartFrame - b.attackStartFrame;
+        const maxTime = Math.max(a.attackStartFrame, b.attackStartFrame);
+        const maxType = Math.max(a.attackType, b.attackType);
+
+        assert(timeDiff === 0 || Math.abs(timeDiff) === maxTime);
+        result.attackStartFrame = maxTime;
+        result.attackType = maxType;
     }
 
     static copy(result: AvatarState, a: AvatarState) {
@@ -91,6 +113,8 @@ export class AvatarState {
         vec3.copy(result.orientation, a.orientation);
         result.flags = a.flags;
         result.weapon = a.weapon;
+        result.attackStartFrame = a.attackStartFrame;
+        result.attackType = a.attackType;
     }
 
     static serialize(buf: Buf, state: AvatarState) {
@@ -108,6 +132,10 @@ export class AvatarState {
 
         Buf.writeByte(buf, state.flags);
         Buf.writeShort(buf, state.weapon);
+
+        // @TODO: This should be a byte which is a delta from the current frame
+        Buf.writeInt(buf, state.attackStartFrame);
+        Buf.writeByte(buf, state.attackType);
     }
     
     static deserialize(buf: Buf, state: AvatarState) {
@@ -125,6 +153,9 @@ export class AvatarState {
 
         state.flags = Buf.readByte(buf);
         state.weapon = Buf.readShort(buf);
+
+        state.attackStartFrame = Buf.readInt(buf);
+        state.attackType = Buf.readByte(buf);
     }
 }
 
@@ -217,7 +248,7 @@ export class AvatarSystemClient {
             avatar.updateMatrixWorld();
         }
             
-        this.animation.update(states, game.clock.renderDt / 1000.0);
+        this.animation.update(states, game.clock);
     }
 
     updateFixed(game: ClientDependencies) {
@@ -231,9 +262,11 @@ export class AvatarSystemClient {
     equipWeapon(avatarIndex: number, weapon: Weapon) {
         const avatar = this.avatars[avatarIndex];
         if (avatar.weapon !== weapon) {
-            const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
-            joint.add(weapon.transform);
-            avatar.weapon = weapon;
+            setTimeout(() => {
+                const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+                joint.add(weapon.transform);
+                avatar.weapon = weapon;
+            }, 500);
         }
     }
 }
@@ -334,7 +367,7 @@ export class AvatarSystemServer {
                 const inputCmd = client.getUserCommand(game.clock.simFrame);
                 const dtSec = game.clock.simDt / 1000.0;
         
-                const newState = this.controllers[i].update(state, dtSec, inputCmd);
+                const newState = this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
                 Object.assign(state, newState);
             }
         }

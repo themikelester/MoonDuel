@@ -18,7 +18,7 @@ export class UserCommand {
         let bits = 0;
         bits |= 0b00000011 & ((Math.sign(cmd.verticalAxis) + 1) << 0);
         bits |= 0b00001100 & ((Math.sign(cmd.horizontalAxis) + 1) << 2);
-        bits |= 0b11110000 & (Math.sign(cmd.actions) << 4);
+        bits |= 0b11110000 & (cmd.actions << 4);
         Buf.writeByte(buf, bits);
 
         return 3;

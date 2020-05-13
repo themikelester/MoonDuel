@@ -1,4 +1,4 @@
-import { AvatarState, AvatarFlags } from "./Avatar";
+import { AvatarState, AvatarFlags, AvatarAttackType } from "./Avatar";
 import { vec3 } from "gl-matrix";
 import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
@@ -18,13 +18,29 @@ const kRunAcceleration = 3000;
 export class AvatarController {
     orientationTarget: vec3 = vec3.create();
     
-    update(prevState: AvatarState, dtSec: number, input: UserCommand): AvatarState {
+    update(prevState: AvatarState, frame: number, dtSec: number, input: UserCommand): AvatarState {
+        const nextState = {...prevState }
+
         const inputDir = this.getCameraRelativeMovementDirection(input, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
         const inputShouldWalk = input.actions & InputAction.Walk;
 
         let orientation = vec3.clone(prevState.orientation);
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
+
+        // Attacking
+        if (prevState.attackType !== AvatarAttackType.None) {
+            const duration = frame - prevState.attackStartFrame;
+            if (duration >= 63) { // @HACK: Need to set up proper exiting
+                nextState.attackType = AvatarAttackType.None;
+                nextState.attackStartFrame = 0;
+            }
+        } else {
+            if (input.actions & InputAction.AttackSide) {
+                nextState.attackStartFrame = frame;
+                nextState.attackType = AvatarAttackType.Side;
+            }
+        }
         
         // Velocity
         let speed = vec3.length(prevState.velocity);
@@ -94,13 +110,13 @@ export class AvatarController {
         let flags = prevState.flags & ~(AvatarFlags.IsWalking | AvatarFlags.IsUTurning);
         if (inputShouldWalk) flags |= AvatarFlags.IsWalking;
         if (uTurning) flags |= AvatarFlags.IsUTurning;
-        const state: AvatarState = {...prevState, 
-            origin: pos,
-            velocity,
-            orientation,
-            flags
-        }
-        return state;
+
+        nextState.origin = pos;
+        nextState.velocity = velocity;
+        nextState.orientation = orientation;
+        nextState.flags = flags;
+
+        return nextState;
     }
 
     private getWorldRelativeMovementDirection(input: UserCommand, result: vec3): vec3 {
