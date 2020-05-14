@@ -113,6 +113,8 @@ export class Sword extends Weapon {
 
         // @HACK:
         this.matUniformBuf.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
+
+        this.matUniformBuf.write(gfxDevice);
     }
 
     static create(gfxDevice: Gfx.Renderer) {
