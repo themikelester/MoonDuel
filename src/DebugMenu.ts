@@ -38,7 +38,6 @@ interface DebugAdd {
 export class DebugMenu implements IDebugMenu {
     private _gui: any;
     private _add: DebugAdd[] = [];
-    private _addOnChange: ICallback[] = [];
     private _folders: { [name: string]: DebugMenu } = {};
     private _saveObject: any;
 
@@ -74,7 +73,10 @@ export class DebugMenu implements IDebugMenu {
         for (const debugAdd of this._add) {
             this._gui.getRoot().remember(debugAdd.args[0]); 
             const controller = this._gui.add.apply(this._gui, debugAdd.args); 
-            if (debugAdd.onChange) { controller.onChange(debugAdd.onChange); }
+            if (debugAdd.onChange) { 
+                controller.onChange(debugAdd.onChange); 
+                debugAdd.onChange(controller.object[controller.property]);
+            }
         }
 
         for (const folderName in this._folders) { 
