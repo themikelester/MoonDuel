@@ -21,11 +21,11 @@ export class StateManager {
         if (success) console.log('Loaded state from localStorage');
     }
 
-    saveState({ cameraSystem }: StateModules): void {
+    saveState({ cameraSystem, debugMenu }: StateModules): void {
         const stateObj = {
             version: kStateVersion,
             cameraSystem,
-            DebugMenu, 
+            debugMenu, 
         }
     
         const stateString = JSON.stringify(stateObj);
@@ -42,12 +42,12 @@ export class StateManager {
         
         const state = JSON.parse(stateString);
         
-        // Don't bother trying load older state formats
+        // Don't bother trying to load older state formats
         if (state.version !== kStateVersion) return false;
     
         try {
             cameraSystem.fromJSON(state.cameraSystem);
-            debugMenu.fromJSON(state.DebugMenu);
+            debugMenu.fromJSON(state.debugMenu);
         } catch(e) {
             console.warn('Failed to load state:', e);
             return false;
