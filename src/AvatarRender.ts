@@ -189,6 +189,10 @@ export class AvatarRender {
             // Debug
             if (this.drawSkeleton) {
                 drawSkeleton(this.avatars[avatarIdx].skeleton);
+                if (window.server) {
+                    const serverSkeleton = window.server.avatar.avatars[avatarIdx].skeleton;
+                    drawSkeleton(serverSkeleton, vec4.fromValues(1, 1, 0, 1));
+                }
             }
         }
     }
