@@ -8,9 +8,9 @@ import { Object3D, Matrix4, Vector3 } from "./Object3D";
 import { AnimationMixer } from "./Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
 import { assertDefined, assert, defined } from "./util";
-import { Skeleton, Bone } from "./Skeleton";
+import { Skeleton, Bone, drawSkeleton } from "./Skeleton";
 import { AvatarAnim } from "./AvatarAnim";
-import { vec3 } from "gl-matrix";
+import { vec3, mat4, vec4 } from "gl-matrix";
 import { SnapshotManager, Snapshot } from "./Snapshot";
 import { UserCommandBuffer } from "./UserCommand";
 import { DebugMenu } from "./DebugMenu";
@@ -358,10 +358,25 @@ export class AvatarSystemServer {
     }
 
     updateFixed(game: ServerDependencies) {
+        const states = game.world.objects.slice(0, Snapshot.kAvatarCount).map(e => e.data as AvatarState);
+        
         for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            const state = game.world.get(i).data as AvatarState;
+            const state = states[i];
+            const avatar = this.avatars[i];
 
+            avatar.active = !!(state.flags & AvatarFlags.IsActive);
             if (!(state.flags & AvatarFlags.IsActive)) continue;
+
+            const pos = new Vector3(state.origin);
+            avatar.position.copy(pos);
+            avatar.lookAt(
+                state.origin[0] + state.orientation[0],
+                state.origin[1] + state.orientation[1],
+                state.origin[2] + state.orientation[2],
+            )
+
+            avatar.updateMatrix();
+            avatar.updateMatrixWorld();
 
             const client = game.net.clients[i];
             if (client && client.state === NetClientState.Active) {
@@ -372,6 +387,8 @@ export class AvatarSystemServer {
                 Object.assign(state, newState);
             }
         }
+
+        this.animation.update(states, game.clock);
     }
 
     addAvatar(world: World, clientIndex: number) {
