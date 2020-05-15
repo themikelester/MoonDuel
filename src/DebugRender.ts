@@ -18,6 +18,8 @@ interface Primitive {
   vertexBuffer: Gfx.Id;
   depthState: Gfx.Id;
   uniforms: UniformBuffer;
+
+  count: number;
 }
 
 // ----------------------------------------------------------------------------------
@@ -93,13 +95,28 @@ const pointsVs = `
   precision highp float;
 
   attribute vec3 a_pos;
+  attribute vec4 a_color;
 
   uniform mat4 g_viewProj;
 
+  varying lowp vec4 v_color;
+
   void main()
   {
+    v_color = a_color;
+
     gl_Position = g_viewProj * vec4(a_pos, 1.0);
     gl_PointSize = 4.0;
+  }
+`;
+
+const pointsFs = `
+  precision mediump float;
+  varying lowp vec4 v_color;
+
+  void main()
+  {
+    gl_FragColor = v_color;
   }
 `;
 
@@ -220,6 +237,7 @@ export class DebugRenderUtils {
     obbPrim.depthState = depthTestWrite;
     obbPrim.uniforms = new UniformBuffer('ObbUniforms', this.renderer, ObbShader.uniformLayout);
     obbPrim.indexBuffer = unitCubeIdxBuf;
+    obbPrim.count = 0;
 
     this.renderer.setVertexBuffer(obbPrim.vertTable, 0, { buffer: unitCubeVertBuf });
     this.renderer.setBuffer(obbPrim.resources, 0, obbPrim.uniforms.getBufferView());
@@ -262,26 +280,22 @@ export class DebugRenderUtils {
     // Points and Lines
     // ----------------------------------------------------------------------------------
     class PointsShader implements Gfx.ShaderDescriptor {
-      static uniformLayout: Gfx.BufferLayout = {
-        u_color: { offset: 0, type: Gfx.Type.Float4 },
-      };
-
       static resourceLayout = {
-        uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: PointsShader.uniformLayout },
-        globalUniforms: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
+        globalUniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
       };
 
       name = 'Points';
       vertSource = pointsVs;
-      fragSource = colorFs;
+      fragSource = pointsFs;
       resourceLayout = PointsShader.resourceLayout;
     }
 
     const pointsVertLayout: Gfx.VertexLayout = {
       buffers: [{
-        stride: 12,
+        stride: 32,
         layout: {
           a_pos: { offset: 0, type: Gfx.Type.Float3 },
+          a_color: { offset: 16, type: Gfx.Type.Float4 },
         }
       }]
     }
@@ -291,12 +305,11 @@ export class DebugRenderUtils {
     pointsPrim.resources = this.renderer.createResourceTable(PointsShader.resourceLayout);
     pointsPrim.vertTable = this.renderer.createVertexTable(pointsPrim.pipeline);
     pointsPrim.depthState = depthDisabled;
-    pointsPrim.uniforms = new UniformBuffer('PointsUniforms', this.renderer, PointsShader.uniformLayout);
     pointsPrim.vertexBuffer = this.renderer.createBuffer('PointsVerts', Gfx.BufferType.Vertex, Gfx.Usage.Dynamic, kMaxPoints * pointsVertLayout.buffers[0].stride);
+    pointsPrim.count = 0;
 
     this.renderer.setVertexBuffer(pointsPrim.resources, 0, { buffer: pointsPrim.vertexBuffer });
-    this.renderer.setBuffer(pointsPrim.resources, 0, pointsPrim.uniforms.getBufferView());
-    this.renderer.setBuffer(pointsPrim.resources, 1, this.globalUniforms.bufferView);
+    this.renderer.setBuffer(pointsPrim.resources, 0, this.globalUniforms.bufferView);
 
     // ----------------------------------------------------------------------------------
     // Sphere
@@ -413,24 +426,13 @@ export class DebugRenderUtils {
 
     // Encode positions and write to vertex buffer
     for (let i = 0; i < pointPairs.length; i++) {
-      floatScratch.set(pointPairs[i], i * 3);
+      floatScratch.set(pointPairs[i], i * 8 + 0);
+      floatScratch.set(color, i * 8 + 4);
     }
-    this.renderer.writeBufferData(pointsPrim.vertexBuffer, 0, floatScratch.subarray(0, pointPairs.length * 3));
+    this.renderer.writeBufferData(pointsPrim.vertexBuffer, pointsPrim.count * 32, 
+        floatScratch.subarray(0, pointPairs.length * 8));
 
-    // Write uniforms
-    pointsPrim.uniforms.setVec4('u_color', color);
-    pointsPrim.uniforms.write(this.renderer);
-
-    const prim: RenderPrimitive = {
-      renderPipeline: pointsPrim.pipeline,
-      depthMode: pointsPrim.depthState,
-      resourceTable: pointsPrim.resources,
-      vertexTable: pointsPrim.vertTable,
-      type: Gfx.PrimitiveType.Lines,
-      elementCount: pointPairs.length,
-    }
-
-    renderLists.debug.push(prim);
+    pointsPrim.count += pointPairs.length;
   }
 
   // static renderSpheres(this.renderer: Gfx.Renderer, spheres: vec4[], color: vec4) {
@@ -447,4 +449,21 @@ export class DebugRenderUtils {
   //     this.renderer.draw(Gfx.PrimitiveType.Lines, spherePrim.indexBuffer, Gfx.Type.Ushort, 0, 24);
   //   }
   // }
+
+  static flush() {
+    if (pointsPrim.count > 0) {
+      const prim: RenderPrimitive = {
+        renderPipeline: pointsPrim.pipeline,
+        depthMode: pointsPrim.depthState,
+        resourceTable: pointsPrim.resources,
+        vertexTable: pointsPrim.vertTable,
+        type: Gfx.PrimitiveType.Lines,
+        elementCount: pointsPrim.count,
+      }
+      
+      renderLists.debug.push(prim);
+      
+      pointsPrim.count = 0;
+    }
+  }
 }

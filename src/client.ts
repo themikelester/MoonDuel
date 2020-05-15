@@ -159,6 +159,9 @@ export class Client {
         this.avatar.render(this);
         this.weapons.render(this);
         this.debugGrid.render(this);
+        
+        DebugRenderUtils.flush();
+
         this.compositor.render();
     };
 

@@ -22,7 +22,7 @@ const colorScratch = vec4.fromValues(1,0,0,1);
 const scratch3Vec = new Vector3(vec3.create());
 const scratchPoints = new Array(64 * 2).fill(0).map(a => vec3.create());
 
-export function drawSkeleton(skeleton: Skeleton) {
+export function drawSkeleton(skeleton: Skeleton, color: vec4 = colorScratch) {
   const pointPairs: vec3[] = scratchPoints;
   if (!skeleton) return;
 
@@ -39,5 +39,5 @@ export function drawSkeleton(skeleton: Skeleton) {
     }
   }
 
-  DebugRenderUtils.renderLines(pointPairs.slice(0, skeleton.bones.length * 2), colorScratch);
+  DebugRenderUtils.renderLines(pointPairs.slice(0, skeleton.bones.length * 2), color);
 }
