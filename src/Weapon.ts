@@ -14,15 +14,17 @@ import { ResourceManager } from "./resources/ResourceLoading";
 import { Snapshot } from "./Snapshot";
 import { AvatarSystemClient } from "./Avatar";
 
+//#region Weapon
 
 export enum WeaponType {
     None = 0,
     Sword
 };
 
-export class Weapon {
-    model: Model;
+export interface Weapon {
+    type: WeaponType;
     transform: Object3D;
+    model?: Model; // May be undefined while the resources are loading
 }
 
 export class WeaponObject implements GameObject {
@@ -31,21 +33,78 @@ export class WeaponObject implements GameObject {
     parent: number;
 }
 
-const kWeaponFilename = 'data/Tkwn.glb';
+//#endregion
 
-export class Sword extends Weapon {
-    static shader: Gfx.Id;
-    static mesh: Mesh;
-    static resourceLayout: Gfx.ResourceLayout;
-    static matUniformBuf: UniformBuffer;
-    static matTextures: Record<string, Gfx.Id> = {};
-    static meshNode: GltfNode;
+//#region Weapon Blueprints
 
-    model: Model;
-    material: Material;
-    uniforms: UniformBuffer;
+abstract class WeaponBlueprint {
+    abstract loadResources(resources: ResourceManager, gfxDevice: Gfx.Renderer): void;
+    abstract create(gfxDevice: Gfx.Renderer): Weapon;
+}
 
-    static onResourcesLoaded(resource: Resource, gfxDevice: Gfx.Renderer) {
+class EmptyBlueprint extends WeaponBlueprint {
+    loadResources() {}
+    create(): never {
+        throw new Error('Attempted to create an empty weapon');
+    }
+}
+
+class SwordBlueprint extends WeaponBlueprint {
+    static kFilename = 'data/Tkwn.glb';
+
+    shader: Gfx.Id;
+    mesh: Mesh;
+    resourceLayout: Gfx.ResourceLayout;
+    matUniformBuf: UniformBuffer;
+    matTextures: Record<string, Gfx.Id> = {};
+    meshNode: GltfNode;
+
+    readyPromise: Promise<void>;
+    ready = false;
+
+    loadResources(resources: ResourceManager, gfxDevice: Gfx.Renderer) {
+        this.readyPromise = new Promise(resolve => {
+            resources.load(SwordBlueprint.kFilename, 'gltf', (error, resource) => {
+                if (error) { return console.error(`Failed to load resource`, error); }
+                this.onResourcesLoaded(assertDefined(resource), gfxDevice);
+                
+                this.ready = true;
+                resolve();
+            });
+        })
+    }
+
+    create(gfxDevice: Gfx.Renderer): Weapon {
+        const weapon: Weapon = {
+            transform: new Object3D(),
+            type: WeaponType.Sword,  
+        }
+
+        // Asynchronously assign the model once it has been loaded
+        this.readyPromise.then(() => {
+            const material = new Material(gfxDevice, name, this.shader, this.resourceLayout);
+            const model = new Model(gfxDevice, renderLists.opaque, this.mesh, material);
+    
+            // Ignore the parent node, which only centers the model. The current origin is the avatar's grab point.
+            model.updateWorldMatrix(true, false);
+            weapon.transform.add(model); // @HACK: Unnecessary extra hierarchy. Model should not be an Object3D.
+    
+            // Set shared resources
+            Object.keys(this.matTextures).forEach(name => material.setTexture(gfxDevice, name, this.matTextures[name]));
+            material.setUniformBuffer(gfxDevice, 'material', this.matUniformBuf);
+    
+            // Create a new uniform buffer for the per-instance data
+            const bufLayout = (this.resourceLayout['model'] as Gfx.UniformBufferResourceBinding).layout;
+            const uniforms = new UniformBuffer('SwordModelUniforms', gfxDevice, bufLayout);
+            material.setUniformBuffer(gfxDevice, 'model', uniforms);
+
+            weapon.model = model;
+        });
+
+        return weapon;
+    }
+
+    private onResourcesLoaded(resource: Resource, gfxDevice: Gfx.Renderer) {
         const gltf = resource as GltfResource;
 
         const prim = gltf.meshes[0].primitives[0];
@@ -89,7 +148,7 @@ export class Sword extends Weapon {
         }
 
         // This resource layout is shared between all instances
-        Sword.resourceLayout = resourceLayout;
+        this.resourceLayout = resourceLayout;
 
         // Construct a material uniform buffer that can be shared between instances
         this.matUniformBuf = new UniformBuffer(material.name, gfxDevice, matUniLayout);
@@ -116,66 +175,39 @@ export class Sword extends Weapon {
 
         this.matUniformBuf.write(gfxDevice);
     }
-
-    static create(gfxDevice: Gfx.Renderer) {
-        // @TODO: Defer resource creation until onResourceLoaded is called (which triggers callbacks at the end).
-        assertDefined(this.shader);
-
-        const sword = new Sword();
-        sword.material = new Material(gfxDevice, name, this.shader, this.resourceLayout);
-        sword.model = new Model(gfxDevice, renderLists.opaque, this.mesh, sword.material);
-
-        // Ignore the parent node, which only centers the model. The current origin is the avatar's grab point.
-        sword.model.updateWorldMatrix(true, false);
-        sword.transform = sword.model;
-
-        // Set shared resources
-        Object.keys(this.matTextures).forEach(name => sword.material.setTexture(gfxDevice, name, this.matTextures[name]));
-        sword.material.setUniformBuffer(gfxDevice, 'material', this.matUniformBuf);
-
-        // Create a new uniform buffer for the per-instance data
-        const bufLayout = (this.resourceLayout['model'] as Gfx.UniformBufferResourceBinding).layout;
-        sword.uniforms = new UniformBuffer('SwordModelUniforms', gfxDevice, bufLayout);
-        sword.material.setUniformBuffer(gfxDevice, 'model', sword.uniforms);
-
-        return sword;
-    }
-
-    render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera }) {
-        const model = this.model;
-        this.transform.updateWorldMatrix(false, true);
-        const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
-
-        const uniforms = model.material.getUniformBuffer('model');
-        uniforms.setMat4('u_model', matrixWorld);
-        uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
-        uniforms.write(gfxDevice);
-
-        model.renderList.push(model.primitive);
-    }
 }
 
+//#endregion
+
+//#region Weapon System
 export class WeaponSystem {
     gfxDevice: Gfx.Renderer;
+    blueprints: Record<WeaponType, WeaponBlueprint>;
     weapons: Record<number, Weapon> = {};
+
+    constructor() {
+        this.blueprints = {
+            [WeaponType.None]: new EmptyBlueprint(),
+            [WeaponType.Sword]: new SwordBlueprint(),
+        }
+    }
 
     initialize({ resources, gfxDevice }: { resources: ResourceManager, gfxDevice: Gfx.Renderer }) {
         this.gfxDevice = gfxDevice;
+        this.blueprints[WeaponType.Sword].loadResources(resources, gfxDevice);
 
-        resources.load(kWeaponFilename, 'gltf', (error, resource) => {
-            if (error) { return console.error(`Failed to load resource`, error); }
-            Sword.onResourcesLoaded(assertDefined(resource), gfxDevice);
+        // @HACK: Really we should wait until the server adds new entities to the snapshot
+        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+            this.weapons[Snapshot.kAvatarCount + i] = this.blueprints[WeaponType.Sword].create(gfxDevice);
+        }
+    }
 
-            // @HACK: Really we should wait until the server adds new entities to the snapshot
-            for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-                this.weapons[Snapshot.kAvatarCount + i] = Sword.create(gfxDevice);
-            }
-        });
+    updateFixed({}) {
     }
 
     render({ gfxDevice, camera, displaySnapshot, avatar }: { gfxDevice: Gfx.Renderer, camera: Camera, displaySnapshot: Snapshot, avatar: AvatarSystemClient }) {
         const entities = displaySnapshot.entities;
-        
+
         for (const entity of entities) {
             const weapon = this.weapons[entity.id];
             if (!defined(weapon)) continue;
@@ -188,16 +220,20 @@ export class WeaponSystem {
             }
 
             const model = weapon.model;
-            weapon.transform.updateWorldMatrix(false, true);
-
-            const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
-
-            const uniforms = model.material.getUniformBuffer('model');
-            uniforms.setMat4('u_model', matrixWorld);
-            uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
-            uniforms.write(gfxDevice);
-
-            model.renderList.push(model.primitive);
+            if (defined(model)) {
+                weapon.transform.updateWorldMatrix(false, true);
+                
+                const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
+                
+                const uniforms = model.material.getUniformBuffer('model');
+                uniforms.setMat4('u_model', matrixWorld);
+                uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
+                uniforms.write(gfxDevice);
+                
+                model.renderList.push(model.primitive);
+            }
         }
     }
 }
+
+//#endregion
