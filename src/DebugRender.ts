@@ -2,7 +2,7 @@ import { UniformBuffer, computePackedBufferLayout } from './UniformBuffer';
 import * as Gfx from './gfx/GfxTypes';
 import { vec3, vec4, mat4, mat3 } from 'gl-matrix';
 import { GlobalUniforms } from './GlobalUniforms';
-import { defined } from './util';
+import { defined, assert } from './util';
 import { RenderPrimitive } from './RenderPrimitive';
 import { renderLists } from './RenderList';
 
@@ -24,6 +24,14 @@ interface Primitive {
 // Constants
 // ----------------------------------------------------------------------------------
 const kMaxPoints = 32 * 1024;
+const kMaxObbs = 32;
+
+const defaultObbColor = vec4.fromValues(1, 0, 0, 1);
+
+const obbPrim = {} as Primitive;
+const frustumPrim = {} as Primitive;
+const pointsPrim = {} as Primitive;
+const spherePrim = {} as Primitive;
 
 // ----------------------------------------------------------------------------------
 // Scratch
@@ -127,14 +135,6 @@ const colorFs = `
 `;
 
 // ----------------------------------------------------------------------------------
-// Constants / Globals
-// ----------------------------------------------------------------------------------
-const obbPrim = {} as Primitive;
-const frustumPrim = {} as Primitive;
-const pointsPrim = {} as Primitive;
-const spherePrim = {} as Primitive;
-
-// ----------------------------------------------------------------------------------
 // DebugRenderUtils
 // ----------------------------------------------------------------------------------
 export class DebugRenderUtils {
@@ -221,7 +221,6 @@ export class DebugRenderUtils {
     obbPrim.uniforms = new UniformBuffer('ObbUniforms', this.renderer, ObbShader.uniformLayout);
     obbPrim.indexBuffer = unitCubeIdxBuf;
 
-    obbPrim.uniforms.setVec4('u_color', vec4.fromValues(1, 0, 0, 1));
     this.renderer.setVertexBuffer(obbPrim.vertTable, 0, { buffer: unitCubeVertBuf });
     this.renderer.setBuffer(obbPrim.resources, 0, obbPrim.uniforms.getBufferView());
     this.renderer.setBuffer(obbPrim.resources, 1, this.globalUniforms.bufferView);
@@ -333,22 +332,35 @@ export class DebugRenderUtils {
   //   this.renderer.setBuffer(spherePrim.resources, globalUniforms.getBuffer(), 1);
   }
 
-  static renderObbs(obbs: mat4[], drawFaces: boolean) {
+  static renderObbs(obbs: mat4[], drawFaces: boolean = false, color: vec4 = defaultObbColor) {
     if (!defined(obbPrim.pipeline)) this.initialize();
 
-    this.renderer.bindPipeline(obbPrim.pipeline);
-    this.renderer.bindVertices(obbPrim.vertTable);
-    this.renderer.setDepthStencilState(obbPrim.depthState);
+    // @HACK:
+    assert(obbs.length === 1, 'Drawing multiple OBBs not yet supported. (Need to use multiple uniform buffers)');
+
+    obbPrim.uniforms.setVec4('u_color', color);
+
     for (let obb of obbs) {
       const m = mat3.fromMat4(mat3Scratch, obb);
       obbPrim.uniforms.setFloats('u_extents', m);
       obbPrim.uniforms.setVec3('u_center', mat4.getTranslation(vec3Scratch, obb));
-      obbPrim.uniforms.write(this.renderer);
-
-      this.renderer.bindResources(obbPrim.resources);
-      if (drawFaces) this.renderer.draw(Gfx.PrimitiveType.Triangles, obbPrim.indexBuffer, Gfx.Type.Ushort, 24, 36);
-      else this.renderer.draw(Gfx.PrimitiveType.Lines, obbPrim.indexBuffer, Gfx.Type.Ushort, 0, 24);
     }
+
+    obbPrim.uniforms.write(this.renderer);
+
+    const prim: RenderPrimitive = {
+      renderPipeline: obbPrim.pipeline,
+      vertexTable: obbPrim.vertTable,
+      depthMode: obbPrim.depthState,
+      resourceTable: obbPrim.resources,
+
+      indexType: Gfx.Type.Ushort,
+      indexBuffer: { buffer: obbPrim.indexBuffer, byteOffset: drawFaces ? 24 * 2 : 0 },
+      type: drawFaces ? Gfx.PrimitiveType.Triangles : Gfx.PrimitiveType.Lines,
+      elementCount: drawFaces ? 36 : 24,
+    }
+
+    renderLists.debug.push(prim);
   }
 
   // static renderFrustum(this.renderer: Gfx.Renderer, invViewProjRelativeToEye: Matrix4, camPos: vec3) {
