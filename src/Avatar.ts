@@ -188,7 +188,7 @@ export class AvatarSystemClient {
         });
 
         this.animation.initialize(this.avatars);
-        this.renderer.initialize(this.avatars);
+        this.renderer.initialize(this.avatars, game.debugMenu);
     }
 
     onJoined(clientIndex: number) {

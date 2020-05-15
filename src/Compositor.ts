@@ -37,6 +37,7 @@ export class Compositor {
             this.gfxDevice.bindRenderPass(Gfx.kDefaultRenderPass); 
             {                
                 executeRenderList(this.gfxDevice, renderLists.opaque);
+                executeRenderList(this.gfxDevice, renderLists.debug);
             }
         this.gfxDevice.endFrame();
 

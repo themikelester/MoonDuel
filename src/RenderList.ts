@@ -11,4 +11,5 @@ export class RenderList {
 
 export const renderLists: { [name: string]: RenderList } = {
     opaque: new RenderList(CullMode.Back, { depthWriteEnabled: true, depthTestEnabled: true }, { blendingEnabled: false }),
+    debug: new RenderList(CullMode.None, { depthWriteEnabled: false, depthTestEnabled: false }, { blendingEnabled: false }),
 }

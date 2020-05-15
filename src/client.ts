@@ -22,6 +22,7 @@ import { Snapshot } from './Snapshot';
 import { NetClientState } from './net/NetClient';
 import { assertDefined } from './util';
 import { WeaponSystem } from './Weapon';
+import { DebugRenderUtils } from './DebugRender';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -69,6 +70,7 @@ export class Client {
         const success = this.gfxDevice.initialize(this.canvas);
         if (success) this.gfxDevice.resize(this.canvas.width, this.canvas.height);
         else return InitErrorCode.NO_WEBGL_GENERIC;
+        DebugRenderUtils.setContext(this.gfxDevice, this.globalUniforms);
         this.onResize();
 
         // Initialize Modules

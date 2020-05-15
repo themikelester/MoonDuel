@@ -6,10 +6,11 @@ import { renderLists } from "./RenderList";
 import { UniformBuffer, computePackedBufferLayout, BufferPackedLayout } from "./UniformBuffer";
 import { vec4, mat4 } from "gl-matrix";
 import { defaultValue, assertDefined, defined, assert } from "./util";
-import { Skeleton } from "./Skeleton";
+import { Skeleton, drawSkeleton } from "./Skeleton";
 import { Object3D } from "./Object3D";
 import { Camera } from "./Camera";
 import { Avatar } from "./Avatar";
+import { DebugMenu } from "./DebugMenu";
 
 interface AvatarRenderData {
     models: Model[];
@@ -23,7 +24,9 @@ export class AvatarRender {
     private avatars: Avatar[];
     data: AvatarRenderData[] = [];
 
-    initialize(avatars: Avatar[]) {
+    drawSkeleton: boolean = false;
+
+    initialize(avatars: Avatar[], debugMenu: DebugMenu) {
         this.avatars = avatars;
         for (let i = 0; i < avatars.length; i++) {
             this.data[i] = {
@@ -31,6 +34,9 @@ export class AvatarRender {
                 skinnedModels: [],
             }
         }
+        
+        const debug = debugMenu.addFolder('Avatar');
+        debug.add(this, 'drawSkeleton');
     }
 
     onResourcesLoaded(gltf: GltfResource, gfxDevice: Gfx.Renderer) {
@@ -178,6 +184,11 @@ export class AvatarRender {
                 uniforms.write(gfxDevice);
 
                 model.renderList.push(model.primitive);
+            }
+
+            // Debug
+            if (this.drawSkeleton) {
+                drawSkeleton(this.avatars[avatarIdx].skeleton);
             }
         }
     }
