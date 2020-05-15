@@ -964,6 +964,16 @@ export class WebGlRenderer implements Gfx.Renderer {
 
   bindVertices(vertexTableId: Gfx.Id): void {
     const table = this.vertexTables.get(vertexTableId);
+    
+    if (this.debugEnabled) {
+      const shaderName = table.pipeline.shader.name;
+
+      // Ensure that all necessary vertex buffers are set
+      const bufCount = table.pipeline.vertexLayout.buffers.length;
+      for (let i = 0; i < bufCount; i++) {
+        assert(defined(table.buffers[i]), `Shader ${shaderName} expects a vertex buffer bound at slot ${i}`);
+      }
+    }
 
     // Bind Vertex Attributes
     if (this.isGfxFeatureSupported(Gfx.Feature.VertexArrayObject)) 
