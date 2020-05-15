@@ -1,6 +1,6 @@
 import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
-import { NetClient, NetClientEvents } from "./NetClient";
+import { NetClient, NetClientEvents, NetClientState } from "./NetClient";
 import { AvatarSystemServer, AvatarSystemClient } from "../Avatar";
 import { Snapshot } from "../Snapshot";
 import { Clock } from "../Clock";
@@ -143,6 +143,8 @@ export class NetModuleClient {
     }
 
     onVisibility(hidden: boolean) {
+        if (this.client.state !== NetClientState.Active) return;
+        
         this.client.transmitVisibilityChange(!hidden);
 
         // Send reliable messages now while we are still allowed to execute
