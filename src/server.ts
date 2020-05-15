@@ -80,6 +80,7 @@ export class Server {
     }
 
     private update() {
+        this.resources.update();
     }
 
     private onUnload() {
