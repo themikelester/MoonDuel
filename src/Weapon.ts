@@ -13,6 +13,9 @@ import { GameObject, World } from "./World";
 import { ResourceManager } from "./resources/ResourceLoading";
 import { Snapshot } from "./Snapshot";
 import { AvatarSystemClient } from "./Avatar";
+import { DebugRenderUtils } from "./DebugRender";
+
+const scratchMat4 = mat4.create();
 
 //#region Weapon
 
@@ -24,6 +27,7 @@ export enum WeaponType {
 export interface Weapon {
     type: WeaponType;
     transform: Object3D;
+    attackObb: mat4;
     model?: Model; // May be undefined while the resources are loading
 }
 
@@ -38,6 +42,8 @@ export class WeaponObject implements GameObject {
 //#region Weapon Blueprints
 
 abstract class WeaponBlueprint {
+    attackObb: mat4;
+
     abstract loadResources(resources: ResourceManager, gfxDevice: Gfx.Renderer): void;
     abstract create(gfxDevice: Gfx.Renderer): Weapon;
 }
@@ -63,6 +69,15 @@ class SwordBlueprint extends WeaponBlueprint {
     ready = false;
 
     loadResources(resources: ResourceManager, gfxDevice: Gfx.Renderer) {
+
+        // Manually place a conservative OBB for the area of the model that can inflict damage
+        this.attackObb = mat4.fromValues(
+            20, 0, 0, 0,
+            0, 5, 0, 0,
+            0, 0, 90, 0,
+            0, 0, 110, 1
+        );
+
         this.readyPromise = new Promise(resolve => {
             resources.load(SwordBlueprint.kFilename, 'gltf', (error, resource) => {
                 if (error) { return console.error(`Failed to load resource`, error); }
@@ -77,7 +92,8 @@ class SwordBlueprint extends WeaponBlueprint {
     create(gfxDevice: Gfx.Renderer): Weapon {
         const weapon: Weapon = {
             transform: new Object3D(),
-            type: WeaponType.Sword,  
+            type: WeaponType.Sword,
+            attackObb: mat4.clone(this.attackObb),    
         }
 
         // Asynchronously assign the model once it has been loaded
@@ -203,6 +219,14 @@ export class WeaponSystem {
     }
 
     updateFixed({}) {
+        // Orient the weapon attack bounds
+        for (const weaponId in this.weapons) {
+            const weapon = this.weapons[weaponId];
+            const bp = this.blueprints[weapon.type];
+
+            (scratchMat4 as Float32Array).set(weapon.transform.matrixWorld.elements);
+            mat4.multiply(weapon.attackObb, scratchMat4, bp.attackObb);
+        }
     }
 
     render({ gfxDevice, camera, displaySnapshot, avatar }: { gfxDevice: Gfx.Renderer, camera: Camera, displaySnapshot: Snapshot, avatar: AvatarSystemClient }) {
@@ -232,6 +256,8 @@ export class WeaponSystem {
                 
                 model.renderList.push(model.primitive);
             }
+
+            DebugRenderUtils.renderObbs([weapon.attackObb], false, vec4.fromValues(0, 1, 0, 1));
         }
     }
 }

@@ -127,6 +127,8 @@ export class Client {
 
             // @TODO: Avatar prediction
 
+            this.weapons.updateFixed(this);
+
             if (this.net.client.state === NetClientState.Active) {
                 const cmd = assertDefined(this.userCommands.getUserCommand(this.clock.simFrame));
                 this.net.client.transmitClientFrame(this.clock.simFrame, cmd);
