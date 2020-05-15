@@ -15,6 +15,12 @@ Change Log
 * Start in offline mode. Don't wait for connection before becoming playable. This may mean implementing prediction.
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 
+### 2020-05-15
+##### Morning
+Yesterday I didn't work much, but I did fix the DebugMenu settings not persisting between reloads. This was a bug introduced when I switched from main.ts to the client.ts/server.ts architecture. Since the SaveState system was dealing with JSON and wasn't typed, TS didn't catch it. I also fixed a bug which was causing the sword to render as black. The material uniform buffer was never calling `write()`.
+
+Now that sword swinging is networked, I'd like to focus on collision/hit detection until the end of next week. This entails bounding volumes for the sword and avatar (likely a bunch of capsules), collision tests, a system for performing the hit tests (probably each avatar checks for hits with its own weapon), a hit event (a reliable net message), more state for the avatar, and reaction logic when the avatar gets hit. For now I may just knock them down, we can handle death and respawning later.  
+
 ### 2020-05-13
 ##### Morning
 Today I'm going to implement an attacking animation, and network it. I'll need key/mouse mappings for horizontal and vertical attack (probably just do horizontal today, vertical if I have time). I'm thinking Q and E, left and right mouse, second touch horizontal and vertical swipes (for keyboard/mouse/mobile respectively). Avatar state will also need new fields for attack start time and type. When the server receives a user command with one of the attack actions active, it updates the avatar's object in the World by setting the attack time and type. When the client receives the new snapshot, AvatarAnimation will play and mix the animation with walking/running based on the start time. AvatarController will need to change to handle the attacking state. Max speed would slow down significantly.
