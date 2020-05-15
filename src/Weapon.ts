@@ -32,6 +32,7 @@ export interface Weapon {
 }
 
 export class WeaponObject implements GameObject {
+    type: WeaponType;
     origin: vec3 = vec3.create();
     orientation: vec3 = vec3.create();
     parent: number;
@@ -236,13 +237,6 @@ export class WeaponSystem {
             const weapon = this.weapons[entity.id];
             if (!defined(weapon)) continue;
 
-            // @HACK: Nasty coupling
-            if (defined(entity.parent)) {
-                assert(entity.parent < Snapshot.kAvatarCount);
-                const avatarIdx = entity.parent;
-                avatar.equipWeapon(avatarIdx, weapon);
-            }
-
             const model = weapon.model;
             if (defined(model)) {
                 weapon.transform.updateWorldMatrix(false, true);
@@ -259,6 +253,10 @@ export class WeaponSystem {
 
             DebugRenderUtils.renderObbs([weapon.attackObb], false, vec4.fromValues(0, 1, 0, 1));
         }
+    }
+    
+    getById(id: number) {
+        return this.weapons[id];
     }
 }
 

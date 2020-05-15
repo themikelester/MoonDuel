@@ -17,7 +17,7 @@ import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Buf } from "./Buf";
-import { Weapon, Sword, WeaponObject } from "./Weapon";
+import { Weapon, WeaponObject, WeaponSystem } from "./Weapon";
 import { World } from "./World";
 
 interface ServerDependencies {
@@ -34,6 +34,7 @@ interface ClientDependencies {
     debugMenu: DebugMenu;
     resources: ResourceManager;
     clock: Clock;
+    weapons: WeaponSystem;
 
     gfxDevice: Renderer;
     camera: Camera;
@@ -236,6 +237,17 @@ export class AvatarSystemClient {
 
             avatar.active = !!(state.flags & AvatarFlags.IsActive);
 
+            // @HACK: Equip the weapon once our joints have loaded
+            if (avatar.active && avatar.nodes) {
+                if (state.weapon && !defined(avatar.weapon)) {
+                    const weapon = game.weapons.getById(state.weapon);
+                    avatar.weapon = weapon;
+
+                    const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+                    joint.add(weapon.transform);
+                }
+            }
+
             const pos = new Vector3(state.origin);
             avatar.position.copy(pos);
             avatar.lookAt(
@@ -257,17 +269,6 @@ export class AvatarSystemClient {
 
     render(game: ClientDependencies) {
         this.renderer.render(game.gfxDevice, game.camera);
-    }
-    
-    equipWeapon(avatarIndex: number, weapon: Weapon) {
-        const avatar = this.avatars[avatarIndex];
-        if (avatar.weapon !== weapon) {
-            setTimeout(() => {
-                const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
-                joint.add(weapon.transform);
-                avatar.weapon = weapon;
-            }, 500);
-        }
     }
 }
 
