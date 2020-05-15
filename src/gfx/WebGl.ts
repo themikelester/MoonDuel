@@ -1105,13 +1105,13 @@ export class WebGlRenderer implements Gfx.Renderer {
       for (let i = 0; i < reflection.uniforms.length; i++) {
         const uniform = reflection.uniforms[i];
         const binding = resourceList.find(l => !isTextureResourceBinding(l) && l.layout && l.layout[uniform.name]) as Gfx.UniformBufferResourceBinding;
-        assert(binding !== undefined, `Shader '${name}' expects uniform '${uniform.name}' to be set in a uniform buffer`);
+        assert(binding !== undefined, `Shader '${shader.name}' expects uniform '${uniform.name}' to be set in a uniform buffer`);
         const type = binding.layout[uniform.name].type;
-        assert(type === uniform.type, `Shader '${name}' expects uniform '${uniform.name}' to be type ${uniform.type} but the ShaderResourceLayout specifies type ${type}`);
+        assert(type === uniform.type, `Shader '${shader.name}' expects uniform '${uniform.name}' to be type ${uniform.type} but the ShaderResourceLayout specifies type ${type}`);
         if (uniform.count > 1) {
           const count = binding.layout[uniform.name].count;
-          assert(count !== undefined, `Shader '${name}' expects uniform '${uniform.name}' to be an array but the ShaderResourceLayout specifies a scalar value`);
-          assert(count! >= uniform.count, `Shader '${name}' expects uniform '${uniform.name}' to be an array of length ${uniform.count} but the ShaderResourceLayout specifies a length of ${count}`);
+          assert(count !== undefined, `Shader '${shader.name}' expects uniform '${uniform.name}' to be an array but the ShaderResourceLayout specifies a scalar value`);
+          assert(count! >= uniform.count, `Shader '${shader.name}' expects uniform '${uniform.name}' to be an array of length ${uniform.count} but the ShaderResourceLayout specifies a length of ${count}`);
         }
       }
 
@@ -1120,8 +1120,8 @@ export class WebGlRenderer implements Gfx.Renderer {
       for (let i = 0; i < reflection.textureArray.length; i++) {
         const uniRefl = reflection.textureArray[i];
         const binding = resourceList.find((l, i) => isTextureResourceBinding(l) && resourceNames[i] === uniRefl.name) as Gfx.TextureResourceBinding;
-        assert(binding !== undefined, `Shader '${name}' expects texture '${uniRefl.name}', but it is not defined in the ShaderResourceLayout`);
-        assert((binding.count || 1) === uniRefl.count, `Shader '${name}' expects texture '${uniRefl.name}' to be an array of length ${uniRefl.count}, but the ResourceLayout specifies length ${binding.count}`);
+        assert(binding !== undefined, `Shader '${shader.name}' expects texture '${uniRefl.name}', but it is not defined in the ShaderResourceLayout`);
+        assert((binding.count || 1) === uniRefl.count, `Shader '${shader.name}' expects texture '${uniRefl.name}' to be an array of length ${uniRefl.count}, but the ResourceLayout specifies length ${binding.count}`);
       }
 
       // Ensure the vertexLayout supplies all Attributes required by the Shader
