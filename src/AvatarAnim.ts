@@ -207,6 +207,7 @@ export class AvatarAnim {
                 data.startingFoot = (data.startingFoot + 1) % 2;
             }
 
+            // @TODO: Sync animation mixer to server time (Otherwise all the animations are off)
             avatar.animationMixer.update(dtSec);            
 
             avatar.updateMatrixWorld();
