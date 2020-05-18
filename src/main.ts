@@ -16,6 +16,14 @@ declare global {
     }
 }
 
+/**
+ * All accepted URL parameters are documented here. 
+ * E.g. The URL 'moonduel.io?debug' will show the debug menu
+ */
+const kUrlParameters: Record<string, (client: Client, value: any) => void> = {
+    'debug': (client: Client) => client.debugMenu.show(),
+}
+
 // @HACK
 window.config = {
     kSignalServerAddress: IS_DEVELOPMENT ? 'localhost:8888' : '3.23.86.226:8888',
@@ -25,6 +33,14 @@ async function Main() {
     // Start loading and running the client
     const client = new Client();
     window.client = client;
+
+    // Parse and apply URL parameters
+    // See kUrlParameters for potential values
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.forEach((value: string, key: string) => {
+        const func = kUrlParameters[key];
+        if (func) func(client, value);
+    });
 
     // @HACK
     // Begin connecting to the requested room
