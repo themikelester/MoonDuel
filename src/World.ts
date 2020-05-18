@@ -225,7 +225,7 @@ export function allocEntity(): EntityState {
   return e;
 }
 
-export function createEntity(): EntityState {
+function createEntity(): EntityState {
   return {
     id: -1,
     type: -1,

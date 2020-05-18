@@ -23,6 +23,11 @@ It would also be a good idea to do determinism checks using NetObjects. This can
 
 But as for now, I'm going to work on assigning collision bounding volumes to the Avatar. Once that's in and available on both server and client, I can have the server perform collision testing for weapons. If a hit is detected, perhaps a new type of net message is warranted.
 
+#### Evening 
+Whelp, I decided to do the NetObject (which is now called EntityState) change first. The server does not currently have a weapon system, and this architecture change would be a large part of adding support for weapon->avatar collision. I've removed the Snapshot system and created the idea of a SimStream, which stores an array of SimStates (similar to a Snapshot). This is the NetObject system detailed above. Each frame the systems create new EntityState objects and push them to the current SimState. At the end of the frame this SimState is sent over the network. During render the interpolated SimState is drawn. 
+
+Weapons are currently disabled because I do not yet support handling new entities (EntityStates that were not in the last SimState, but are in the current). My plan is to have systems include link/unlinkEntity(). When a new SimState is added to the stream, the systems get notified of newly created entities, and of entities being removed by any SimStates that are being removed from the stream. That's the plan for tomorrow.
+
 ### 2020-05-15
 ##### Morning
 Yesterday I didn't work much, but I did fix the DebugMenu settings not persisting between reloads. This was a bug introduced when I switched from main.ts to the client.ts/server.ts architecture. Since the SaveState system was dealing with JSON and wasn't typed, TS didn't catch it. I also fixed a bug which was causing the sword to render as black. The material uniform buffer was never calling `write()`.
