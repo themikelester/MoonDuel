@@ -100,7 +100,7 @@ export class NetModuleClient {
         const kTargetClientFrameDiff = 3; // Try to keep 3 frames buffered on the client for 2 frames of packet loss protection
         const kClientSlidingAverageWeight = 0.9; // Lower numbers will give recent values more weight in the average 
         const kMaxRenderDelay = 250 // Maximum delay from serverTime (in ms)
-        const kRenderDelayAdjustPeriod = 10000 // Minimum time to wait before adjusting renderTime again
+        const kRenderDelayAdjustPeriod = 3000 // Minimum time to wait before adjusting renderTime again
         const kMinAdjustment = this.context.clock.simDt * 1; // Don't make any adjustments to renderDelay smaller than this
 
         // If a frame arrives late, it also means that we have not received any subsequent frames 
