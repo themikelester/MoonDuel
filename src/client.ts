@@ -17,12 +17,11 @@ import { NetModuleClient } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
 import { StateManager } from './SaveState';
 import { UserCommandBuffer } from './UserCommand';
-import { SignalSocket } from './net/SignalSocket';
-import { Snapshot } from './Snapshot';
 import { NetClientState } from './net/NetClient';
 import { assertDefined } from './util';
 import { WeaponSystem } from './Weapon';
 import { DebugRenderUtils } from './DebugRender';
+import { SimState } from './World';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -35,7 +34,7 @@ export class Client {
 
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
-    public displaySnapshot: Snapshot = new Snapshot();
+    public displayFrame: SimState = { frame: -1, entities: [] };
 
     public debugMenu: DebugMenu = new DebugMenu();
 
@@ -139,8 +138,8 @@ export class Client {
     private update() {
         // Interpolate the latest world state for rendering
         if (this.net.client.state === NetClientState.Active) {
-            let displaySnapshotTime = this.clock.renderTime / this.clock.simDt;
-            const valid = this.net.client.getSnapshot(displaySnapshotTime, this.displaySnapshot);
+            let displayFrameTime = this.clock.renderTime / this.clock.simDt;
+            const valid = this.net.client.getSimState(displayFrameTime, this.displayFrame);
         } else {
             // @HACK
             // this.displaySnapshot = baselineSnapshot;

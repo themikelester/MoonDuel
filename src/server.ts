@@ -6,11 +6,10 @@ import { AvatarSystemServer } from './Avatar';
 import { Clock } from './Clock';
 import { NetModuleServer } from './net/NetModule';
 import { ResourceManager } from './resources/ResourceLoading';
-import { SnapshotManager, Snapshot } from './Snapshot';
 import { UserCommandBuffer } from './UserCommand';
 import { SignalSocket, SignalSocketEvents, ClientId } from './net/SignalSocket';
 import { DebugMenu } from './DebugMenu';
-import { World } from './World';
+import { SimStream } from './World';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -18,14 +17,13 @@ export const enum InitErrorCode {
 
 export class Server {
     public debugMenu: DebugMenu = new DebugMenu();
-    public world = new World();
+    public simStream = new SimStream();
 
     // Modules
     public avatar = new AvatarSystemServer();
     public clock = new Clock();
     public net = new NetModuleServer();
     public resources = new ResourceManager();
-    public snapshot = new SnapshotManager();
     public userCommands = new UserCommandBuffer();
     
     constructor() {
@@ -70,10 +68,11 @@ export class Server {
         let tickCount = 0;
         while (this.clock.updateFixed()) {
             tickCount += 1;
+
+            this.simStream.createState(this.clock.simFrame);
+
             this.avatar.updateFixed(this);
-            const snap = this.snapshot.createSnapshot(this);
-            this.snapshot.setSnapshot(snap);
-            this.net.transmitToClients(snap);
+            this.net.transmitToClients(this.clock.simFrame);
         }
 
         if (tickCount !== 1) { console.warn('[Server] Uneven fixed frame tick:', tickCount); }

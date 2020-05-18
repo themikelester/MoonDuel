@@ -4,11 +4,11 @@ import { WebUdpSocket, WebUdpEvent } from "./WebUdp";
 import { UserCommandBuffer, UserCommand, kEmptyCommand } from "../UserCommand";
 import { EventDispatcher } from "../EventDispatcher";
 import { ClientId } from "./SignalSocket";
-import { SnapshotManager, Snapshot } from "../Snapshot";
 import { NetGraphPacketStatus, NetGraphPanel, NetClientStats, NetClientStat } from "./NetDebug";
 import { Buf } from "../Buf";
 import { clamp, lerp } from "../MathHelpers";
 import { Clock } from "../Clock";
+import { SimStream, serializeSimState, deserializeSimState, SimState } from "../World";
 
 export enum NetClientState {
     Free, 
@@ -114,7 +114,7 @@ export class NetClient extends EventDispatcher {
     stats: NetClientStats = new NetClientStats();
     get ping() { return this.stats.minMaxAve[NetClientStat.Ping][2]; }
 
-    private snapshot: SnapshotManager = new SnapshotManager();
+    private simStream: SimStream;
     private userCommands: UserCommandBuffer = new UserCommandBuffer();
     
     private fastestAck?: AckInfo;
@@ -181,6 +181,10 @@ export class NetClient extends EventDispatcher {
 
     setNetGraphPanel(graphPanel: NetGraphPanel) {
         this.graphPanel = graphPanel;
+    }
+
+    setSimStream(simStream: SimStream) {
+        this.simStream = simStream;
     }
 
     /**
@@ -282,9 +286,8 @@ export class NetClient extends EventDispatcher {
         this.lastReceivedTime = receiveTime;
     }
 
-    transmitServerFrame(snap: Snapshot) {
-        // Buffer the state so that we can delta-compare later
-        this.snapshot.setSnapshot(snap);
+    transmitServerFrame(frame: number) {
+        const simFrame = this.simStream.getState(frame);
 
         // Let the client know how many frames ahead (or behind) it is
         const frameDiff = this.lastReceivedFrame - this.lastRequestedFrame;
@@ -292,7 +295,7 @@ export class NetClient extends EventDispatcher {
         const buf = this.channel.allocatePacket();
 
         // Write any reliable messages
-        const reliableMsg = this.reliable.getMessageForTransmission(snap.frame);
+        const reliableMsg = this.reliable.getMessageForTransmission(frame);
         if (reliableMsg) buf.write(reliableMsg);
 
         // Pass the frameDiff as a signed 4-bit in the upper nibble of the idByte
@@ -310,15 +313,15 @@ export class NetClient extends EventDispatcher {
         // Current server time is computed as `frame * simDt + framePhase + frameCompTime`
         const currentTime = this.clock.getCurrentServerTime();
         const frameCompTime = currentTime - this.clock.serverTime;
-        const framePhase = this.clock.serverTime - this.clock.simDt * snap.frame;
+        const framePhase = this.clock.serverTime - this.clock.simDt * frame;
         Buf.writeByte(buf, clamp(Math.round(framePhase / this.clock.simDt * 255), 0, 255));
         Buf.writeByte(buf, clamp(Math.round(frameCompTime / this.clock.simDt * 255), 0, 255));
     
         // Send the latest state
-        Snapshot.serialize(buf, snap);
+        serializeSimState(buf, simFrame);
 
-        this.channel.send(buf, snap.frame);
-        this.lastTransmittedFrame = snap.frame;
+        this.channel.send(buf, frame);
+        this.lastTransmittedFrame = frame;
 
         this.channel.computeStats(this.stats);
     }
@@ -334,18 +337,20 @@ export class NetClient extends EventDispatcher {
 
         const serverPhase = Buf.readByte(msg) / 255 * this.clock.simDt;
         const compTime = Buf.readByte(msg) / 255 * this.clock.simDt;
+        
+        // @HACK
+        const frame = Buf.peekInt(msg);
 
-        const snap = new Snapshot();
-        Snapshot.deserialize(msg, snap);
-        this.snapshot.setSnapshot(snap);
+        const simState = this.simStream.createState(frame);
+        deserializeSimState(msg, simState);
 
-        this.lastReceivedFrame = snap.frame;
+        this.lastReceivedFrame = simState.frame;
 
         // Compute server time based on the packet with the lowest RTT, which should yield the most accurate result
         if (ping && (!this.fastestAck || latestAck.rttTime < this.fastestAck.rttTime)) {
             this.fastestAck = latestAck;
 
-            const serverTimeFromPacket = snap.frame * this.clock.simDt + serverPhase + compTime;
+            const serverTimeFromPacket = simState.frame * this.clock.simDt + serverPhase + compTime;
             const serverTime = serverTimeFromPacket + ping * 0.5;
             this.fire(NetClientEvents.ServerTimeAdjust, serverTime);
         }
@@ -355,15 +360,15 @@ export class NetClient extends EventDispatcher {
         if (this.graphPanel) {
             // Mark non-received frames between the last requested and now as filled
             // @NOTE: If they come later (but before they're requested) they can still mark themselves as received
-            for (let i = this.lastRequestedFrame + 1; i < snap.frame; i++) {
-                if (!this.snapshot.hasSnapshot(i)) this.graphPanel.setPacketStatus(i, NetGraphPacketStatus.Filled);
+            for (let i = this.lastRequestedFrame + 1; i < simState.frame; i++) {
+                if (!this.simStream.hasState(i)) this.graphPanel.setPacketStatus(i, NetGraphPacketStatus.Filled);
             }
 
-            const status = (snap.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
-            this.graphPanel.setPacketStatus(snap.frame, status);
+            const status = (simState.frame <= this.lastRequestedFrame) ? NetGraphPacketStatus.Late : NetGraphPacketStatus.Received;
+            this.graphPanel.setPacketStatus(simState.frame, status);
         }
         
-        this.fire(NetClientEvents.ReceiveServerFrame, frameDiff, snap);
+        this.fire(NetClientEvents.ReceiveServerFrame, frameDiff, simState);
     }
     
     transmitConnectionInfo(clientIndex: number) {
@@ -400,9 +405,9 @@ export class NetClient extends EventDispatcher {
         }
     }
 
-    getSnapshot(frame: number, dst: Snapshot) {
+    getSimState(frame: number, dst: SimState) {
         this.lastRequestedFrame = Math.ceil(frame);
-        return this.snapshot.lerpSnapshot(frame, dst);
+        return this.simStream.lerpState(frame, dst);
     }
 
     getUserCommand(frame: number) {

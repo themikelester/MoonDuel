@@ -2,14 +2,13 @@ import { SignalSocket, ClientId } from "./SignalSocket";
 import { WebUdpSocket, WebUdpSocketFactory } from "./WebUdp";
 import { NetClient, NetClientEvents, NetClientState } from "./NetClient";
 import { AvatarSystemServer, AvatarSystemClient } from "../Avatar";
-import { Snapshot } from "../Snapshot";
 import { Clock } from "../Clock";
 import { assert, defined, arrayRemove } from "../util";
 
 import { NetGraph } from './NetDebug';
 import { DebugMenu } from "../DebugMenu";
 import { lerp, clamp } from "../MathHelpers";
-import { World } from "../World";
+import { SimStream, SimState } from "../World";
 
 interface ClientDependencies {
     clock: Clock;
@@ -21,7 +20,7 @@ interface ClientDependencies {
 interface ServerDependencies {
     avatar: AvatarSystemServer;
     clock: Clock;
-    world: World;
+    simStream: SimStream;
 }
 
 export class NetModuleClient {
@@ -46,6 +45,7 @@ export class NetModuleClient {
         const clock = this.context.clock;
 
         this.client = new NetClient(context.clock);
+        this.client.setSimStream(new SimStream());
 
         const debugMenu = this.context.debugMenu.addFolder('Net');
         debugMenu.add(this, 'clientAhead', 0, 1000, 16).onChange(() => clock.setClientDelay(-this.clientAhead));
@@ -82,7 +82,7 @@ export class NetModuleClient {
         this.context.avatar.onJoined(this.client.clientIndex);
     }
     
-    onServerFrame(frameDiff: number, snap: Snapshot) {
+    onServerFrame(frameDiff: number, simState: SimState) {
         // @TODO: I think this should be in NetClient
         this.averageServerFrameDiff = lerp(frameDiff, this.averageServerFrameDiff, 0.95);
 
@@ -108,7 +108,7 @@ export class NetModuleClient {
         // wasn't dropped, but the transit time from the server may have increased. If we see 
         // frames consistently coming late (or early) then we consider the transit time changed
         // and adjust the render delay. 
-        const clientFrameDiff = (snap.frame - this.client.lastRequestedFrame);
+        const clientFrameDiff = (simState.frame - this.client.lastRequestedFrame);
         this.averageClientFrameDiff = lerp(clientFrameDiff, this.averageClientFrameDiff, kClientSlidingAverageWeight);
 
         // If a frame arrives after we needed it (it's late by more than kTargetClientFrameDiff, i.e. super late),
@@ -207,6 +207,7 @@ export class NetModuleServer {
         const listener = new WebUdpSocketFactory(signalSocket);
         await listener.listen(async (socket: WebUdpSocket) => {
             const client = new NetClient(this.context.clock);
+            client.setSimStream(this.context.simStream);
             client.on(NetClientEvents.Connected, this.onClientConnected.bind(this, client));
             client.on(NetClientEvents.Disconnected, this.onClientDisconnected.bind(this, client));
             client.accept(socket);
@@ -223,23 +224,23 @@ export class NetModuleServer {
 
     onClientConnected(client: NetClient) {
         console.log('Client connected:', client);
-        this.context.avatar.addAvatar(this.context.world, client.clientIndex);
+        this.context.avatar.addAvatar(client.clientIndex);
 
         if (this.graph) client.setNetGraphPanel(this.graph.addPanel(`Server: ${client.id}`));
     }
 
     onClientDisconnected(client: NetClient) {
         console.log('Client disconnected:', client);
-        this.context.avatar.removeAvatar(this.context.world, client.clientIndex);
+        this.context.avatar.removeAvatar(client.clientIndex);
         const idx = this.clients.indexOf(client);
         this.clients[idx] = null;
 
         if (client.graphPanel) { this.graph?.removePanel(client.graphPanel); }
     }
 
-    transmitToClients(snap: Snapshot) {
+    transmitToClients(frame: number) {
         for (const client of this.clients) {
-            if (client) client.transmitServerFrame(snap);
+            if (client) client.transmitServerFrame(frame);
         }
     }
 

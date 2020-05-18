@@ -7,26 +7,22 @@ import { Camera } from "./Camera";
 import { Object3D, Matrix4, Vector3 } from "./Object3D";
 import { AnimationMixer } from "./Animation";
 import { GltfResource, GltfNode } from "./resources/Gltf";
-import { assertDefined, assert, defined } from "./util";
-import { Skeleton, Bone, drawSkeleton } from "./Skeleton";
+import { assertDefined, defined, defaultValue, assert } from "./util";
+import { Skeleton, Bone } from "./Skeleton";
 import { AvatarAnim } from "./AvatarAnim";
-import { vec3, mat4, vec4 } from "gl-matrix";
-import { SnapshotManager, Snapshot } from "./Snapshot";
-import { UserCommandBuffer } from "./UserCommand";
 import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
-import { Buf } from "./Buf";
-import { Weapon, WeaponObject, WeaponSystem } from "./Weapon";
-import { World } from "./World";
+import { Weapon, WeaponSystem } from "./Weapon";
+import { SimStream, SimState, EntityState, allocEntity } from "./World";
+import { vec3 } from "gl-matrix";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
     resources: ResourceManager;
     clock: Clock;
-    world: World;
+    simStream: SimStream;
 
-    snapshot: SnapshotManager;
     net: NetModuleServer;
 }
 
@@ -35,10 +31,10 @@ interface ClientDependencies {
     resources: ResourceManager;
     clock: Clock;
     weapons: WeaponSystem;
-
+    
+    displayFrame: SimState;
     gfxDevice: Renderer;
     camera: Camera;
-    displaySnapshot: Snapshot;
 }
 
 export class Avatar extends Object3D {
@@ -65,102 +61,8 @@ export enum AvatarAttackType {
     Throw
 }
 
-export class AvatarState {
-    origin: vec3 = vec3.create();
-    velocity: vec3 = vec3.create();
-    orientation: vec3 = vec3.fromValues(0, 0, 1);
-    flags: AvatarFlags = 0;
-    
-    weapon: number;
-    attackStartFrame: number;
-    attackType: AvatarAttackType; 
-
-    constructor(isActive: boolean = false) {
-        AvatarState.clear(this);
-        this.flags = isActive ? AvatarFlags.IsActive : 0;
-    }
-
-    static clear(state: AvatarState) {
-        vec3.zero(state.origin);
-        vec3.zero(state.velocity);
-        vec3.set(state.orientation, 0, 0, 1);
-        state.flags = 0;
-        state.weapon = -1;
-        state.attackStartFrame = 0;
-        state.attackType = AvatarAttackType.None;
-    }
-
-    static lerp(result: AvatarState, a: AvatarState, b: AvatarState, t: number) {
-        vec3.lerp(result.origin, a.origin, b.origin, t);
-        vec3.lerp(result.velocity, a.velocity, b.velocity, t);
-        vec3.lerp(result.orientation, a.orientation, b.orientation, t);
-        result.flags = a.flags & b.flags;
-        result.weapon = b.weapon;
-        
-        // Attacks must be separated by at least one frame where attackType is None, and attackTime is 0
-        // This means that we can always safely take the max for both time and type
-        const timeDiff = a.attackStartFrame - b.attackStartFrame;
-        const maxTime = Math.max(a.attackStartFrame, b.attackStartFrame);
-        const maxType = Math.max(a.attackType, b.attackType);
-
-        assert(timeDiff === 0 || Math.abs(timeDiff) === maxTime);
-        result.attackStartFrame = maxTime;
-        result.attackType = maxType;
-    }
-
-    static copy(result: AvatarState, a: AvatarState) {
-        vec3.copy(result.origin, a.origin);
-        vec3.copy(result.velocity, a.velocity);
-        vec3.copy(result.orientation, a.orientation);
-        result.flags = a.flags;
-        result.weapon = a.weapon;
-        result.attackStartFrame = a.attackStartFrame;
-        result.attackType = a.attackType;
-    }
-
-    static serialize(buf: Buf, state: AvatarState) {
-        Buf.writeFloat(buf, state.origin[0]);
-        Buf.writeFloat(buf, state.origin[1]);
-        Buf.writeFloat(buf, state.origin[2]);
-        
-        Buf.writeFloat(buf, state.velocity[0]);
-        Buf.writeFloat(buf, state.velocity[1]);
-        Buf.writeFloat(buf, state.velocity[2]);
-
-        Buf.writeFloat(buf, state.orientation[0]);
-        Buf.writeFloat(buf, state.orientation[1]);
-        Buf.writeFloat(buf, state.orientation[2]);
-
-        Buf.writeByte(buf, state.flags);
-        Buf.writeShort(buf, state.weapon);
-
-        // @TODO: This should be a byte which is a delta from the current frame
-        Buf.writeInt(buf, state.attackStartFrame);
-        Buf.writeByte(buf, state.attackType);
-    }
-    
-    static deserialize(buf: Buf, state: AvatarState) {
-        state.origin[0] = Buf.readFloat(buf);
-        state.origin[1] = Buf.readFloat(buf);
-        state.origin[2] = Buf.readFloat(buf);
-        
-        state.velocity[0] = Buf.readFloat(buf);
-        state.velocity[1] = Buf.readFloat(buf);
-        state.velocity[2] = Buf.readFloat(buf);
-
-        state.orientation[0] = Buf.readFloat(buf);
-        state.orientation[1] = Buf.readFloat(buf);
-        state.orientation[2] = Buf.readFloat(buf);
-
-        state.flags = Buf.readByte(buf);
-        state.weapon = Buf.readShort(buf);
-
-        state.attackStartFrame = Buf.readInt(buf);
-        state.attackType = Buf.readByte(buf);
-    }
-}
-
 const kGltfFilename = 'data/Tn.glb';
+const kAvatarCount = 8;
 
 export class AvatarSystemClient {
     public localAvatar: Avatar; // @HACK:
@@ -173,7 +75,7 @@ export class AvatarSystemClient {
     private renderer: AvatarRender = new AvatarRender();
 
     constructor() {
-        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+        for (let i = 0; i < kAvatarCount; i++) {
             this.avatars[i] = new Avatar();
             this.controllers[i] = new AvatarController();
         }
@@ -229,24 +131,25 @@ export class AvatarSystemClient {
     }
 
     update(game: ClientDependencies) {
-        const states = game.displaySnapshot.avatars;
+        const states = game.displayFrame.entities;
+        if (states.length < kAvatarCount) return;
 
-        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+        for (let i = 0; i < kAvatarCount; i++) {
             const avatar = this.avatars[i];
             const state = states[i];
 
             avatar.active = !!(state.flags & AvatarFlags.IsActive);
 
             // @HACK: Equip the weapon once our joints have loaded
-            if (avatar.active && avatar.nodes) {
-                if (state.weapon && !defined(avatar.weapon)) {
-                    const weapon = game.weapons.getById(state.weapon);
-                    avatar.weapon = weapon;
+            // if (avatar.active && avatar.nodes) {
+            //     if (state.weapon && !defined(avatar.weapon)) {
+            //         const weapon = game.weapons.getById(state.weapon);
+            //         avatar.weapon = weapon;
 
-                    const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
-                    joint.add(weapon.transform);
-                }
-            }
+            //         const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+            //         joint.add(weapon.transform);
+            //     }
+            // }
 
             const pos = new Vector3(state.origin);
             avatar.position.copy(pos);
@@ -279,26 +182,30 @@ export class AvatarSystemServer {
     private gltf: GltfResource;
     private animation = new AvatarAnim();
 
+    private avatarBaselines: EntityState[] = [];
+
     constructor() {
-        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+        for (let i = 0; i < kAvatarCount; i++) {
             this.avatars[i] = new Avatar();
             this.controllers[i] = new AvatarController();
         }
     }
 
     initialize(game: ServerDependencies) {
-        // Create GameObjects for each possible client
-        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            const id = game.world.add(new AvatarState());
-            assert(id === i);
-        }
-
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
             this.gltf = resource as GltfResource;
             this.onResourcesLoaded(game);
         });
+
+        for (let i = 0; i < kAvatarCount; i++) {
+            const baseline = allocEntity();
+            assert(baseline.id === i);
+            baseline.type = 0;
+            vec3.set(baseline.orientation, 0, 0, 1);
+            this.avatarBaselines[i] = baseline;
+        }
 
         this.animation.initialize(this.avatars);
     }
@@ -336,7 +243,7 @@ export class AvatarSystemServer {
     update(game: ServerDependencies) {
         // const states = game.displaySnapshot.avatars;
 
-        // for (let i = 0; i < Snapshot.kAvatarCount; i++) {
+        // for (let i = 0; i < kAvatarCount; i++) {
         //     const avatar = this.avatars[i];
         //     const state = states[i];
 
@@ -358,60 +265,66 @@ export class AvatarSystemServer {
     }
 
     updateFixed(game: ServerDependencies) {
-        const states = game.world.objects.slice(0, Snapshot.kAvatarCount).map(e => e.data as AvatarState);
+        const prevFrame = game.simStream.getState(game.clock.simFrame-1);
+        const nextFrame = game.simStream.getState(game.clock.simFrame);
         
-        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            const state = states[i];
+        for (let i = 0; i < kAvatarCount; i++) {
             const avatar = this.avatars[i];
-
-            avatar.active = !!(state.flags & AvatarFlags.IsActive);
-            if (!(state.flags & AvatarFlags.IsActive)) continue;
-
-            const pos = new Vector3(state.origin);
-            avatar.position.copy(pos);
-            avatar.lookAt(
-                state.origin[0] + state.orientation[0],
-                state.origin[1] + state.orientation[1],
-                state.origin[2] + state.orientation[2],
-            )
-
-            avatar.updateMatrix();
-            avatar.updateMatrixWorld();
-
             const client = game.net.clients[i];
-            if (client && client.state === NetClientState.Active) {
+            const state = defaultValue(prevFrame.entities[i], this.avatarBaselines[i]);
+            
+            state.flags = avatar.active ? (state.flags | AvatarFlags.IsActive) : state.flags & ~AvatarFlags.IsActive;
+
+            let nextState = state;
+            
+            if (avatar.active && client && client.state === NetClientState.Active) {
+                const pos = new Vector3(state.origin);
+                avatar.position.copy(pos);
+                avatar.lookAt(
+                    state.origin[0] + state.orientation[0],
+                    state.origin[1] + state.orientation[1],
+                    state.origin[2] + state.orientation[2],
+                )
+    
+                avatar.updateMatrix();
+                avatar.updateMatrixWorld();
+    
                 const inputCmd = client.getUserCommand(game.clock.simFrame);
                 const dtSec = game.clock.simDt / 1000.0;
         
-                const newState = this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
-                Object.assign(state, newState);
+                nextState = this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
+            } else {
+                nextState = this.avatarBaselines[i];
             }
+
+            nextFrame.entities.push(nextState);
+
+            assert(nextFrame.entities[i].id === i);
         }
 
-        this.animation.update(states, game.clock);
+        this.animation.update(nextFrame.entities, game.clock);
     }
 
-    addAvatar(world: World, clientIndex: number) {
-        const state = world.get(clientIndex).data as AvatarState;
-        assert(!(state.flags & AvatarFlags.IsActive));
-        state.flags |= AvatarFlags.IsActive;
+    addAvatar(clientIndex: number) {
+        const avatar = this.avatars[clientIndex];
+        avatar.active = true;
 
         // @HACK:
-        const weapon = new WeaponObject();
-        const weaponId = world.add(weapon);
-        weapon.parent = clientIndex;
-        state.weapon = weaponId;
+        // const weapon = new WeaponObject();
+        // const weaponId = world.add(weapon);
+        // weapon.parent = clientIndex;
+        // state.weapon = weaponId;
     }
 
-    removeAvatar(world: World, clientIndex: number) {
-        const state = world.get(clientIndex).data as AvatarState;
-        assert((state.flags & AvatarFlags.IsActive) > 0);
+    removeAvatar(clientIndex: number) {
+        const avatar = this.avatars[clientIndex];
+        avatar.active = false;
 
-        // @HACK:
-        if (defined(state.weapon)) {
-            world.remove(state.weapon);
-        }
+        // // @HACK:
+        // if (defined(state.weapon)) {
+        //     world.remove(state.weapon);
+        // }
         
-        AvatarState.clear(state);
+        // AvatarState.clear(state);
     }
 }

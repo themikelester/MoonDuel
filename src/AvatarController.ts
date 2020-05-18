@@ -1,8 +1,9 @@
-import { AvatarState, AvatarFlags, AvatarAttackType } from "./Avatar";
+import { AvatarFlags, AvatarAttackType } from "./Avatar";
 import { vec3 } from "gl-matrix";
 import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
 import { UserCommand } from "./UserCommand";
+import { EntityState, copyEntity, allocEntity } from "./World";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -18,8 +19,9 @@ const kRunAcceleration = 3000;
 export class AvatarController {
     orientationTarget: vec3 = vec3.create();
     
-    update(prevState: AvatarState, frame: number, dtSec: number, input: UserCommand): AvatarState {
-        const nextState = {...prevState }
+    update(prevState: EntityState, frame: number, dtSec: number, input: UserCommand): EntityState {
+        const nextState: EntityState = allocEntity();
+        copyEntity(nextState, prevState);
 
         const inputDir = this.getCameraRelativeMovementDirection(input, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
@@ -29,28 +31,28 @@ export class AvatarController {
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
 
         // Attacking
-        if (prevState.attackType !== AvatarAttackType.None) {
-            const duration = frame - prevState.attackStartFrame;
+        if (prevState.state !== AvatarAttackType.None) {
+            const duration = frame - prevState.stateStartFrame;
             if (duration >= 69) { // @HACK: Need to set up proper exiting
-                nextState.attackType = AvatarAttackType.None;
-                nextState.attackStartFrame = 0;
+                nextState.state = AvatarAttackType.None;
+                nextState.stateStartFrame = 0;
             }
         } else {
             if (input.actions & InputAction.AttackSide) {
-                nextState.attackStartFrame = frame;
-                nextState.attackType = AvatarAttackType.Side;
+                nextState.stateStartFrame = frame;
+                nextState.state = AvatarAttackType.Side;
             }
             if (input.actions & InputAction.AttackVert) {
-                nextState.attackStartFrame = frame;
-                nextState.attackType = AvatarAttackType.Vertical;
+                nextState.stateStartFrame = frame;
+                nextState.state = AvatarAttackType.Vertical;
             }
         }
         
         // Velocity
-        let speed = vec3.length(prevState.velocity);
+        let speed = prevState.speed;
         const accel = inputShouldWalk ? kWalkAcceleration : kRunAcceleration;
         let maxSpeed = inputShouldWalk ? kAvatarWalkSpeed : kAvatarRunSpeed;
-        if (nextState.attackType !== AvatarAttackType.None) maxSpeed = 10;
+        if (nextState.state !== AvatarAttackType.None) maxSpeed = 10;
 
         const dSpeed = (inputActive ? accel : -accel) * dtSec;
         const targetSpeed = clamp(speed + dSpeed, 0, maxSpeed); 
@@ -117,7 +119,7 @@ export class AvatarController {
         if (uTurning) flags |= AvatarFlags.IsUTurning;
 
         nextState.origin = pos;
-        nextState.velocity = velocity;
+        nextState.speed = speed;
         nextState.orientation = orientation;
         nextState.flags = flags;
 

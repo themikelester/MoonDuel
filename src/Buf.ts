@@ -179,6 +179,14 @@ export namespace Buf {
         return c;
     }
 
+    export function peekInt(buf: Buf) {
+        return (buf.data[buf.offset + 0])
+            + (buf.data[buf.offset + 1] << 8)
+            + (buf.data[buf.offset + 2] << 16)
+            + (buf.data[buf.offset + 3] << 24);
+    }
+
+
     export function readAngle16(buf: Buf) {
         return readShort(buf) * (Math.PI * 2) / 65536;
     }

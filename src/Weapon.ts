@@ -9,11 +9,10 @@ import { Material, Mesh } from './Mesh';
 import { renderLists } from "./RenderList";
 import { Object3D } from './Object3D';
 import { Camera } from './Camera';
-import { GameObject, World } from "./World";
 import { ResourceManager } from "./resources/ResourceLoading";
-import { Snapshot } from "./Snapshot";
 import { AvatarSystemClient } from "./Avatar";
 import { DebugRenderUtils } from "./DebugRender";
+import { SimState } from "./World";
 
 const scratchMat4 = mat4.create();
 
@@ -29,13 +28,6 @@ export interface Weapon {
     transform: Object3D;
     attackObb: mat4;
     model?: Model; // May be undefined while the resources are loading
-}
-
-export class WeaponObject implements GameObject {
-    type: WeaponType;
-    origin: vec3 = vec3.create();
-    orientation: vec3 = vec3.create();
-    parent: number;
 }
 
 //#endregion
@@ -214,9 +206,9 @@ export class WeaponSystem {
         this.blueprints[WeaponType.Sword].loadResources(resources, gfxDevice);
 
         // @HACK: Really we should wait until the server adds new entities to the snapshot
-        for (let i = 0; i < Snapshot.kAvatarCount; i++) {
-            this.weapons[Snapshot.kAvatarCount + i] = this.blueprints[WeaponType.Sword].create(gfxDevice);
-        }
+        // for (let i = 0; i < kAvatarCount; i++) {
+        //     this.weapons[kAvatarCount + i] = this.blueprints[WeaponType.Sword].create(gfxDevice);
+        // }
     }
 
     updateFixed({}) {
@@ -230,8 +222,8 @@ export class WeaponSystem {
         }
     }
 
-    render({ gfxDevice, camera, displaySnapshot, avatar }: { gfxDevice: Gfx.Renderer, camera: Camera, displaySnapshot: Snapshot, avatar: AvatarSystemClient }) {
-        const entities = displaySnapshot.entities;
+    render({ gfxDevice, camera, displayFrame }: { gfxDevice: Gfx.Renderer, camera: Camera, displayFrame: SimState, avatar: AvatarSystemClient }) {
+        const entities = displayFrame.entities;
 
         for (const entity of entities) {
             const weapon = this.weapons[entity.id];

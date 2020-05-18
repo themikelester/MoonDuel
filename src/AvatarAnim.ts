@@ -3,12 +3,13 @@ import { DebugMenu, IDebugMenu } from "./DebugMenu";
 import { delerp, saturate, smoothstep } from "./MathHelpers";
 import { AnimationClip, AnimationMixer, AnimationAction } from "./Animation";
 import { assertDefined, defined } from "./util";
-import { Avatar, AvatarState, AvatarFlags, AvatarAttackType } from "./Avatar";
+import { Avatar, AvatarFlags, AvatarAttackType } from "./Avatar";
 import { GltfResource } from "./resources/Gltf";
 import { Clock } from "./Clock";
 import { vec3 } from "gl-matrix";
 import { kAvatarWalkSpeed, kAvatarRunSpeed } from "./AvatarController";
 import { AnimationActionLoopStyles, LoopOnce } from "three/src/constants";
+import { EntityState } from "./World";
 
 const kWalkStartStopTimes = [0.25, 0.75]; // Normalized times at which one foot is on the ground and the body is centered over its position
 const kRunStartStopTimes = [0.15, 0.65];
@@ -132,7 +133,7 @@ export class AvatarAnim {
         this.ready = true;
     }
 
-    update(states: AvatarState[], clock: Clock) {
+    update(states: EntityState[], clock: Clock) {
         if (!this.ready) return;
         const dtSec = clock.renderDt * 0.001;
 
@@ -150,13 +151,13 @@ export class AvatarAnim {
                 if (debugActive) { continue; }
             }
 
-            const speed = vec3.length(state.velocity);
+            const speed = state.speed;
 
             // Attack 
             let attackWeight = 0.0;
-            if (state.attackType !== AvatarAttackType.None) {
-                const attackTime = (clock.renderTime - state.attackStartFrame * clock.simDt) * 0.001;
-                const anim = state.attackType === AvatarAttackType.Side ? data.aAttackSide : data.aAttackVert;
+            if (state.state !== AvatarAttackType.None) {
+                const attackTime = (clock.renderTime - state.stateStartFrame * clock.simDt) * 0.001;
+                const anim = state.state === AvatarAttackType.Side ? data.aAttackSide : data.aAttackVert;
 
                 if (!anim.isRunning()) {
                     anim.reset();
@@ -192,7 +193,7 @@ export class AvatarAnim {
             }
 
             {
-                if (state.attackType === AvatarAttackType.Side) data.aAttackSide.weight = attackWeight * 1.0;
+                if (state.state === AvatarAttackType.Side) data.aAttackSide.weight = attackWeight * 1.0;
                 else data.aAttackVert.weight = attackWeight * 1.0;
             }
 
