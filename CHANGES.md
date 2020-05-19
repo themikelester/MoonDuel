@@ -15,6 +15,13 @@ Change Log
 * Start in offline mode. Don't wait for connection before becoming playable. This may mean implementing prediction.
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 
+### 2020-05-19
+##### Morning
+Today I need to add weapons to the new SimStream system. The smart thing to do would be avoid the work of dealing with dynamically added objects (and just assume the same number of weapons and avatars will always be in the world), but we'll see how smart I am today.
+
+#### Evening 
+I'm a fool! Well almost. I DID manage to avoid working on dynamic objects, but I also rearchitected the whole state serialization pipeline again. SimStream now has a higher-level partner, World, which keeps a collection of GameObjects that are referenced by any of the frames in the stream. These GameObjects are created by factories which are registered with the world (e.g. WeaponSystem.createGameObject). Now both server and client have a WeaponSystem and the GameObjects are kept in sync, so adding collision to the Weapon GameObject will mean it is replicated on both sides. Tomorrow I swear I'll add bounding volumes to the Avatar.
+
 ### 2020-05-18
 ##### Morning
 I spent a lot of time over the weekend thinking about how to represent the set of game objects at the networking, game, and visual level. What I landed on was similar to what I already have now. The only recorded stream of game object representations will be the NetObjects. These should contain everything that is needed to replicate the state of every game object (not all objects, such as particles, which do not affect gameplay). On the server, each NetObject is used to set values on its corresponding Game Object (which may store non-serializable objects like the skeleton itself), simulation code is run in updateFixed() which modifies the objects, then new NetObjects are created from the objects to represent their new state. State should be completely reconstructable from the NetObject. I.e. the skeleton needs to configurable from the NetObject and no other state. Currently this is not the case. For instance while running, the AnimationMixer is "ticked" each frame which progresses the animation time based on the current speed of the avatar. If you were to scrub to a previous sim frame and load GameObjects from NetObjects, the animation time would not change and the skeleton would be incorrect. I'll need to change the data that is stored in the NetObject in order to be able to reconstruct the skeleton accurately, but I can defer this problem until later. 
