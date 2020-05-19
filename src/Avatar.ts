@@ -40,7 +40,6 @@ interface ClientDependencies {
 export class Avatar extends Object3D implements GameObject {
     state: EntityState;
 
-    active: boolean = false;
     local: boolean = false;
 
     nodes: GltfNode[];
@@ -48,6 +47,10 @@ export class Avatar extends Object3D implements GameObject {
     skeleton: Skeleton;
     
     weapon: Weapon;
+
+    get isActive() {
+        return this.state && (this.state.flags & AvatarFlags.IsActive) > 0;
+    }
 }
 
 export enum AvatarFlags {
@@ -136,8 +139,6 @@ export class AvatarSystemClient implements GameObjectFactory {
         for (const avatar of this.avatars) {
             const state = avatar.state;
             if (!state || !avatar.nodes) continue;
-
-            avatar.active = !!(state.flags & AvatarFlags.IsActive);
             
             // Attach the weapon
             if (!avatar.weapon) {
@@ -281,11 +282,7 @@ export class AvatarSystemServer implements GameObjectFactory {
             const client = game.net.clients[i];
             const state = avatar.state;
             
-            state.flags = avatar.active ? (state.flags | AvatarFlags.IsActive) : state.flags & ~AvatarFlags.IsActive;
-
-            let nextState = state;
-            
-            if (avatar.active && client && client.state === NetClientState.Active) {
+            if (avatar.isActive && client && client.state === NetClientState.Active) {
                 const pos = new Vector3(state.origin);
                 avatar.position.copy(pos);
                 avatar.lookAt(
@@ -300,7 +297,7 @@ export class AvatarSystemServer implements GameObjectFactory {
                 const inputCmd = client.getUserCommand(game.clock.simFrame);
                 const dtSec = game.clock.simDt / 1000.0;
         
-                nextState = this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
+                this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
             }
         }
 
@@ -324,11 +321,11 @@ export class AvatarSystemServer implements GameObjectFactory {
 
     addAvatar(clientIndex: number) {
         const avatar = this.avatars[clientIndex];
-        avatar.active = true;
+        avatar.state.flags |= AvatarFlags.IsActive;
     }
 
     removeAvatar(clientIndex: number) {
         const avatar = this.avatars[clientIndex];
-        avatar.active = false;
+        avatar.state.flags &= ~AvatarFlags.IsActive;
     }
 }

@@ -148,7 +148,7 @@ export class AvatarRender {
 
     render(gfxDevice: Gfx.Renderer, camera: Camera) {
         for (let avatarIdx = 0; avatarIdx < this.avatars.length; avatarIdx++) {
-            if (!this.avatars[avatarIdx].active) continue;
+            if (!this.avatars[avatarIdx].isActive) continue;
             const data = this.data[avatarIdx];
 
             for (let i = 0; i < data.skinnedModels.length; i++) {

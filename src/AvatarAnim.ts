@@ -142,7 +142,7 @@ export class AvatarAnim {
             const avatar = this.avatars[i];
             const state = avatar.state;
 
-            if (!avatar.active) {
+            if (!avatar.isActive) {
                 continue;
             }
             

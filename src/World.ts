@@ -379,7 +379,6 @@ function lerpEntity(dst: EntityState, a: EntityState, b: EntityState, t: number)
  * Has a EntityState which may not be valid for the current frame
  */
 export interface GameObject {
-  active: boolean;
   readonly state: EntityState;
   // @TODO: Store baseline, which would be the initialState? QuakeWorld does this.
 }
@@ -443,18 +442,10 @@ export class World {
       // Not every object will have an entity state this frame
       let obj = this.objects[objectIdx++];
       while (obj.state.id < entity.id) {
-        obj.active = false;
         obj = this.objects[objectIdx++];
       }
       assert(obj.state.id === entity.id, `Object ${entity.id} should already have been created`);
-
-      obj.active = true;
       copyEntity(obj.state, entity);
-    }
-
-    // Remaining objects don't have entity state this frame
-    for (; objectIdx < this.objects.length; objectIdx++) {
-      this.objects[objectIdx].active = false;
     }
   }
 

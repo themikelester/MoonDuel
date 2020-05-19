@@ -29,7 +29,6 @@ enum WeaponFlags {
 
 export class Weapon implements GameObject {
     state: EntityState;
-    active: boolean;
 
     type: WeaponType ;
     transform: Object3D = new Object3D();
