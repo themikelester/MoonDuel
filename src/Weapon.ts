@@ -271,8 +271,6 @@ export class WeaponSystem implements GameObjectFactory {
                 
                 model.renderList.push(model.primitive);
             }
-
-            DebugRenderUtils.renderObbs([weapon.attackObb], false, vec4.fromValues(0, 1, 0, 1));
         }
     }
 }
