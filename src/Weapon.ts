@@ -10,9 +10,9 @@ import { renderLists } from "./RenderList";
 import { Object3D } from './Object3D';
 import { Camera } from './Camera';
 import { ResourceManager } from "./resources/ResourceLoading";
-import { AvatarSystemClient } from "./Avatar";
+import { AvatarSystemClient, AvatarFlags } from "./Avatar";
 import { DebugRenderUtils } from "./DebugRender";
-import { SimState } from "./World";
+import { SimState, EntityState, GameObject, GameObjectFactory, World, GameObjectType } from "./World";
 
 const scratchMat4 = mat4.create();
 
@@ -23,7 +23,14 @@ export enum WeaponType {
     Sword
 };
 
-export interface Weapon {
+enum WeaponFlags {
+    IsActive = 1 << 0;
+}
+
+export class Weapon implements GameObject {
+    state: EntityState;
+    active: boolean;
+
     type: WeaponType;
     transform: Object3D;
     attackObb: mat4;
@@ -37,8 +44,8 @@ export interface Weapon {
 abstract class WeaponBlueprint {
     attackObb: mat4;
 
-    abstract loadResources(resources: ResourceManager, gfxDevice: Gfx.Renderer): void;
-    abstract create(gfxDevice: Gfx.Renderer): Weapon;
+    abstract loadResources(resources: ResourceManager, gfxDevice?: Gfx.Renderer): void;
+    abstract create(state: EntityState, gfxDevice?: Gfx.Renderer): Weapon;
 }
 
 class EmptyBlueprint extends WeaponBlueprint {
@@ -61,7 +68,8 @@ class SwordBlueprint extends WeaponBlueprint {
     readyPromise: Promise<void>;
     ready = false;
 
-    loadResources(resources: ResourceManager, gfxDevice: Gfx.Renderer) {
+    constructor() {
+        super();
 
         // Manually place a conservative OBB for the area of the model that can inflict damage
         this.attackObb = mat4.fromValues(
@@ -70,45 +78,53 @@ class SwordBlueprint extends WeaponBlueprint {
             0, 0, 90, 0,
             0, 0, 110, 1
         );
-
-        this.readyPromise = new Promise(resolve => {
-            resources.load(SwordBlueprint.kFilename, 'gltf', (error, resource) => {
-                if (error) { return console.error(`Failed to load resource`, error); }
-                this.onResourcesLoaded(assertDefined(resource), gfxDevice);
-                
-                this.ready = true;
-                resolve();
-            });
-        })
     }
 
-    create(gfxDevice: Gfx.Renderer): Weapon {
+    loadResources(resources: ResourceManager, gfxDevice?: Gfx.Renderer) {
+        if (gfxDevice) {
+            this.readyPromise = new Promise(resolve => {
+                resources.load(SwordBlueprint.kFilename, 'gltf', (error, resource) => {
+                    if (error) { return console.error(`Failed to load resource`, error); }
+                    this.onResourcesLoaded(assertDefined(resource), gfxDevice);
+                    
+                    this.ready = true;
+                    resolve();
+                });
+            })
+        }
+    }
+
+    create(state: EntityState, gfxDevice?: Gfx.Renderer): Weapon {
         const weapon: Weapon = {
+            state,
+            active: false,
             transform: new Object3D(),
             type: WeaponType.Sword,
             attackObb: mat4.clone(this.attackObb),    
         }
 
         // Asynchronously assign the model once it has been loaded
-        this.readyPromise.then(() => {
-            const material = new Material(gfxDevice, name, this.shader, this.resourceLayout);
-            const model = new Model(gfxDevice, renderLists.opaque, this.mesh, material);
-    
-            // Ignore the parent node, which only centers the model. The current origin is the avatar's grab point.
-            model.updateWorldMatrix(true, false);
-            weapon.transform.add(model); // @HACK: Unnecessary extra hierarchy. Model should not be an Object3D.
-    
-            // Set shared resources
-            Object.keys(this.matTextures).forEach(name => material.setTexture(gfxDevice, name, this.matTextures[name]));
-            material.setUniformBuffer(gfxDevice, 'material', this.matUniformBuf);
-    
-            // Create a new uniform buffer for the per-instance data
-            const bufLayout = (this.resourceLayout['model'] as Gfx.UniformBufferResourceBinding).layout;
-            const uniforms = new UniformBuffer('SwordModelUniforms', gfxDevice, bufLayout);
-            material.setUniformBuffer(gfxDevice, 'model', uniforms);
-
-            weapon.model = model;
-        });
+        if (gfxDevice) {
+            this.readyPromise.then(() => {
+                const material = new Material(gfxDevice, name, this.shader, this.resourceLayout);
+                const model = new Model(gfxDevice, renderLists.opaque, this.mesh, material);
+                
+                // Ignore the parent node, which only centers the model. The current origin is the avatar's grab point.
+                model.updateWorldMatrix(true, false);
+                weapon.transform.add(model); // @HACK: Unnecessary extra hierarchy. Model should not be an Object3D.
+                
+                // Set shared resources
+                Object.keys(this.matTextures).forEach(name => material.setTexture(gfxDevice, name, this.matTextures[name]));
+                material.setUniformBuffer(gfxDevice, 'material', this.matUniformBuf);
+                
+                // Create a new uniform buffer for the per-instance data
+                const bufLayout = (this.resourceLayout['model'] as Gfx.UniformBufferResourceBinding).layout;
+                const uniforms = new UniformBuffer('SwordModelUniforms', gfxDevice, bufLayout);
+                material.setUniformBuffer(gfxDevice, 'model', uniforms);
+                
+                weapon.model = model;
+            });
+        }
 
         return weapon;
     }
@@ -189,45 +205,53 @@ class SwordBlueprint extends WeaponBlueprint {
 //#endregion
 
 //#region Weapon System
-export class WeaponSystem {
-    gfxDevice: Gfx.Renderer;
+export class WeaponSystem implements GameObjectFactory {
+    gfxDevice?: Gfx.Renderer;
     blueprints: Record<WeaponType, WeaponBlueprint>;
     weapons: Record<number, Weapon> = {};
 
-    constructor() {
+    constructor(world: World) {
+        world.registerFactory(GameObjectType.Weapon, this);
         this.blueprints = {
             [WeaponType.None]: new EmptyBlueprint(),
             [WeaponType.Sword]: new SwordBlueprint(),
         }
     }
 
-    initialize({ resources, gfxDevice }: { resources: ResourceManager, gfxDevice: Gfx.Renderer }) {
+    initialize({ resources, gfxDevice }: { resources: ResourceManager, gfxDevice?: Gfx.Renderer }) {
         this.gfxDevice = gfxDevice;
-        this.blueprints[WeaponType.Sword].loadResources(resources, gfxDevice);
-
-        // @HACK: Really we should wait until the server adds new entities to the snapshot
-        // for (let i = 0; i < kAvatarCount; i++) {
-        //     this.weapons[kAvatarCount + i] = this.blueprints[WeaponType.Sword].create(gfxDevice);
-        // }
+        this.blueprints[WeaponType.Sword].loadResources(resources, gfxDevice!);
     }
 
-    updateFixed({}) {
+    createGameObject(initialState: EntityState) {
+        const weapon = this.blueprints[WeaponType.Sword].create(initialState, this.gfxDevice);
+        this.weapons[initialState.id] = weapon;
+        return weapon;
+    }
+
+    deleteGameObject() {
+        
+    }
+
+    updateFixed({ world }: { world: World }) {
         // Orient the weapon attack bounds
         for (const weaponId in this.weapons) {
             const weapon = this.weapons[weaponId];
             const bp = this.blueprints[weapon.type];
+
+            // Set the weapon active flag based on its parent's flag
+            const parent = world.objects.find(o => o.state.id === weapon.state.parent!);
+            weapon.state.flags = parent!.state.flags & AvatarFlags.IsActive;
 
             (scratchMat4 as Float32Array).set(weapon.transform.matrixWorld.elements);
             mat4.multiply(weapon.attackObb, scratchMat4, bp.attackObb);
         }
     }
 
-    render({ gfxDevice, camera, displayFrame }: { gfxDevice: Gfx.Renderer, camera: Camera, displayFrame: SimState, avatar: AvatarSystemClient }) {
-        const entities = displayFrame.entities;
-
-        for (const entity of entities) {
-            const weapon = this.weapons[entity.id];
-            if (!defined(weapon)) continue;
+    render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera, avatar: AvatarSystemClient }) {
+        for (const weaponId in this.weapons) {
+            const weapon = this.weapons[weaponId];
+            if (!(weapon.state.flags & WeaponFlags.IsActive)) continue;
 
             const model = weapon.model;
             if (defined(model)) {

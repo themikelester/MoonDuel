@@ -104,6 +104,7 @@ export class FollowCameraController implements CameraController {
 
         // Follow the local avatar by default
         this.follow = deps.avatar.localAvatar;
+        if (!this.follow) return false;
 
         this.follow.getWorldPosition(scratchVector3A);
         const followPos = vec3.add(scratchVector3A.buffer, scratchVector3A.buffer, vec3.set(scratchVec3B, 0, kFollowHeightBias, 0));

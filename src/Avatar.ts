@@ -14,14 +14,14 @@ import { DebugMenu } from "./DebugMenu";
 import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Weapon, WeaponSystem } from "./Weapon";
-import { SimStream, SimState, EntityState, allocEntity } from "./World";
+import { SimStream, SimState, EntityState, World, GameObjectType, GameObject, GameObjectFactory } from "./World";
 import { vec3 } from "gl-matrix";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
     resources: ResourceManager;
     clock: Clock;
-    simStream: SimStream;
+    world: World;
 
     net: NetModuleServer;
 }
@@ -31,13 +31,15 @@ interface ClientDependencies {
     resources: ResourceManager;
     clock: Clock;
     weapons: WeaponSystem;
+    world: World;
     
-    displayFrame: SimState;
     gfxDevice: Renderer;
     camera: Camera;
 }
 
-export class Avatar extends Object3D {
+export class Avatar extends Object3D implements GameObject {
+    state: EntityState;
+
     active: boolean = false;
     local: boolean = false;
 
@@ -64,11 +66,10 @@ export enum AvatarAttackType {
 const kGltfFilename = 'data/Tn.glb';
 const kAvatarCount = 8;
 
-export class AvatarSystemClient {
+export class AvatarSystemClient implements GameObjectFactory {
     public localAvatar: Avatar; // @HACK:
 
     private avatars: Avatar[] = [];
-    private controllers: AvatarController[] = [];
 
     private gltf: GltfResource;
     private animation = new AvatarAnim();
@@ -77,12 +78,13 @@ export class AvatarSystemClient {
     constructor() {
         for (let i = 0; i < kAvatarCount; i++) {
             this.avatars[i] = new Avatar();
-            this.controllers[i] = new AvatarController();
         }
         this.localAvatar = this.avatars[0];
     }
 
     initialize(game: ClientDependencies) {
+        game.world.registerFactory(GameObjectType.Avatar, this);
+
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -131,25 +133,21 @@ export class AvatarSystemClient {
     }
 
     update(game: ClientDependencies) {
-        const states = game.displayFrame.entities;
-        if (states.length < kAvatarCount) return;
-
-        for (let i = 0; i < kAvatarCount; i++) {
-            const avatar = this.avatars[i];
-            const state = states[i];
+        for (const avatar of this.avatars) {
+            const state = avatar.state;
+            if (!state || !avatar.nodes) continue;
 
             avatar.active = !!(state.flags & AvatarFlags.IsActive);
+            
+            // Attach the weapon
+            if (!avatar.weapon) {
+                const weaponId = kAvatarCount + avatar.id;
+                const weapon = game.world.objects[weaponId] as Weapon;
 
-            // @HACK: Equip the weapon once our joints have loaded
-            // if (avatar.active && avatar.nodes) {
-            //     if (state.weapon && !defined(avatar.weapon)) {
-            //         const weapon = game.weapons.getById(state.weapon);
-            //         avatar.weapon = weapon;
-
-            //         const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
-            //         joint.add(weapon.transform);
-            //     }
-            // }
+                avatar.weapon = weapon;
+                const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+                joint.add(avatar.weapon.transform);
+            }
 
             const pos = new Vector3(state.origin);
             avatar.position.copy(pos);
@@ -163,7 +161,7 @@ export class AvatarSystemClient {
             avatar.updateMatrixWorld();
         }
             
-        this.animation.update(states, game.clock);
+        this.animation.update(game.clock);
     }
 
     updateFixed(game: ClientDependencies) {
@@ -173,39 +171,48 @@ export class AvatarSystemClient {
     render(game: ClientDependencies) {
         this.renderer.render(game.gfxDevice, game.camera);
     }
+
+    createGameObject(initialState: EntityState) {
+        const avatarIdx = initialState.id;
+        assert(avatarIdx < kAvatarCount);
+
+        const avatar = this.avatars[avatarIdx];
+        avatar.state = initialState;
+
+        return avatar;
+    }
+
+    deleteGameObject() {
+
+    }
 }
 
-export class AvatarSystemServer {
+export class AvatarSystemServer implements GameObjectFactory {
     private avatars: Avatar[] = [];
     private controllers: AvatarController[] = [];
 
     private gltf: GltfResource;
     private animation = new AvatarAnim();
 
-    private avatarBaselines: EntityState[] = [];
-
-    constructor() {
-        for (let i = 0; i < kAvatarCount; i++) {
-            this.avatars[i] = new Avatar();
-            this.controllers[i] = new AvatarController();
-        }
-    }
-
     initialize(game: ServerDependencies) {
+        game.world.registerFactory(GameObjectType.Avatar, this);
+
+        const baseline: Partial<EntityState> = { orientation: vec3.fromValues(0, 0, 1) };
+
+        for (let i = 0; i < kAvatarCount; i++) {
+            this.avatars[i] = game.world.createGameObject(GameObjectType.Avatar, baseline) as Avatar;
+        }
+        
+        for (let i = 0; i < kAvatarCount; i++) {
+            this.avatars[i].weapon = game.world.createGameObject(GameObjectType.Weapon, { parent: i }) as Weapon;
+        }
+        
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
             this.gltf = resource as GltfResource;
             this.onResourcesLoaded(game);
         });
-
-        for (let i = 0; i < kAvatarCount; i++) {
-            const baseline = allocEntity();
-            assert(baseline.id === i);
-            baseline.type = 0;
-            vec3.set(baseline.orientation, 0, 0, 1);
-            this.avatarBaselines[i] = baseline;
-        }
 
         this.animation.initialize(this.avatars);
     }
@@ -233,6 +240,10 @@ export class AvatarSystemServer {
             const bones = skin.joints.map(jointId => avatar.nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
             const ibms = skin.inverseBindMatrices?.map(ibm => new Matrix4().fromArray(ibm));
             avatar.skeleton = new Skeleton(bones as Object3D[] as Bone[], ibms);
+
+            // Attach the weapon
+            const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+            joint.add(avatar.weapon.transform);
         
             avatar.animationMixer = new AnimationMixer(avatar);
         }
@@ -265,13 +276,10 @@ export class AvatarSystemServer {
     }
 
     updateFixed(game: ServerDependencies) {
-        const prevFrame = game.simStream.getState(game.clock.simFrame-1);
-        const nextFrame = game.simStream.getState(game.clock.simFrame);
-        
         for (let i = 0; i < kAvatarCount; i++) {
             const avatar = this.avatars[i];
             const client = game.net.clients[i];
-            const state = defaultValue(prevFrame.entities[i], this.avatarBaselines[i]);
+            const state = avatar.state;
             
             state.flags = avatar.active ? (state.flags | AvatarFlags.IsActive) : state.flags & ~AvatarFlags.IsActive;
 
@@ -293,38 +301,34 @@ export class AvatarSystemServer {
                 const dtSec = game.clock.simDt / 1000.0;
         
                 nextState = this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
-            } else {
-                nextState = this.avatarBaselines[i];
             }
-
-            nextFrame.entities.push(nextState);
-
-            assert(nextFrame.entities[i].id === i);
         }
 
-        this.animation.update(nextFrame.entities, game.clock);
+        this.animation.update(game.clock);
+    }
+
+    createGameObject(initialState: EntityState) {
+        const avatar = new Avatar();
+        avatar.state = initialState;
+
+        const avatarIdx = this.avatars.length;
+        this.controllers[avatarIdx] = new AvatarController();
+        this.avatars[avatarIdx] = avatar;
+
+        return avatar;
+    }
+
+    deleteGameObject() {
+
     }
 
     addAvatar(clientIndex: number) {
         const avatar = this.avatars[clientIndex];
         avatar.active = true;
-
-        // @HACK:
-        // const weapon = new WeaponObject();
-        // const weaponId = world.add(weapon);
-        // weapon.parent = clientIndex;
-        // state.weapon = weaponId;
     }
 
     removeAvatar(clientIndex: number) {
         const avatar = this.avatars[clientIndex];
         avatar.active = false;
-
-        // // @HACK:
-        // if (defined(state.weapon)) {
-        //     world.remove(state.weapon);
-        // }
-        
-        // AvatarState.clear(state);
     }
 }

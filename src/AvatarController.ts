@@ -3,7 +3,7 @@ import { vec3 } from "gl-matrix";
 import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
 import { UserCommand } from "./UserCommand";
-import { EntityState, copyEntity, allocEntity } from "./World";
+import { EntityState, copyEntity, allocEntity, createEntity } from "./World";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -19,10 +19,11 @@ const kRunAcceleration = 3000;
 export class AvatarController {
     orientationTarget: vec3 = vec3.create();
     
-    update(prevState: EntityState, frame: number, dtSec: number, input: UserCommand): EntityState {
-        const nextState: EntityState = allocEntity();
-        copyEntity(nextState, prevState);
-
+    update(state: EntityState, frame: number, dtSec: number, input: UserCommand): EntityState {
+        // @HACK:
+        const prevState = copyEntity(createEntity(), state);
+        const nextState = state;
+        
         const inputDir = this.getCameraRelativeMovementDirection(input, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
         const inputShouldWalk = input.actions & InputAction.Walk;

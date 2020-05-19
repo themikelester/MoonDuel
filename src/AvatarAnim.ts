@@ -133,14 +133,14 @@ export class AvatarAnim {
         this.ready = true;
     }
 
-    update(states: EntityState[], clock: Clock) {
+    update(clock: Clock) {
         if (!this.ready) return;
         const dtSec = clock.renderDt * 0.001;
 
-        for (let i = 0; i < states.length; i++) {
+        for (let i = 0; i < this.avatars.length; i++) {
             const data = this.data[i];
             const avatar = this.avatars[i];
-            const state = states[i];
+            const state = avatar.state;
 
             if (!avatar.active) {
                 continue;

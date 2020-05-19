@@ -338,10 +338,10 @@ export class NetClient extends EventDispatcher {
         const serverPhase = Buf.readByte(msg) / 255 * this.clock.simDt;
         const compTime = Buf.readByte(msg) / 255 * this.clock.simDt;
         
-        // @HACK
-        const frame = Buf.peekInt(msg);
-
-        const simState = this.simStream.createState(frame);
+        const simState: SimState = {
+            frame: -1, 
+            entities: []
+        }
         deserializeSimState(msg, simState);
 
         this.lastReceivedFrame = simState.frame;

@@ -9,7 +9,8 @@ import { ResourceManager } from './resources/ResourceLoading';
 import { UserCommandBuffer } from './UserCommand';
 import { SignalSocket, SignalSocketEvents, ClientId } from './net/SignalSocket';
 import { DebugMenu } from './DebugMenu';
-import { SimStream } from './World';
+import { SimStream, World } from './World';
+import { WeaponSystem } from './Weapon';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -17,10 +18,11 @@ export const enum InitErrorCode {
 
 export class Server {
     public debugMenu: DebugMenu = new DebugMenu();
-    public simStream = new SimStream();
+    public world = new World();
 
     // Modules
     public avatar = new AvatarSystemServer();
+    public weapon = new WeaponSystem(this.world);
     public clock = new Clock();
     public net = new NetModuleServer();
     public resources = new ResourceManager();
@@ -41,6 +43,7 @@ export class Server {
         this.clock.initialize(this);
         this.net.initialize(this);
         this.avatar.initialize(this);
+        this.weapon.initialize(this);
 
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
@@ -69,9 +72,10 @@ export class Server {
         while (this.clock.updateFixed()) {
             tickCount += 1;
 
-            this.simStream.createState(this.clock.simFrame);
-
             this.avatar.updateFixed(this);
+            this.weapon.updateFixed(this);
+
+            this.world.captureState(this.clock.simFrame);
             this.net.transmitToClients(this.clock.simFrame);
         }
 

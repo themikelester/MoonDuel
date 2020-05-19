@@ -21,7 +21,7 @@ import { NetClientState } from './net/NetClient';
 import { assertDefined } from './util';
 import { WeaponSystem } from './Weapon';
 import { DebugRenderUtils } from './DebugRender';
-import { SimState } from './World';
+import { SimState, World } from './World';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -35,6 +35,7 @@ export class Client {
     public gfxDevice: Renderer = new WebGlRenderer();
     public camera: Camera = new Camera();
     public displayFrame: SimState = { frame: -1, entities: [] };
+    public world: World = new World();
 
     public debugMenu: DebugMenu = new DebugMenu();
 
@@ -50,7 +51,7 @@ export class Client {
     public resources = new ResourceManager();
     public state = new StateManager();
     public userCommands = new UserCommandBuffer();
-    public weapons = new WeaponSystem();
+    public weapons = new WeaponSystem(this.world);
     
     constructor() {
         this.init();
@@ -140,6 +141,7 @@ export class Client {
         if (this.net.client.state === NetClientState.Active) {
             let displayFrameTime = this.clock.renderTime / this.clock.simDt;
             const valid = this.net.client.getSimState(displayFrameTime, this.displayFrame);
+            if (valid) this.world.loadState(this.displayFrame);
         } else {
             // @HACK
             // this.displaySnapshot = baselineSnapshot;

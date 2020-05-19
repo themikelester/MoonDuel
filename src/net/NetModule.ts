@@ -8,19 +8,20 @@ import { assert, defined, arrayRemove } from "../util";
 import { NetGraph } from './NetDebug';
 import { DebugMenu } from "../DebugMenu";
 import { lerp, clamp } from "../MathHelpers";
-import { SimStream, SimState } from "../World";
+import { SimStream, SimState, World } from "../World";
 
 interface ClientDependencies {
     clock: Clock;
     toplevel: HTMLElement;
     debugMenu: DebugMenu;
     avatar: AvatarSystemClient;
+    world: World;
 }
 
 interface ServerDependencies {
     avatar: AvatarSystemServer;
     clock: Clock;
-    simStream: SimStream;
+    world: World;
 }
 
 export class NetModuleClient {
@@ -45,7 +46,7 @@ export class NetModuleClient {
         const clock = this.context.clock;
 
         this.client = new NetClient(context.clock);
-        this.client.setSimStream(new SimStream());
+        this.client.setSimStream(context.world.stream);
 
         const debugMenu = this.context.debugMenu.addFolder('Net');
         debugMenu.add(this, 'clientAhead', 0, 1000, 16).onChange(() => clock.setClientDelay(-this.clientAhead));
@@ -83,6 +84,8 @@ export class NetModuleClient {
     }
     
     onServerFrame(frameDiff: number, simState: SimState) {
+        this.context.world.addState(simState);
+
         // @TODO: I think this should be in NetClient
         this.averageServerFrameDiff = lerp(frameDiff, this.averageServerFrameDiff, 0.95);
 
@@ -207,7 +210,7 @@ export class NetModuleServer {
         const listener = new WebUdpSocketFactory(signalSocket);
         await listener.listen(async (socket: WebUdpSocket) => {
             const client = new NetClient(this.context.clock);
-            client.setSimStream(this.context.simStream);
+            client.setSimStream(this.context.world.stream);
             client.on(NetClientEvents.Connected, this.onClientConnected.bind(this, client));
             client.on(NetClientEvents.Disconnected, this.onClientDisconnected.bind(this, client));
             client.accept(socket);
