@@ -31,10 +31,20 @@ export class Weapon implements GameObject {
     state: EntityState;
     active: boolean;
 
-    type: WeaponType;
-    transform: Object3D;
+    type: WeaponType ;
+    transform: Object3D = new Object3D();
     attackObb: mat4;
     model?: Model; // May be undefined while the resources are loading
+
+    constructor(type: WeaponType, attackObb: mat4, state: EntityState) {
+        this.state = state;
+        this.type = type;
+        this.attackObb = mat4.clone(attackObb);
+    }
+
+    get isActive() {
+        return this.state.flags & WeaponFlags.IsActive;
+    }
 }
 
 //#endregion
@@ -95,13 +105,7 @@ class SwordBlueprint extends WeaponBlueprint {
     }
 
     create(state: EntityState, gfxDevice?: Gfx.Renderer): Weapon {
-        const weapon: Weapon = {
-            state,
-            active: false,
-            transform: new Object3D(),
-            type: WeaponType.Sword,
-            attackObb: mat4.clone(this.attackObb),    
-        }
+        const weapon: Weapon = new Weapon(WeaponType.Sword, this.attackObb, state);
 
         // Asynchronously assign the model once it has been loaded
         if (gfxDevice) {
@@ -208,7 +212,7 @@ class SwordBlueprint extends WeaponBlueprint {
 export class WeaponSystem implements GameObjectFactory {
     gfxDevice?: Gfx.Renderer;
     blueprints: Record<WeaponType, WeaponBlueprint>;
-    weapons: Record<number, Weapon> = {};
+    weapons: Weapon[] = [];
 
     constructor(world: World) {
         world.registerFactory(GameObjectType.Weapon, this);
@@ -225,7 +229,7 @@ export class WeaponSystem implements GameObjectFactory {
 
     createGameObject(initialState: EntityState) {
         const weapon = this.blueprints[WeaponType.Sword].create(initialState, this.gfxDevice);
-        this.weapons[initialState.id] = weapon;
+        this.weapons.push(weapon);
         return weapon;
     }
 
@@ -234,7 +238,6 @@ export class WeaponSystem implements GameObjectFactory {
     }
 
     updateFixed({ world }: { world: World }) {
-        // Orient the weapon attack bounds
         for (const weaponId in this.weapons) {
             const weapon = this.weapons[weaponId];
             const bp = this.blueprints[weapon.type];
@@ -243,15 +246,17 @@ export class WeaponSystem implements GameObjectFactory {
             const parent = world.objects.find(o => o.state.id === weapon.state.parent!);
             weapon.state.flags = parent!.state.flags & AvatarFlags.IsActive;
 
-            (scratchMat4 as Float32Array).set(weapon.transform.matrixWorld.elements);
-            mat4.multiply(weapon.attackObb, scratchMat4, bp.attackObb);
+            // Orient the weapon attack bounds
+            if (weapon.isActive) {
+                (scratchMat4 as Float32Array).set(weapon.transform.matrixWorld.elements);
+                mat4.multiply(weapon.attackObb, scratchMat4, bp.attackObb);
+            }
         }
     }
 
     render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera, avatar: AvatarSystemClient }) {
-        for (const weaponId in this.weapons) {
-            const weapon = this.weapons[weaponId];
-            if (!(weapon.state.flags & WeaponFlags.IsActive)) continue;
+        for (const weapon of this.weapons) {
+            if (!weapon.isActive) continue;
 
             const model = weapon.model;
             if (defined(model)) {
@@ -269,10 +274,6 @@ export class WeaponSystem implements GameObjectFactory {
 
             DebugRenderUtils.renderObbs([weapon.attackObb], false, vec4.fromValues(0, 1, 0, 1));
         }
-    }
-    
-    getById(id: number) {
-        return this.weapons[id];
     }
 }
 
