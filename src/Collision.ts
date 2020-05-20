@@ -1,7 +1,7 @@
 import { mat4, vec3 } from "gl-matrix";
 import { intersectObbRay } from "./Intersection";
 import { GameObject } from "./World";
-import { defined } from "./util";
+import { defined, assert } from "./util";
 
 export class Obb {
   center: vec3 = vec3.create();
@@ -39,12 +39,27 @@ export interface Ray {
   length?: number,
 }
 
+export interface HitResult {
+  owner: GameObject;
+  pos: vec3;
+}
+
+const kHitCacheSize = 8;
+
 export class CollisionSystem {
   attacks: Ray[] = [];
   attackOwners: GameObject[] = [];
 
   targets: Obb[] = [];
   targetOwners: GameObject[] = [];
+
+  private hitCache: vec3[] = [];
+
+  constructor() {
+    for (let i = 0; i < kHitCacheSize; i++) {
+      this.hitCache[i] = vec3.create();
+    }
+  }
 
   addAttackLine(ray: Ray, owner: GameObject) {
     this.attacks.push(ray);
@@ -63,14 +78,23 @@ export class CollisionSystem {
     return colId;
   }
 
-  getHitsForTarget(colId: number) {
+  getHitsForTarget(colId: number): HitResult[] {
     const obb = this.targets[colId];
+    const hits: HitResult[] = [];
+    let hitIdx = 0;
     
     for (let i = 0; i < this.attacks.length; i++) {
       const ray = this.attacks[i];
       const t = intersectObbRay(obb, ray.origin, ray.dir, ray.length);
-      if (defined(t)) console.log('hit!');
+
+      if (defined(t)) { 
+        assert(hitIdx < kHitCacheSize, 'Too many hits in one frame');
+        const hitPos = vec3.scaleAndAdd(this.hitCache[hitIdx++], ray.origin, ray.dir, t);
+        hits.push({ owner: this.attackOwners[i], pos: hitPos });
+      }
     }
+
+    return hits;
   }
 
   clear() {

@@ -339,7 +339,11 @@ export class AvatarSystemServer implements GameObjectFactory {
         // Once all the avatar positions have been fully resolved, check for hits
         for (const avatar of this.avatars) {
             if (avatar.isActive) {
-                collision.getHitsForTarget(avatar.collisionId);
+                const hits = collision.getHitsForTarget(avatar.collisionId);
+                for (const hit of hits) {
+                    const avatarIdx = hit.owner.state.parent;
+                    console.log(`Avatar ${avatar.state.id} hit by Avatar ${avatarIdx} at ${hit.pos}`);
+                }
             }
         }
     }
