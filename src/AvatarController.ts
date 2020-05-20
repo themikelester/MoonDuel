@@ -3,7 +3,7 @@ import { vec3 } from "gl-matrix";
 import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
 import { UserCommand } from "./UserCommand";
-import { EntityState, copyEntity, allocEntity, createEntity } from "./World";
+import { EntityState, copyEntity, createEntity } from "./World";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
