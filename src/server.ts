@@ -11,6 +11,7 @@ import { SignalSocket, SignalSocketEvents, ClientId } from './net/SignalSocket';
 import { DebugMenu } from './DebugMenu';
 import { SimStream, World } from './World';
 import { WeaponSystem } from './Weapon';
+import { CollisionSystem } from './Collision';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -19,6 +20,7 @@ export const enum InitErrorCode {
 export class Server {
     public debugMenu: DebugMenu = new DebugMenu();
     public world = new World();
+    public collision = new CollisionSystem();
 
     // Modules
     public avatar = new AvatarSystemServer();
@@ -63,6 +65,8 @@ export class Server {
     private tick() {
         this.clock.tick();
 
+        this.collision.clear();
+
         this.updateFixed();
         this.update();
     }
@@ -74,6 +78,8 @@ export class Server {
 
             this.avatar.updateFixed(this);
             this.weapon.updateFixed(this);
+
+            this.avatar.updateFixedLate(this);
 
             this.world.captureState(this.clock.simFrame);
             this.net.transmitToClients(this.clock.simFrame);

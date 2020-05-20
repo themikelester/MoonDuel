@@ -4,7 +4,7 @@ import { GltfResource, GltfPrimitive, GltfTechnique, GltfNode } from "./resource
 import { BufferPackedLayout, computePackedBufferLayout, UniformBuffer } from "./UniformBuffer";
 import { assertDefined, defaultValue, assert, defined } from "./util";
 import * as Gfx from './gfx/GfxTypes';
-import { vec4, mat4, vec3 } from "gl-matrix";
+import { vec4, mat4, vec3, mat3 } from "gl-matrix";
 import { Material, Mesh } from './Mesh';
 import { renderLists } from "./RenderList";
 import { Object3D } from './Object3D';
@@ -12,9 +12,13 @@ import { Camera } from './Camera';
 import { ResourceManager } from "./resources/ResourceLoading";
 import { AvatarSystemClient, AvatarFlags } from "./Avatar";
 import { DebugRenderUtils } from "./DebugRender";
-import { SimState, EntityState, GameObject, GameObjectFactory, World, GameObjectType } from "./World";
+import { EntityState, GameObject, GameObjectFactory, World, GameObjectType } from "./World";
+import { CollisionSystem } from "./Collision";
+import { Ray } from "./Collision";
 
 const scratchMat4 = mat4.create();
+const scratchVec3a = vec3.create();
+const scratchVec3b = vec3.create();
 
 //#region Weapon
 
@@ -24,7 +28,7 @@ export enum WeaponType {
 };
 
 enum WeaponFlags {
-    IsActive = 1 << 0;
+    IsActive = 1 << 0,
 }
 
 export class Weapon implements GameObject {
@@ -32,13 +36,17 @@ export class Weapon implements GameObject {
 
     type: WeaponType ;
     transform: Object3D = new Object3D();
-    attackObb: mat4;
     model?: Model; // May be undefined while the resources are loading
+
+    attackLine: Ray = {
+        origin: vec3.create(),
+        dir: vec3.create(),
+        length: 0
+    };
 
     constructor(type: WeaponType, attackObb: mat4, state: EntityState) {
         this.state = state;
         this.type = type;
-        this.attackObb = mat4.clone(attackObb);
     }
 
     get isActive() {
@@ -52,6 +60,7 @@ export class Weapon implements GameObject {
 
 abstract class WeaponBlueprint {
     attackObb: mat4;
+    attackLine: vec3[];
 
     abstract loadResources(resources: ResourceManager, gfxDevice?: Gfx.Renderer): void;
     abstract create(state: EntityState, gfxDevice?: Gfx.Renderer): Weapon;
@@ -87,6 +96,11 @@ class SwordBlueprint extends WeaponBlueprint {
             0, 0, 90, 0,
             0, 0, 110, 1
         );
+
+        this.attackLine = [
+            vec3.fromValues(22, 0, 20),  // Start
+            vec3.fromValues(18, 0, 200), // End
+        ];
     }
 
     loadResources(resources: ResourceManager, gfxDevice?: Gfx.Renderer) {
@@ -236,7 +250,7 @@ export class WeaponSystem implements GameObjectFactory {
         
     }
 
-    updateFixed({ world }: { world: World }) {
+    updateFixed({ world, collision }: { world: World, collision: CollisionSystem }) {
         for (const weaponId in this.weapons) {
             const weapon = this.weapons[weaponId];
             const bp = this.blueprints[weapon.type];
@@ -245,10 +259,18 @@ export class WeaponSystem implements GameObjectFactory {
             const parent = world.objects.find(o => o.state.id === weapon.state.parent!);
             weapon.state.flags = parent!.state.flags & AvatarFlags.IsActive;
 
-            // Orient the weapon attack bounds
             if (weapon.isActive) {
+                // Orient the weapon attack bounds
                 (scratchMat4 as Float32Array).set(weapon.transform.matrixWorld.elements);
-                mat4.multiply(weapon.attackObb, scratchMat4, bp.attackObb);
+                const end = vec3.transformMat4(scratchVec3a, bp.attackLine[1], scratchMat4);
+
+                weapon.attackLine.origin = vec3.transformMat4(weapon.attackLine.origin, bp.attackLine[0], scratchMat4);
+                const dir = vec3.subtract(weapon.attackLine.dir, end, weapon.attackLine.origin);
+                weapon.attackLine.length = vec3.length(dir);
+                weapon.attackLine.dir = vec3.scale(weapon.attackLine.dir, dir, 1.0 / weapon.attackLine.length);
+                
+                // And register them with the collision system
+                collision.addAttackLine(weapon.attackLine, weapon);
             }
         }
     }

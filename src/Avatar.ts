@@ -17,6 +17,7 @@ import { Weapon, WeaponSystem } from "./Weapon";
 import { SimStream, SimState, EntityState, World, GameObjectType, GameObject, GameObjectFactory } from "./World";
 import { vec3, mat4 } from "gl-matrix";
 import { DebugRenderUtils } from "./DebugRender";
+import { CollisionSystem } from "./Collision";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -25,6 +26,7 @@ interface ServerDependencies {
     world: World;
 
     net: NetModuleServer;
+    collision: CollisionSystem;
 }
 
 interface ClientDependencies {
@@ -48,6 +50,7 @@ export class Avatar extends Object3D implements GameObject {
     skeleton: Skeleton;
     
     bounds: mat4 = mat4.create();
+    collisionId: number;
     weapon: Weapon;
 
     get isActive() {
@@ -303,6 +306,14 @@ export class AvatarSystemServer implements GameObjectFactory {
             const state = avatar.state;
             
             if (avatar.isActive && client && client.state === NetClientState.Active) {
+                // Update core state
+                const inputCmd = client.getUserCommand(game.clock.simFrame);
+                const dtSec = game.clock.simDt / 1000.0;
+                this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
+            }
+
+            if (avatar.isActive) {
+                // Sync state changes with GameObject
                 const pos = new Vector3(state.origin);
                 avatar.position.copy(pos);
                 avatar.lookAt(
@@ -314,17 +325,23 @@ export class AvatarSystemServer implements GameObjectFactory {
                 avatar.updateMatrix();
                 avatar.updateMatrixWorld();
 
+                // Register bounds with the collision system
                 (scratchMat4 as Float32Array).set(avatar.matrixWorld.elements);
                 mat4.multiply(avatar.bounds, scratchMat4, kBaseObb);
-    
-                const inputCmd = client.getUserCommand(game.clock.simFrame);
-                const dtSec = game.clock.simDt / 1000.0;
-        
-                this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
+                avatar.collisionId = game.collision.addTargetObb(avatar.bounds, avatar);
             }
         }
 
         this.animation.update(game.clock);
+    }
+
+    updateFixedLate({ collision }: { collision: CollisionSystem }) {
+        // Once all the avatar positions have been fully resolved, check for hits
+        for (const avatar of this.avatars) {
+            if (avatar.isActive) {
+                collision.getHitsForTarget(avatar.collisionId);
+            }
+        }
     }
 
     createGameObject(initialState: EntityState) {
