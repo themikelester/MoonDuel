@@ -29,6 +29,7 @@ const kMaxPoints = 32 * 1024;
 const kMaxObbs = 32;
 
 const defaultObbColor = vec4.fromValues(1, 0, 0, 1);
+const defaultLineColor = vec4.fromValues(0, 1, 0, 1);
 
 const obbPrim = {} as Primitive;
 const frustumPrim = {} as Primitive;
@@ -419,7 +420,7 @@ export class DebugRenderUtils {
   //   this.renderer.drawNonIndexed(Gfx.PrimitiveType.Points, 0, points.length);
   // }
 
-  static renderLines(pointPairs: vec3[], color: vec4) {
+  static renderLines(pointPairs: vec3[], color: vec4 = defaultLineColor) {
     if (!defined(pointsPrim.pipeline)) this.initialize();
 
     console.assert(pointPairs.length < kMaxPoints);
