@@ -15,7 +15,8 @@ import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Weapon, WeaponSystem } from "./Weapon";
 import { SimStream, SimState, EntityState, World, GameObjectType, GameObject, GameObjectFactory } from "./World";
-import { vec3 } from "gl-matrix";
+import { vec3, mat4 } from "gl-matrix";
+import { DebugRenderUtils } from "./DebugRender";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -46,6 +47,7 @@ export class Avatar extends Object3D implements GameObject {
     animationMixer: AnimationMixer;
     skeleton: Skeleton;
     
+    bounds: mat4 = mat4.create();
     weapon: Weapon;
 
     get isActive() {
@@ -68,6 +70,14 @@ export enum AvatarAttackType {
 
 const kGltfFilename = 'data/Tn.glb';
 const kAvatarCount = 8;
+const kBaseObb = mat4.fromValues(
+    40, 0, 0, 0,
+    0, 110, 0, 0,
+    0, 0, 40, 0,
+    0, 110, 10, 1
+);
+
+const scratchMat4 = mat4.create();
 
 export class AvatarSystemClient implements GameObjectFactory {
     public localAvatar: Avatar; // @HACK:
@@ -170,6 +180,16 @@ export class AvatarSystemClient implements GameObjectFactory {
     }
 
     render(game: ClientDependencies) {
+        // @DEBUG  
+        for (const avatar of this.avatars) {
+            if (!avatar.isActive) continue
+            
+            (scratchMat4 as Float32Array).set(avatar.matrixWorld.elements);
+            mat4.multiply(avatar.bounds, scratchMat4, kBaseObb);
+
+            DebugRenderUtils.renderObbs([avatar.bounds]);
+        }
+            
         this.renderer.render(game.gfxDevice, game.camera);
     }
 
@@ -293,6 +313,9 @@ export class AvatarSystemServer implements GameObjectFactory {
     
                 avatar.updateMatrix();
                 avatar.updateMatrixWorld();
+
+                (scratchMat4 as Float32Array).set(avatar.matrixWorld.elements);
+                mat4.multiply(avatar.bounds, scratchMat4, kBaseObb);
     
                 const inputCmd = client.getUserCommand(game.clock.simFrame);
                 const dtSec = game.clock.simDt / 1000.0;
