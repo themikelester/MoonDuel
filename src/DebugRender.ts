@@ -27,9 +27,11 @@ interface Primitive {
 // ----------------------------------------------------------------------------------
 const kMaxPoints = 32 * 1024;
 const kMaxObbs = 32;
+const kMaxSpheres = 32;
 
 const defaultObbColor = vec4.fromValues(1, 0, 0, 1);
 const defaultLineColor = vec4.fromValues(0, 1, 0, 1);
+const defaultSphereColor = vec4.fromValues(0, 0, 1, 1);
 
 const obbPrim = {} as Primitive;
 const frustumPrim = {} as Primitive;
@@ -111,7 +113,7 @@ const pointsVs = `
   }
 `;
 
-const pointsFs = `
+const vertColorFs = `
   precision mediump float;
   varying lowp vec4 v_color;
 
@@ -126,19 +128,21 @@ const sphereVs = `
 
   attribute vec3 a_pos;
 
-  uniform vec3 u_centerHigh;
-  uniform vec3 u_centerLow;
-  uniform float u_radius;
+  // Instanced
+  attribute vec3 a_origin;
+  attribute float a_radius;
+  attribute vec4 a_color;
 
-  uniform mat4 g_viewProjRelativeToEye;
-  uniform vec3 g_camPosHigh;
-  uniform vec3 g_camPosLow;
+  uniform mat4 g_viewProj;
+
+  varying lowp vec4 v_color;
 
   void main()
   {
-    vec3 centerPosRelativeToEye = (u_centerHigh - g_camPosHigh) + (u_centerLow - g_camPosLow);
-    vec3 posRelativeToEye = centerPosRelativeToEye + u_radius * a_pos;
-    gl_Position = g_viewProjRelativeToEye * vec4(posRelativeToEye, 1.0);
+    v_color = a_color;
+
+    vec3 pos = a_origin + a_radius * a_pos;
+    gl_Position = g_viewProj * vec4(pos, 1.0);
   }
 `;
 
@@ -200,11 +204,11 @@ export class DebugRenderUtils {
     ]);
     const unitCubeIdxBuf = this.renderer.createBuffer('ObbIndices', Gfx.BufferType.Index, Gfx.Usage.Static, unitCubeIndices);
 
-    const renderFormatBlending: Gfx.RenderFormat = { blendingEnabled: true, srcBlendFactor: Gfx.BlendFactor.Source, dstBlendFactor: Gfx.BlendFactor.OneMinusSource };
-    const renderFormatNoBlending: Gfx.RenderFormat = { blendingEnabled: false };
-
     const unitCubeVertLayout: Gfx.BufferLayout = { a_pos: { type: Gfx.Type.Float3, offset: 0 } };
     const unitCubeVertBufLayout: Gfx.VertexLayout = { buffers: [{ stride: 4 * 3, layout: unitCubeVertLayout }] };
+
+    const renderFormatBlending: Gfx.RenderFormat = { blendingEnabled: true, srcBlendFactor: Gfx.BlendFactor.Source, dstBlendFactor: Gfx.BlendFactor.OneMinusSource };
+    const renderFormatNoBlending: Gfx.RenderFormat = { blendingEnabled: false };
 
     const depthTestWrite = this.renderer.createDepthStencilState({ depthTestEnabled: true, depthWriteEnabled: true });
     const depthTest = this.renderer.createDepthStencilState({ depthTestEnabled: true, depthWriteEnabled: false });
@@ -287,7 +291,7 @@ export class DebugRenderUtils {
 
       name = 'Points';
       vertSource = pointsVs;
-      fragSource = pointsFs;
+      fragSource = vertColorFs;
       resourceLayout = PointsShader.resourceLayout;
     }
 
@@ -315,35 +319,51 @@ export class DebugRenderUtils {
     // ----------------------------------------------------------------------------------
     // Sphere
     // ----------------------------------------------------------------------------------
-  //   class SphereShader implements Gfx.ShaderDescriptor {
-  //     static uniformLayout: Gfx.BufferLayout = {
-  //       u_centerHigh: { offset: 0, type: Gfx.Type.Float3 },
-  //       u_centerLow: { offset: 12, type: Gfx.Type.Float3 },
-  //       u_radius: { offset: 24, type: Gfx.Type.Float },
-  //       u_color: { offset: 32, type: Gfx.Type.Float4 },
-  //     };
+    class SphereShader implements Gfx.ShaderDescriptor {
+      static resourceLayout = {
+        globalUniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
+      };
 
-  //     static resourceLayout = {
-  //       uniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: SphereShader.uniformLayout },
-  //       globalUniforms: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: globalUniforms.getBufferLayout() },
-  //     };
+      name = 'Sphere';
+      vertSource = sphereVs;
+      fragSource = vertColorFs;
+      resourceLayout = SphereShader.resourceLayout;
+    }
+    
+    const sphereVertLayout: Gfx.VertexLayout = {
+      buffers: [
+        {
+          stride: 12,
+          layout: {
+            a_pos: { offset: 0, type: Gfx.Type.Float3 }
+          }
+        }, 
+        {
+          stride: 32,
+          layout: {
+            a_origin: { offset: 0, type: Gfx.Type.Float3 },
+            a_radius: { offset: 12, type: Gfx.Type.Float },
+            a_color:  { offset: 16, type: Gfx.Type.Float4 },
+          },
+          stepMode: Gfx.StepMode.Instance
+        },
+      ]
+    }
 
-  //     name = 'Sphere';
-  //     vertSource = sphereVs;
-  //     fragSource = colorFs;
-  //     resourceLayout = SphereShader.resourceLayout;
-  //   }
+    spherePrim.shader = this.renderer.createShader(new SphereShader());
+    spherePrim.depthState = depthTestWrite;
+    spherePrim.resources = this.renderer.createResourceTable(SphereShader.resourceLayout);
+    spherePrim.pipeline = this.renderer.createRenderPipeline(spherePrim.shader, renderFormatNoBlending, 
+      sphereVertLayout, SphereShader.resourceLayout);
+    spherePrim.vertTable = this.renderer.createVertexTable(spherePrim.pipeline);
+    spherePrim.vertexBuffer = this.renderer.createBuffer('Spheres', Gfx.BufferType.Vertex, Gfx.Usage.Dynamic, 
+      kMaxSpheres * sphereVertLayout.buffers[1].stride);
+    spherePrim.indexBuffer = unitCubeIdxBuf;
+    spherePrim.count = 0;
 
-  //   spherePrim.shader = this.renderer.createShader(new SphereShader());
-  //   spherePrim.pipeline = this.renderer.createRenderPipeline(spherePrim.shader, renderFormatNoBlending, unitCubeVertBufLayout, SphereShader.resourceLayout);
-  //   spherePrim.resources = this.renderer.createResourceTable(spherePrim.pipeline);
-  //   spherePrim.depthState = depthTestWrite;
-  //   spherePrim.uniforms = new UniformBuffer('SphereUniforms', this.renderer, SphereShader.uniformLayout);
-  //   spherePrim.indexBuffer = unitCubeIdxBuf;
-
-  //   this.renderer.setBuffer(spherePrim.resources, unitCubeVertBuf);
-  //   this.renderer.setBuffer(spherePrim.resources, spherePrim.uniforms.getBuffer(), 0);
-  //   this.renderer.setBuffer(spherePrim.resources, globalUniforms.getBuffer(), 1);
+    this.renderer.setVertexBuffer(spherePrim.vertTable, 0, { buffer: unitCubeVertBuf });
+    this.renderer.setVertexBuffer(spherePrim.vertTable, 1, { buffer: spherePrim.vertexBuffer });
+    this.renderer.setBuffer(spherePrim.resources, 0, this.globalUniforms.bufferView);
   }
 
   static renderObbs(obbs: mat4[], drawFaces: boolean = false, color: vec4 = defaultObbColor) {
@@ -436,20 +456,22 @@ export class DebugRenderUtils {
     pointsPrim.count += pointPairs.length;
   }
 
-  // static renderSpheres(this.renderer: Gfx.Renderer, spheres: vec4[], color: vec4) {
-  //   this.renderer.bindPipeline(spherePrim.pipeline);
-  //   this.renderer.setDepthStencilState(spherePrim.depthState);
-  //   for (let posRad of spheres) {
-  //     encodeVecHighToFloatArray(posRad, spherePrim.uniforms.getFloatArray('u_centerHigh'));
-  //     encodeVecLowToFloatArray(posRad, spherePrim.uniforms.getFloatArray('u_centerLow'));
-  //     spherePrim.uniforms.set('u_color', color);
-  //     spherePrim.uniforms.set('u_radius', posRad.w);
-  //     spherePrim.uniforms.write(this.renderer);
+  static renderSpheres(spheres: vec4[], color: vec4 = defaultSphereColor) {
+    if (!defined(spherePrim.pipeline)) this.initialize();
+    
+    console.assert(spheres.length < kMaxSpheres);
 
-  //     this.renderer.bindResources(spherePrim.resources);
-  //     this.renderer.draw(Gfx.PrimitiveType.Lines, spherePrim.indexBuffer, Gfx.Type.Ushort, 0, 24);
-  //   }
-  // }
+    // Encode positions and write to vertex buffer
+    for (let i = 0; i < spheres.length; i++) {
+      floatScratch.set(spheres[i], i * 8 + 0);
+      floatScratch.set(color, i * 8 + 4);
+    }
+
+    this.renderer.writeBufferData(spherePrim.vertexBuffer, spherePrim.count * 32, 
+        floatScratch.subarray(0, spheres.length * 8));
+
+    spherePrim.count += spheres.length;
+  }
 
   static flush() {
     if (pointsPrim.count > 0) {
@@ -465,6 +487,24 @@ export class DebugRenderUtils {
       renderLists.debug.push(prim);
       
       pointsPrim.count = 0;
+    }
+
+    if (spherePrim.count > 0) {
+      const prim: RenderPrimitive = {
+        renderPipeline: spherePrim.pipeline,
+        depthMode: spherePrim.depthState,
+        resourceTable: spherePrim.resources,
+        vertexTable: spherePrim.vertTable,
+        type: Gfx.PrimitiveType.Lines,
+        elementCount: spherePrim.count * 24,
+
+        indexBuffer: { buffer: spherePrim.indexBuffer },
+        indexType: Gfx.Type.Ushort,
+      }
+      
+      renderLists.debug.push(prim);
+      
+      spherePrim.count = 0;
     }
   }
 }
