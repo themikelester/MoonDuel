@@ -6,10 +6,8 @@ import { assertDefined, defined } from "./util";
 import { Avatar, AvatarFlags, AvatarAttackType } from "./Avatar";
 import { GltfResource } from "./resources/Gltf";
 import { Clock } from "./Clock";
-import { vec3 } from "gl-matrix";
-import { kAvatarWalkSpeed, kAvatarRunSpeed } from "./AvatarController";
-import { AnimationActionLoopStyles, LoopOnce } from "three/src/constants";
-import { EntityState } from "./World";
+import { kAvatarRunSpeed } from "./AvatarController";
+import { LoopOnce } from "three/src/constants";
 
 const kWalkStartStopTimes = [0.25, 0.75]; // Normalized times at which one foot is on the ground and the body is centered over its position
 const kRunStartStopTimes = [0.15, 0.65];
@@ -19,7 +17,7 @@ class AnimationDebugMenu {
     debugAnimation?: AnimationAction;
     debugAnimationMixer: AnimationMixer;
 
-    constructor(private targetAvatar: Avatar) {}
+    constructor(private targetAvatar: Avatar) { }
 
     // Populate a DebugMenu folder with functions to play (and control) all possible animations 
     onResourcesLoaded(animations: AnimationClip[], debugMenu: DebugMenu) {
@@ -29,17 +27,17 @@ class AnimationDebugMenu {
         const funcs = {
             that: this,
 
-            togglePaused: () => { if(this.debugAnimation) this.debugAnimation.paused = !this.debugAnimation.paused },
-            stop: () => { if(this.debugAnimation) { this.debugAnimation.stop(); this.debugAnimation = undefined; } },
+            togglePaused: () => { if (this.debugAnimation) this.debugAnimation.paused = !this.debugAnimation.paused },
+            stop: () => { if (this.debugAnimation) { this.debugAnimation.stop(); this.debugAnimation = undefined; } },
 
-            get time() { 
+            get time() {
                 if (defined(this.that.debugAnimation)) {
                     const time = this.that.debugAnimation.time;
                     const normalizedTime = time / this.that.debugAnimation.getClip().duration;
                     return normalizedTime;
                 } else return 0.0;
             },
-            set time(normalizedTime: number) { 
+            set time(normalizedTime: number) {
                 if (defined(this.that.debugAnimation)) {
                     this.that.debugAnimation.paused = true;
                     this.that.debugAnimation.time = normalizedTime * this.that.debugAnimation.getClip().duration;
@@ -84,7 +82,7 @@ export class AvatarAnim {
     avatars: Avatar[];
     data: AvatarAnimData[] = [];
     ready = false;
-    
+
     debugMenu: AnimationDebugMenu;
 
     initialize(avatars: Avatar[]) {
@@ -101,7 +99,7 @@ export class AvatarAnim {
 
         for (let i = 0; i < this.avatars.length; i++) {
             const avatar = this.avatars[i];
-            
+
             // Buffer the animation clips now
             this.data[i] = {
                 aIdle: avatar.animationMixer.clipAction(idleClip),
@@ -116,13 +114,15 @@ export class AvatarAnim {
             data.aIdle.play().setEffectiveWeight(1.0);
             data.aWalk.play().setEffectiveWeight(0.0);
             data.aRun.play().setEffectiveWeight(0.0);
+            data.aAttackSide.play().setEffectiveWeight(0.0);
+            data.aAttackVert.play().setEffectiveWeight(0.0);
 
             // Attacks don't loop
             data.aAttackSide.setLoop(LoopOnce, 1);
             data.aAttackVert.setLoop(LoopOnce, 1);
 
             // Give each avatar a different idle phase, so their animations don't appear to sync
-            data.aIdle.time = i * (data.aIdle.getClip().duration / (this.avatars.length + 1)); 
+            data.aIdle.time = i * (data.aIdle.getClip().duration / (this.avatars.length + 1));
 
             data.aWalk.time = kWalkStartStopTimes[data.startingFoot] * data.aWalk.getClip().duration;
             data.aRun.time = kRunStartStopTimes[data.startingFoot] * data.aRun.getClip().duration;
@@ -133,6 +133,44 @@ export class AvatarAnim {
         this.ready = true;
     }
 
+    apply(avatar: Avatar, data: AvatarAnimData, clock: Clock) {
+        const state = avatar.state;
+        let remainingWeight = 1.0;
+
+        const idleTime = clock.renderTime / 1000.0;
+        const locoTime = idleTime;
+        const attackTime = (clock.renderTime - state.stateStartFrame * clock.simDt) * 0.001;
+
+        // Attack 
+        let attackWeight = 0.0;
+        if (state.state !== AvatarAttackType.None) {
+            attackWeight = Math.min(
+                saturate(delerp(0.0, 0.2, attackTime)),
+                1.0 - saturate(delerp(0.8, 1.1, attackTime)),
+            );
+        } else {
+            attackWeight = 0.0;
+        }
+
+        remainingWeight -= attackWeight;
+        let locoWeight = remainingWeight * saturate(delerp(0, kAvatarRunSpeed, state.speed));
+        let idleWeight = remainingWeight * saturate(delerp(kAvatarRunSpeed, 0, state.speed));
+
+        data.aRun.time = locoTime % data.aRun.getClip().duration;
+        data.aIdle.time = idleTime % data.aIdle.getClip().duration;
+        data.aAttackSide.time = attackTime % data.aAttackSide.getClip().duration;
+        data.aAttackVert.time = attackTime % data.aAttackVert.getClip().duration;
+        
+        data.aRun.weight = locoWeight;
+        data.aIdle.weight = idleWeight;
+        data.aAttackSide.weight = state.state === AvatarAttackType.Side ? attackWeight : 0;
+        data.aAttackVert.weight = state.state === AvatarAttackType.Vertical ? attackWeight : 0;
+        
+        avatar.animationMixer.update(0);
+        avatar.updateMatrixWorld();
+        avatar.skeleton.update();
+    }
+
     update(clock: Clock) {
         if (!this.ready) return;
         const dtSec = clock.renderDt * 0.001;
@@ -140,79 +178,13 @@ export class AvatarAnim {
         for (let i = 0; i < this.avatars.length; i++) {
             const data = this.data[i];
             const avatar = this.avatars[i];
-            const state = avatar.state;
-
-            if (!avatar.isActive) {
-                continue;
-            }
             
             if (avatar.local) {
                 const debugActive = this.debugMenu.update(dtSec);
                 if (debugActive) { continue; }
             }
 
-            const speed = state.speed;
-
-            // Attack 
-            let attackWeight = 0.0;
-            if (state.state !== AvatarAttackType.None) {
-                const attackTime = (clock.renderTime - state.stateStartFrame * clock.simDt) * 0.001;
-                const anim = state.state === AvatarAttackType.Side ? data.aAttackSide : data.aAttackVert;
-
-                if (!anim.isRunning()) {
-                    anim.reset();
-                    anim.time = attackTime;
-                    anim.play();
-                }
-                attackWeight = Math.min(
-                    saturate(delerp(0.0, 0.2, attackTime)),
-                    1.0 - saturate(delerp(0.8, 1.1, attackTime)),
-                );
-            } else {
-                data.aAttackSide.stop();
-                data.aAttackVert.stop();
-                attackWeight = 0.0;
-            }
-
-            // Blend tree
-            const movementWeight = 1.0 - attackWeight; 
-            {
-                const isWalking = state.flags & AvatarFlags.IsWalking;
-                const isUTurning = state.flags & AvatarFlags.IsUTurning;
-                
-                const idleWeight = saturate(1.0 - speed / kAvatarWalkSpeed);
-                const runWeight = saturate(delerp(isWalking ? kAvatarWalkSpeed : 0, kAvatarRunSpeed, speed));
-                const walkWeight = saturate(delerp(0, kAvatarWalkSpeed, speed)) - data.aRun.weight;
-
-                data.aIdle.weight = movementWeight * idleWeight;
-                data.aRun.weight = movementWeight * runWeight
-                data.aWalk.weight = movementWeight * walkWeight;
-                
-                data.aRun.timeScale = runWeight;
-                data.aWalk.timeScale = walkWeight;
-            }
-
-            {
-                if (state.state === AvatarAttackType.Side) data.aAttackSide.weight = attackWeight * 1.0;
-                else data.aAttackVert.weight = attackWeight * 1.0;
-            }
-
-            // if (isUTurning) {
-            //     this.aWalk.timeScale = -1.0;
-            // }
-
-            if (speed <= 0.0) {
-                // Reset the walk animation so we always start from the same position when we begin walking again
-                data.aWalk.time = kWalkStartStopTimes[data.startingFoot] * data.aWalk.getClip().duration;
-                data.aRun.time = kRunStartStopTimes[data.startingFoot] * data.aRun.getClip().duration;
-                data.startingFoot = (data.startingFoot + 1) % 2;
-            }
-
-            // @TODO: Sync animation mixer to server time (Otherwise all the animations are off)
-            avatar.animationMixer.update(dtSec);            
-
-            avatar.updateMatrixWorld();
-            avatar.skeleton.update();
+            if (avatar.isActive) this.apply(avatar, data, clock);
         }
     }
 }
