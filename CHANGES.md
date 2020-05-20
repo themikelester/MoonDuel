@@ -15,6 +15,14 @@ Change Log
 * Start in offline mode. Don't wait for connection before becoming playable. This may mean implementing prediction.
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 
+### 2020-05-20
+##### Evening
+I finally did it! I added a bounding OBB to the avatar, and a collision system to go with it. First, the avatar system updates all avatar positions and poses, and adds them to the collision system as "targets". Then the weapon system adds all of its attack bounds (currently lines, represented as a ray with a maxLength) to the collision system. The avatar system then does a second pass (updateFixedLate()) in which it queries the collision system for hits against its bounds. 
+
+Afterwards I started working on fixing up AvatarAnim, so that it it can generate a pose ONLY from the the current avatar state. Previously it was keeping extra state itself (primarily playhead times for each animation) which meant that if a rewind occurred or any kind of scrub happened all the anims would be out of sync. Now that this is in we can scrub through the SimStream and the whole world should update accordingly. Neat! I'm going to use this to implement hit-stop when attacks land.
+
+Actually, the AvatarAnim update isn't quite complete. It doesn't handle walking (it just runs in tiny steps). Tomorrow I think it may be worth implementing some proper AnimationState with transitions and blend trees. Or maybe I'll be able to hack around without it. But on second thought, we'll need reactions to hits, which will make that tree more complicated. I bet I'll need them. I spent an hour or two trying to warp the walk and run animations (they have different durations) so that I could blend between them smoothly, but to no avail. I'll try again tomorrow.
+
 ### 2020-05-19
 ##### Morning
 Today I need to add weapons to the new SimStream system. The smart thing to do would be avoid the work of dealing with dynamically added objects (and just assume the same number of weapons and avatars will always be in the world), but we'll see how smart I am today.
