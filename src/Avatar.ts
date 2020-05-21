@@ -330,6 +330,11 @@ export class AvatarSystemServer implements GameObjectFactory {
                 (scratchMat4 as Float32Array).set(avatar.matrixWorld.elements);
                 mat4.multiply(avatar.bounds, scratchMat4, kBaseObb);
                 avatar.collisionId = game.collision.addTargetObb(avatar.bounds, avatar);
+
+                // And register them with the collision system
+                if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
+                    game.collision.addAttackLine(avatar.weapon.attackLine, avatar.weapon);
+                }
             }
         }
 

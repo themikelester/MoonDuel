@@ -268,9 +268,6 @@ export class WeaponSystem implements GameObjectFactory {
                 const dir = vec3.subtract(weapon.attackLine.dir, end, weapon.attackLine.origin);
                 weapon.attackLine.length = vec3.length(dir);
                 weapon.attackLine.dir = vec3.scale(weapon.attackLine.dir, dir, 1.0 / weapon.attackLine.length);
-                
-                // And register them with the collision system
-                collision.addAttackLine(weapon.attackLine, weapon);
             }
         }
     }
