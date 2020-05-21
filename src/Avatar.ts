@@ -64,11 +64,12 @@ export enum AvatarFlags {
     IsUTurning = 1 << 2,
 }
 
-export enum AvatarAttackType {
+export enum AvatarState {
     None,
-    Side,
-    Vertical,
-    Throw
+    AttackSide,
+    AttackVertical,
+    AttackThrow,
+    Struck
 }
 
 const kGltfFilename = 'data/Tn.glb';
@@ -335,7 +336,7 @@ export class AvatarSystemServer implements GameObjectFactory {
         this.animation.update(game.clock);
     }
 
-    updateFixedLate({ collision }: { collision: CollisionSystem }) {
+    updateFixedLate({ collision, clock }: { collision: CollisionSystem, clock: Clock }) {
         // Once all the avatar positions have been fully resolved, check for hits
         for (const avatar of this.avatars) {
             if (avatar.isActive) {
@@ -343,6 +344,11 @@ export class AvatarSystemServer implements GameObjectFactory {
                 for (const hit of hits) {
                     const avatarIdx = hit.owner.state.parent;
                     console.log(`Avatar ${avatar.state.id} hit by Avatar ${avatarIdx} at ${hit.pos}`);
+                }
+
+                if (hits.length > 0) {
+                    avatar.state.state = AvatarState.Struck;
+                    avatar.state.stateStartFrame = clock.simFrame;
                 }
             }
         }

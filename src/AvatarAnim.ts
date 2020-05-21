@@ -3,7 +3,7 @@ import { DebugMenu, IDebugMenu } from "./DebugMenu";
 import { delerp, saturate, smoothstep } from "./MathHelpers";
 import { AnimationClip, AnimationMixer, AnimationAction } from "./Animation";
 import { assertDefined, defined } from "./util";
-import { Avatar, AvatarFlags, AvatarAttackType } from "./Avatar";
+import { Avatar, AvatarFlags, AvatarState } from "./Avatar";
 import { GltfResource } from "./resources/Gltf";
 import { Clock } from "./Clock";
 import { kAvatarRunSpeed } from "./AvatarController";
@@ -75,6 +75,7 @@ interface AvatarAnimData {
     aRun: AnimationAction;
     aAttackSide: AnimationAction;
     aAttackVert: AnimationAction;
+    aStruck: AnimationAction;
     startingFoot: number;
 }
 
@@ -96,6 +97,7 @@ export class AvatarAnim {
         const runClip = assertDefined(gltf.animations.find(a => a.name === 'brun1'));
         const attackSideClip = assertDefined(gltf.animations.find(a => a.name === 'aat_yoko1'));
         const attackVertClip = assertDefined(gltf.animations.find(a => a.name === 'aat_tate1'));
+        const struckClip = assertDefined(gltf.animations.find(a => a.name === 'ahakai1'));
 
         for (let i = 0; i < this.avatars.length; i++) {
             const avatar = this.avatars[i];
@@ -107,6 +109,7 @@ export class AvatarAnim {
                 aRun: avatar.animationMixer.clipAction(runClip),
                 aAttackSide: avatar.animationMixer.clipAction(attackSideClip),
                 aAttackVert: avatar.animationMixer.clipAction(attackVertClip),
+                aStruck: avatar.animationMixer.clipAction(struckClip),
                 startingFoot: 0,
             };
 
@@ -116,6 +119,7 @@ export class AvatarAnim {
             data.aRun.play().setEffectiveWeight(0.0);
             data.aAttackSide.play().setEffectiveWeight(0.0);
             data.aAttackVert.play().setEffectiveWeight(0.0);
+            data.aStruck.play().setEffectiveWeight(0.0);
 
             // Attacks don't loop
             data.aAttackSide.setLoop(LoopOnce, 1);
@@ -139,32 +143,44 @@ export class AvatarAnim {
 
         const idleTime = clock.renderTime / 1000.0;
         const locoTime = idleTime;
-        const attackTime = (clock.renderTime - state.stateStartFrame * clock.simDt) * 0.001;
+        const stateTime = (clock.renderTime - state.stateStartFrame * clock.simDt) * 0.001;
 
         // Attack 
         let attackWeight = 0.0;
-        if (state.state !== AvatarAttackType.None) {
+        if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
             attackWeight = Math.min(
-                saturate(delerp(0.0, 0.2, attackTime)),
-                1.0 - saturate(delerp(0.8, 1.1, attackTime)),
+                saturate(delerp(0.0, 0.2, stateTime)),
+                1.0 - saturate(delerp(0.8, 1.1, stateTime)),
             );
         } else {
             attackWeight = 0.0;
         }
-
         remainingWeight -= attackWeight;
+
+        // Struck
+        let struckWeight = 0.0;
+        if (state.state === AvatarState.Struck) {
+            struckWeight = Math.min(
+                saturate(delerp(0.0, 0.1, stateTime)),
+                1.0 - saturate(delerp(0.444, 0.544, stateTime)),
+            );
+        }
+        remainingWeight -= struckWeight;
+
         let locoWeight = remainingWeight * saturate(delerp(0, kAvatarRunSpeed, state.speed));
         let idleWeight = remainingWeight * saturate(delerp(kAvatarRunSpeed, 0, state.speed));
 
         data.aRun.time = locoTime % data.aRun.getClip().duration;
         data.aIdle.time = idleTime % data.aIdle.getClip().duration;
-        data.aAttackSide.time = attackTime % data.aAttackSide.getClip().duration;
-        data.aAttackVert.time = attackTime % data.aAttackVert.getClip().duration;
+        data.aAttackSide.time = stateTime % data.aAttackSide.getClip().duration;
+        data.aAttackVert.time = stateTime % data.aAttackVert.getClip().duration;
+        data.aStruck.time = stateTime % data.aStruck.getClip().duration;
         
         data.aRun.weight = locoWeight;
         data.aIdle.weight = idleWeight;
-        data.aAttackSide.weight = state.state === AvatarAttackType.Side ? attackWeight : 0;
-        data.aAttackVert.weight = state.state === AvatarAttackType.Vertical ? attackWeight : 0;
+        data.aAttackSide.weight = state.state === AvatarState.AttackSide ? attackWeight : 0;
+        data.aAttackVert.weight = state.state === AvatarState.AttackVertical ? attackWeight : 0;
+        data.aStruck.weight = struckWeight;
         
         avatar.animationMixer.update(0);
         avatar.updateMatrixWorld();

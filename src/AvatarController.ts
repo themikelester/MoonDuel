@@ -1,4 +1,4 @@
-import { AvatarFlags, AvatarAttackType } from "./Avatar";
+import { AvatarFlags, AvatarState } from "./Avatar";
 import { vec3 } from "gl-matrix";
 import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
@@ -32,20 +32,28 @@ export class AvatarController {
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
 
         // Attacking
-        if (prevState.state !== AvatarAttackType.None) {
+        if (prevState.state !== AvatarState.None) {
             const duration = frame - prevState.stateStartFrame;
             if (duration >= 69) { // @HACK: Need to set up proper exiting
-                nextState.state = AvatarAttackType.None;
-                nextState.stateStartFrame = 0;
+                nextState.state = AvatarState.None;
+                nextState.stateStartFrame = frame;
             }
         } else {
             if (input.actions & InputAction.AttackSide) {
                 nextState.stateStartFrame = frame;
-                nextState.state = AvatarAttackType.Side;
+                nextState.state = AvatarState.AttackSide;
             }
             if (input.actions & InputAction.AttackVert) {
                 nextState.stateStartFrame = frame;
-                nextState.state = AvatarAttackType.Vertical;
+                nextState.state = AvatarState.AttackVertical;
+            }
+        }
+
+        if (prevState.state === AvatarState.Struck) {
+            const duration = frame - prevState.stateStartFrame;
+            if (duration > 34) {
+                nextState.state = AvatarState.None; 
+                nextState.stateStartFrame = frame;
             }
         }
         
@@ -53,7 +61,7 @@ export class AvatarController {
         let speed = prevState.speed;
         const accel = inputShouldWalk ? kWalkAcceleration : kRunAcceleration;
         let maxSpeed = inputShouldWalk ? kAvatarWalkSpeed : kAvatarRunSpeed;
-        if (nextState.state !== AvatarAttackType.None) maxSpeed = 10;
+        if (nextState.state !== AvatarState.None) maxSpeed = 10;
 
         const dSpeed = (inputActive ? accel : -accel) * dtSec;
         const targetSpeed = clamp(speed + dSpeed, 0, maxSpeed); 
