@@ -184,16 +184,6 @@ export class AvatarSystemClient implements GameObjectFactory {
     }
 
     render(game: ClientDependencies) {
-        // @DEBUG  
-        for (const avatar of this.avatars) {
-            if (!avatar.isActive) continue
-            
-            (scratchMat4 as Float32Array).set(avatar.matrixWorld.elements);
-            mat4.multiply(avatar.bounds, scratchMat4, kBaseObb);
-
-            DebugRenderUtils.renderObbs([avatar.bounds]);
-        }
-            
         this.renderer.render(game.gfxDevice, game.camera);
     }
 

@@ -370,7 +370,7 @@ export class DebugRenderUtils {
     if (!defined(obbPrim.pipeline)) this.initialize();
 
     // @HACK:
-    assert(obbs.length === 1, 'Drawing multiple OBBs not yet supported. (Need to use multiple uniform buffers)');
+    assert(obbs.length <= 1, 'Drawing multiple OBBs not yet supported. (Need to use multiple uniform buffers)');
 
     obbPrim.uniforms.setVec4('u_color', color);
 

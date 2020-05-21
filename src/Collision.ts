@@ -1,7 +1,8 @@
 import { mat4, vec3 } from "gl-matrix";
 import { intersectObbRay } from "./Intersection";
 import { GameObject } from "./World";
-import { defined, assert } from "./util";
+import { defined, assert, defaultValue } from "./util";
+import { DebugRenderUtils } from "./DebugRender";
 
 export class Obb {
   center: vec3 = vec3.create();
@@ -20,6 +21,16 @@ export class Obb {
     vec3.scale(this.bases[1], this.bases[1], 1.0 / this.halfLengths[1]);
     vec3.scale(this.bases[2], this.bases[2], 1.0 / this.halfLengths[2]);
     return this;
+  }
+
+  toMatrix(obb: mat4) {
+    mat4.set(obb, 
+      this.halfLengths[0] * this.bases[0][0], this.halfLengths[0] * this.bases[0][1], this.halfLengths[0] * this.bases[0][2], 0,
+      this.halfLengths[1] * this.bases[1][0], this.halfLengths[1] * this.bases[1][1], this.halfLengths[1] * this.bases[1][2], 0,
+      this.halfLengths[2] * this.bases[2][0], this.halfLengths[2] * this.bases[2][1], this.halfLengths[2] * this.bases[2][2], 0,
+      this.center[0], this.center[1], this.center[2], 1 
+    );
+    return obb;
   }
 }
 
@@ -97,10 +108,24 @@ export class CollisionSystem {
     return hits;
   }
 
-  clear() {
+  clear() {  
     this.attacks.length = 0;
     this.targets.length = 0;
     this.attackOwners.length = 0;
     this.targetOwners.length = 0;
+  }
+
+  debugRender() {
+    const obbs = this.targets.map(t => t.toMatrix(mat4.create()));
+    const lines: vec3[] = [];
+
+    for (let i = 0; i < this.attacks.length; i++) {
+      const a = this.attacks[i].origin;
+      const b = vec3.scaleAndAdd(vec3.create(), a, this.attacks[i].dir, defaultValue(this.attacks[i].length, 1000));
+      lines.push(a, b);
+    }
+
+    DebugRenderUtils.renderObbs(obbs.slice(0,1));
+    DebugRenderUtils.renderLines(lines);
   }
 }
