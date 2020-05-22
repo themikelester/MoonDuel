@@ -28,6 +28,7 @@ interface Primitive {
 const kMaxPoints = 32 * 1024;
 const kMaxObbs = 32;
 const kMaxSpheres = 32;
+const kMaxQuads = 32;
 
 const defaultObbColor = vec4.fromValues(1, 0, 0, 1);
 const defaultLineColor = vec4.fromValues(0, 1, 0, 1);
@@ -37,6 +38,7 @@ const obbPrim = {} as Primitive;
 const frustumPrim = {} as Primitive;
 const pointsPrim = {} as Primitive;
 const spherePrim = {} as Primitive;
+const quadsPrim = {} as Primitive;
 
 // ----------------------------------------------------------------------------------
 // Scratch
@@ -317,6 +319,20 @@ export class DebugRenderUtils {
     this.renderer.setBuffer(pointsPrim.resources, 0, this.globalUniforms.bufferView);
 
     // ----------------------------------------------------------------------------------
+    // Quads
+    // ----------------------------------------------------------------------------------
+    quadsPrim.shader = this.renderer.createShader(new PointsShader());
+    quadsPrim.pipeline = this.renderer.createRenderPipeline(quadsPrim.shader, renderFormatBlending, pointsVertLayout, PointsShader.resourceLayout);
+    quadsPrim.resources = this.renderer.createResourceTable(PointsShader.resourceLayout);
+    quadsPrim.vertTable = this.renderer.createVertexTable(quadsPrim.pipeline);
+    quadsPrim.depthState = depthDisabled;
+    quadsPrim.vertexBuffer = this.renderer.createBuffer('QuadVerts', Gfx.BufferType.Vertex, Gfx.Usage.Dynamic, kMaxQuads * 4 * pointsVertLayout.buffers[0].stride);
+    quadsPrim.count = 0;
+
+    this.renderer.setVertexBuffer(quadsPrim.resources, 0, { buffer: quadsPrim.vertexBuffer });
+    this.renderer.setBuffer(quadsPrim.resources, 0, this.globalUniforms.bufferView);
+
+    // ----------------------------------------------------------------------------------
     // Sphere
     // ----------------------------------------------------------------------------------
     class SphereShader implements Gfx.ShaderDescriptor {
@@ -456,6 +472,22 @@ export class DebugRenderUtils {
     pointsPrim.count += pointPairs.length;
   }
 
+  static renderQuads(quads: vec3[], color: vec4 = defaultLineColor) {
+    if (!defined(quadsPrim.pipeline)) this.initialize();
+
+    console.assert((quads.length * 4) < kMaxPoints);
+
+    // Encode positions and write to vertex buffer
+    for (let i = 0; i < quads.length; i++) {
+      floatScratch.set(quads[i], i * 8 + 0);
+      floatScratch.set(color, i * 8 + 4);
+    }
+    this.renderer.writeBufferData(quadsPrim.vertexBuffer, quadsPrim.count * 32, 
+        floatScratch.subarray(0, quads.length * 8));
+
+    quadsPrim.count += quads.length;
+  }
+
   static renderSpheres(spheres: vec4[], color: vec4 = defaultSphereColor) {
     if (!defined(spherePrim.pipeline)) this.initialize();
     
@@ -505,6 +537,21 @@ export class DebugRenderUtils {
       renderLists.debug.push(prim);
       
       spherePrim.count = 0;
+    } 
+    
+    if (quadsPrim.count > 0) {
+      const prim: RenderPrimitive = {
+        renderPipeline: quadsPrim.pipeline,
+        depthMode: quadsPrim.depthState,
+        resourceTable: quadsPrim.resources,
+        vertexTable: quadsPrim.vertTable,
+        type: Gfx.PrimitiveType.TriangleStrip,
+        elementCount: quadsPrim.count,
+      }
+      
+      renderLists.debug.push(prim);
+      
+      quadsPrim.count = 0;
     }
   }
 }
