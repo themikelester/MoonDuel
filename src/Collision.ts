@@ -1,5 +1,5 @@
 import { mat4, vec3 } from "gl-matrix";
-import { intersectObbRay } from "./Intersection";
+import { intersectObbRay, intersectObbTriangle } from "./Intersection";
 import { GameObject } from "./World";
 import { defined, assert, defaultValue } from "./util";
 import { DebugRenderUtils } from "./DebugRender";
@@ -50,6 +50,10 @@ export interface Ray {
   length?: number,
 }
 
+export interface Quad {
+  verts: vec3[]
+}
+
 export interface HitResult {
   owner: GameObject;
   pos: vec3;
@@ -58,7 +62,7 @@ export interface HitResult {
 const kHitCacheSize = 8;
 
 export class CollisionSystem {
-  attacks: Ray[] = [];
+  attacks: Quad[] = [];
   attackOwners: GameObject[] = [];
 
   targets: Obb[] = [];
@@ -72,8 +76,8 @@ export class CollisionSystem {
     }
   }
 
-  addAttackLine(ray: Ray, owner: GameObject) {
-    this.attacks.push(ray);
+  addAttackRegion(quad: Quad, owner: GameObject) {
+    this.attacks.push(quad);
     this.attackOwners.push(owner);
   }
 
@@ -95,12 +99,13 @@ export class CollisionSystem {
     let hitIdx = 0;
     
     for (let i = 0; i < this.attacks.length; i++) {
-      const ray = this.attacks[i];
-      const t = intersectObbRay(obb, ray.origin, ray.dir, ray.length);
+      const quad = this.attacks[i];
+      let hit = intersectObbTriangle(obb, quad.verts[0], quad.verts[1], quad.verts[2]);
+      if (!hit) hit = intersectObbTriangle(obb, quad.verts[1], quad.verts[2], quad.verts[3]);
 
-      if (defined(t)) { 
+      if (hit) { 
         assert(hitIdx < kHitCacheSize, 'Too many hits in one frame');
-        const hitPos = vec3.scaleAndAdd(this.hitCache[hitIdx++], ray.origin, ray.dir, t);
+        const hitPos = this.hitCache[hitIdx++]; // @TODO
         hits.push({ owner: this.attackOwners[i], pos: hitPos });
       }
     }
@@ -117,15 +122,13 @@ export class CollisionSystem {
 
   debugRender() {
     const obbs = this.targets.map(t => t.toMatrix(mat4.create()));
-    const lines: vec3[] = [];
+    const quads = [];
 
-    for (let i = 0; i < this.attacks.length; i++) {
-      const a = this.attacks[i].origin;
-      const b = vec3.scaleAndAdd(vec3.create(), a, this.attacks[i].dir, defaultValue(this.attacks[i].length, 1000));
-      lines.push(a, b);
+    for (const attack of this.attacks) {
+      quads.push(attack.verts[0], attack.verts[1], attack.verts[2], attack.verts[3]);
     }
 
     DebugRenderUtils.renderObbs(obbs.slice(0,1));
-    DebugRenderUtils.renderLines(lines);
+    DebugRenderUtils.renderQuads(quads);
   }
 }

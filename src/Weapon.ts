@@ -38,12 +38,7 @@ export class Weapon implements GameObject {
     transform: Object3D = new Object3D();
     model?: Model; // May be undefined while the resources are loading
 
-    attackLine: Ray = {
-        origin: vec3.create(),
-        dir: vec3.create(),
-        length: 0
-    };
-
+    attackQuad: vec3[] = [vec3.create(), vec3.create(), vec3.create(), vec3.create()];
     constructor(type: WeaponType, attackObb: mat4, state: EntityState) {
         this.state = state;
         this.type = type;
@@ -260,20 +255,20 @@ export class WeaponSystem implements GameObjectFactory {
             weapon.state.flags = parent!.state.flags & AvatarFlags.IsActive;
 
             if (weapon.isActive) {
-                // Orient the weapon attack bounds
-                (scratchMat4 as Float32Array).set(weapon.transform.matrixWorld.elements);
-                const end = vec3.transformMat4(scratchVec3a, bp.attackLine[1], scratchMat4);
+                // Copy the last front edge to the new back edge
+                vec3.copy(weapon.attackQuad[2], weapon.attackQuad[0]);
+                vec3.copy(weapon.attackQuad[3], weapon.attackQuad[1]);
 
-                weapon.attackLine.origin = vec3.transformMat4(weapon.attackLine.origin, bp.attackLine[0], scratchMat4);
-                const dir = vec3.subtract(weapon.attackLine.dir, end, weapon.attackLine.origin);
-                weapon.attackLine.length = vec3.length(dir);
-                weapon.attackLine.dir = vec3.scale(weapon.attackLine.dir, dir, 1.0 / weapon.attackLine.length);
+                // Create the new front edge by orient the weapon attack line for this frame
+                (scratchMat4 as Float32Array).set(weapon.transform.matrixWorld.elements);
+                vec3.transformMat4(weapon.attackQuad[0], bp.attackLine[0], scratchMat4);
+                vec3.transformMat4(weapon.attackQuad[1], bp.attackLine[1], scratchMat4);
             }
         }
     }
 
-    render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera, avatar: AvatarSystemClient }) {
-        for (const weapon of this.weapons) {
+    render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera, avatar: AvatarSystemClient }, debug = false) {
+       for (const weapon of this.weapons) {
             if (!weapon.isActive) continue;
 
             const model = weapon.model;

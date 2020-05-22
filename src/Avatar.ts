@@ -323,7 +323,7 @@ export class AvatarSystemServer implements GameObjectFactory {
 
                 // And register them with the collision system
                 if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
-                    game.collision.addAttackLine(avatar.weapon.attackLine, avatar.weapon);
+                    game.collision.addAttackRegion({ verts: avatar.weapon.attackQuad }, avatar.weapon);
                 }
             }
         }
