@@ -493,7 +493,7 @@ export class DebugRenderUtils {
       floatScratch.set(quads[i], i * 8 + 0);
       floatScratch.set(color, i * 8 + 4);
     }
-    this.renderer.writeBufferData(quadsPrim.vertexBuffer, quadsPrim.count * 32, 
+    this.renderer.writeBufferData(quadsPrim.vertexBuffer, quadsPrim.count * 4 * 32, 
         floatScratch.subarray(0, quads.length * 8));
 
     quadsPrim.count += quads.length / 4;
