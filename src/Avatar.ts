@@ -19,6 +19,7 @@ import { vec3, mat4 } from "gl-matrix";
 import { DebugRenderUtils } from "./DebugRender";
 import { CollisionSystem } from "./Collision";
 import { kEmptyCommand } from "./UserCommand";
+import { InputAction } from "./Input";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -307,6 +308,9 @@ export class AvatarSystemServer implements GameObjectFactory {
             let inputCmd = kEmptyCommand;
             if (client && client.state === NetClientState.Active) {
                 inputCmd = client.getUserCommand(game.clock.simFrame);
+            } else {
+                // @HACK: Have the bots attack repeatedly
+                inputCmd.actions = InputAction.AttackSide;
             }
 
             // Update core state
