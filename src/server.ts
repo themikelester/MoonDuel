@@ -65,8 +65,6 @@ export class Server {
     private tick() {
         this.clock.tick();
 
-        this.collision.clear();
-
         this.updateFixed();
         this.update();
     }
@@ -75,6 +73,8 @@ export class Server {
         let tickCount = 0;
         while (this.clock.updateFixed()) {
             tickCount += 1;
+
+            this.collision.clear();
 
             this.avatar.updateFixed(this);
             this.weapon.updateFixed(this);
@@ -90,6 +90,7 @@ export class Server {
 
     private update() {
         this.resources.update();
+        this.collision.debugRender();
     }
 
     private onUnload() {
