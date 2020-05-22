@@ -9,17 +9,23 @@ Change Log
 * Use EXT_disjoint_timer_query for GPU profiling
 * Swords get thrown when two attacks collide
 * Hit-stop when attacks land
-* Pause and Step in the debug menu pause server time as well. (Useful for animation debugging)
-  * Render time should then be scrubbable for all saved frames
-  * Separate steps for render (configurable dt) and sim 
 * Start in offline mode. Don't wait for connection before becoming playable. This may mean implementing prediction.
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
+* Use sword attack edges to add a fake motion blur effect (See 2020-05-22)
 
 ### 2020-05-22
 ##### Morning
 Yesterday I was able to add an Avatar hit reaction animation. The collision seems to be missing quite often, to today I'm going to robustify it. Currently the sword has a line (two vertices) on its front edge that is added to the collision system while the attack is active. When the sword is swinging quickly, that line can move pretty far between frames. If it "jumps" over the Avatar's OBB, it will miss when it should have hit. Instead, I'm going to generate a quad between the current and last line points. This represents the swept attack line between the current and last frames. I'll then test those two triangles against the OBB. That should be robust enough to ship with, especially once I add triangle vs triangle collision detection.
 
 Additionally, this quad can be textured and rendered to look like a motion blur effect for the sword.
+
+##### Evening
+Several import updates today: 
+- Fixed a TODO: "Pause and Step in the debug menu pause server time as well. (Useful for animation debugging)"
+- Attacks in the collision system are now quads instead of lines (described above)
+- Added AABB vs Triangle (generalizes to OBB, just transform the triangles to OBB space) intersection test
+- Introduced the concept of a "bot", which is just an Avatar without a NetClient controlling it. Spawn one by default and have it attack repeatedly.
+- Improved debug shape rendering. The attack collision region can be drawn using the new DebugRenderUtils.renderQuads()
 
 ### 2020-05-20
 ##### Evening
