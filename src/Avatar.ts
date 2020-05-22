@@ -36,7 +36,7 @@ interface ClientDependencies {
     clock: Clock;
     weapons: WeaponSystem;
     world: World;
-    
+
     gfxDevice: Renderer;
     camera: Camera;
 }
@@ -49,10 +49,11 @@ export class Avatar extends Object3D implements GameObject {
     nodes: GltfNode[];
     animationMixer: AnimationMixer;
     skeleton: Skeleton;
-    
+
     bounds: mat4 = mat4.create();
     collisionId: number;
     weapon: Weapon;
+    hitBy: GameObject[] = [];
 
     get isActive() {
         return this.state && (this.state.flags & AvatarFlags.IsActive) > 0;
@@ -136,13 +137,13 @@ export class AvatarSystemClient implements GameObjectFactory {
             for (const rootNodeId of this.gltf.rootNodeIds.slice(0, 1)) {
                 avatar.add(avatar.nodes[rootNodeId]);
             }
-            
+
             // Create skeletons from the first GLTF skin
             const skin = assertDefined(this.gltf.skins[0]);
             const bones = skin.joints.map(jointId => avatar.nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
             const ibms = skin.inverseBindMatrices?.map(ibm => new Matrix4().fromArray(ibm));
             avatar.skeleton = new Skeleton(bones as Object3D[] as Bone[], ibms);
-        
+
             avatar.animationMixer = new AnimationMixer(avatar);
         }
 
@@ -154,7 +155,7 @@ export class AvatarSystemClient implements GameObjectFactory {
         for (const avatar of this.avatars) {
             const state = avatar.state;
             if (!state || !avatar.nodes) continue;
-            
+
             // Attach the weapon
             if (!avatar.weapon) {
                 const weaponId = kAvatarCount + avatar.id;
@@ -176,7 +177,7 @@ export class AvatarSystemClient implements GameObjectFactory {
             avatar.updateMatrix();
             avatar.updateMatrixWorld();
         }
-            
+
         this.animation.update(game.clock);
     }
 
@@ -218,11 +219,11 @@ export class AvatarSystemServer implements GameObjectFactory {
         for (let i = 0; i < kAvatarCount; i++) {
             this.avatars[i] = game.world.createGameObject(GameObjectType.Avatar, baseline) as Avatar;
         }
-        
+
         for (let i = 0; i < kAvatarCount; i++) {
             this.avatars[i].weapon = game.world.createGameObject(GameObjectType.Weapon, { parent: i }) as Weapon;
         }
-        
+
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -253,7 +254,7 @@ export class AvatarSystemServer implements GameObjectFactory {
             for (const rootNodeId of this.gltf.rootNodeIds.slice(0, 1)) {
                 avatar.add(avatar.nodes[rootNodeId]);
             }
-            
+
             // Create skeletons from the first GLTF skin
             const skin = assertDefined(this.gltf.skins[0]);
             const bones = skin.joints.map(jointId => avatar.nodes[jointId]); // @TODO: Loader should create these as Bones, not Object3Ds
@@ -263,7 +264,7 @@ export class AvatarSystemServer implements GameObjectFactory {
             // Attach the weapon
             const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
             joint.add(avatar.weapon.transform);
-        
+
             avatar.animationMixer = new AnimationMixer(avatar);
         }
 
@@ -290,7 +291,7 @@ export class AvatarSystemServer implements GameObjectFactory {
         //     avatar.updateMatrix();
         //     avatar.updateMatrixWorld();
         // }
-            
+
         // this.animation.update(states, game.clock.renderDt / 1000.0);
     }
 
@@ -301,16 +302,16 @@ export class AvatarSystemServer implements GameObjectFactory {
             const state = avatar.state;
 
             if (!avatar.isActive) continue;
-            
+
             // If we're not a bot, read the user input
             let inputCmd = kEmptyCommand;
             if (client && client.state === NetClientState.Active) {
                 inputCmd = client.getUserCommand(game.clock.simFrame);
             }
-            
+
             // Update core state
             const dtSec = game.clock.simDt / 1000.0;
-            this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
+            this.controllers[i].update(avatar, game.clock.simFrame, dtSec, inputCmd);
 
             // Sync state changes with GameObject
             const pos = new Vector3(state.origin);
@@ -343,14 +344,23 @@ export class AvatarSystemServer implements GameObjectFactory {
         for (const avatar of this.avatars) {
             if (avatar.isActive) {
                 const hits = collision.getHitsForTarget(avatar.collisionId);
-                for (const hit of hits) {
-                    const avatarIdx = hit.owner.state.parent;
-                    console.log(`Avatar ${avatar.state.id} hit by Avatar ${avatarIdx} at ${hit.pos}`);
-                }
-
                 if (hits.length > 0) {
-                    avatar.state.state = AvatarState.Struck;
-                    avatar.state.stateStartFrame = clock.simFrame;
+                    if (avatar.state.state !== AvatarState.Struck) {
+                        avatar.state.state = AvatarState.Struck;
+                        avatar.state.stateStartFrame = clock.simFrame;
+                    }
+
+                    for (const hit of hits) {
+                        const weapon = hit.owner;
+
+                        // Don't allow consecutive hits by the same weapon
+                        const alreadyHit = avatar.hitBy.includes(weapon);
+                        if (!alreadyHit) {
+                            avatar.hitBy.push(weapon);
+
+                            // TODO: Apply damage, etc.
+                        }
+                    }
                 }
             }
         }

@@ -1,4 +1,4 @@
-import { AvatarFlags, AvatarState } from "./Avatar";
+import { AvatarFlags, AvatarState, Avatar } from "./Avatar";
 import { vec3 } from "gl-matrix";
 import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
@@ -19,7 +19,9 @@ const kRunAcceleration = 3000;
 export class AvatarController {
     orientationTarget: vec3 = vec3.create();
     
-    update(state: EntityState, frame: number, dtSec: number, input: UserCommand): EntityState {
+    update(avatar: Avatar, frame: number, dtSec: number, input: UserCommand): EntityState {
+        const state = avatar.state;
+
         // @HACK:
         const prevState = copyEntity(createEntity(), state);
         const nextState = state;
@@ -52,6 +54,8 @@ export class AvatarController {
         if (prevState.state === AvatarState.Struck) {
             const duration = frame - prevState.stateStartFrame;
             if (duration > 34) {
+                avatar.hitBy.length = 0;
+
                 nextState.state = AvatarState.None; 
                 nextState.stateStartFrame = frame;
             }
