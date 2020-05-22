@@ -1,7 +1,7 @@
-import { mat4, vec3, mat3 } from "gl-matrix";
-import { intersectObbRay, intersectAabbTriangle } from "./Intersection";
+import { mat4, vec3 } from "gl-matrix";
+import { intersectAabbTriangle } from "./Intersection";
 import { GameObject } from "./World";
-import { defined, assert, defaultValue } from "./util";
+import { assert } from "./util";
 import { DebugRenderUtils } from "./DebugRender";
 
 export class Obb {
@@ -34,17 +34,23 @@ export class Obb {
   }
 
   /**
-   * Construct a rotation matrix that will rotate a point into the same basis as the OBB
-   * I.e. Transform to OBB space, without the translation
-   * @param worldToLocalBasis 
+   * Construct a matrix that will transform a point into OBB space (no scale)
+   * This is the inverse of the OBB's matrix representation, but using unit vectors instead of half extents.
+   * @NOTE: In this space, this OBB can be represented as an AABB centered on the origin with equivalent half lengths.
    */
-  createBasisTransform(worldToLocalBasis: mat3) {
-    mat3.set(worldToLocalBasis,
-      this.bases[0][0], this.bases[1][0], this.bases[2][0],
-      this.bases[0][1], this.bases[1][1], this.bases[2][1],
-      this.bases[0][2], this.bases[1][2], this.bases[2][2],
+  createWorldToObbMatrix(result: mat4) {
+    const dotCU = vec3.dot(this.center, this.bases[0]);
+    const dotCV = vec3.dot(this.center, this.bases[1]);
+    const dotCW = vec3.dot(this.center, this.bases[2]);
+
+    mat4.set(result,
+      this.bases[0][0], this.bases[1][0], this.bases[2][0], 0,
+      this.bases[0][1], this.bases[1][1], this.bases[2][1], 0,
+      this.bases[0][2], this.bases[1][2], this.bases[2][2], 0,
+      -dotCU, -dotCV, -dotCW, 1,
     );
-    return worldToLocalBasis;
+
+    return result;
   }
 }
 
@@ -75,11 +81,15 @@ export interface HitResult {
 
 const kHitCacheSize = 8;
 
-const scratchMat3 = mat3.create();
+const scratchMat4 = mat4.create();
 const scratchVec3a = vec3.create();
 const scratchVec3b = vec3.create();
 const scratchVec3c = vec3.create();
 const scratchVec3d = vec3.create();
+const scratchAabb: Aabb = {
+  center: vec3.create(),
+  halfLengths: vec3.create(),
+}
 
 export class CollisionSystem {
   attacks: Quad[] = [];
@@ -118,19 +128,23 @@ export class CollisionSystem {
     const hits: HitResult[] = [];
     let hitIdx = 0;
   
-    const worldToObbBasis = obb.createBasisTransform(scratchMat3);
+    const worldToObbBasis = obb.createWorldToObbMatrix(scratchMat4);
 
     for (let i = 0; i < this.attacks.length; i++) {
       const quad = this.attacks[i];
 
-      // Transform triangles into OBB basis (OBB space sans translation)
-      const a = vec3.transformMat3(scratchVec3a, quad.verts[0], worldToObbBasis);
-      const b = vec3.transformMat3(scratchVec3b, quad.verts[1], worldToObbBasis);
-      const c = vec3.transformMat3(scratchVec3c, quad.verts[2], worldToObbBasis);
-      const d = vec3.transformMat3(scratchVec3d, quad.verts[3], worldToObbBasis);
+      // Transform triangles into OBB space
+      const a = vec3.transformMat4(scratchVec3a, quad.verts[0], worldToObbBasis);
+      const b = vec3.transformMat4(scratchVec3b, quad.verts[1], worldToObbBasis);
+      const c = vec3.transformMat4(scratchVec3c, quad.verts[2], worldToObbBasis);
+      const d = vec3.transformMat4(scratchVec3d, quad.verts[3], worldToObbBasis);
 
-      let hit = intersectAabbTriangle(obb, a, b, c);
-      if (!hit) hit = intersectAabbTriangle(obb, b, c, d);
+      // Re-oriented OBB sitting at the origin
+      const aabb = scratchAabb;
+      aabb.halfLengths = obb.halfLengths;
+
+      let hit = intersectAabbTriangle(aabb, a, b, c);
+      if (!hit) hit = intersectAabbTriangle(aabb, b, c, d);
 
       if (hit) { 
         assert(hitIdx < kHitCacheSize, 'Too many hits in one frame');
