@@ -2,7 +2,6 @@ import { DebugMenu } from "./DebugMenu";
 import { assert } from "./util";
 import { clamp } from "./MathHelpers";
 
-const kDefaultStepDuration = 1000.0 / 60.0;
 const kClientTimeWarpMax = 0.05; // The maximum percentage of regular speed at which clientTime can progress to reach its target.
                                  // I.e. if client time is behind its target, it increase X% faster than real time.
 const kRenderTimeWarpMax = 0.25;
@@ -24,21 +23,21 @@ export class Clock {
     // Time deltas are updated each display frame
     public realDt: number = 0;   // The actual CPU-time delta since last display frame
     public renderDt: number = 0; // The delta for renderTime, which is a modulated form of realDt (can be paused, slowed, sped up).
-    private _simDt: number = 16; // The fixed time step of the simulation
-
-    public paused = false;
-    public speed = 1.0;
+    public readonly simDt: number = 16; // The fixed time step of the simulation
 
     private realTime = 0.0;
-    private stepDt = 0.0;
     private clientDelay = 0.0;
     private renderDelay = 0.0;
 
+    // Debug
+    private paused = false;
+    private speed = 1.0;
+    private stepDt = 0.0;
+
     initialize({ debugMenu }: { debugMenu: DebugMenu }) {
-        debugMenu.add(this, 'paused');
-        debugMenu.add(this, 'speed', 0.05, 2.0, 0.05);
-        debugMenu.add(this, 'simDt', 8, 512, 8);
-        debugMenu.add(this, 'step');
+        debugMenu.add(this, 'paused').onChange(() => { if (window.server) window.server.clock.paused = this.paused });
+        debugMenu.add(this, 'speed', 0.05, 2.0, 0.05).onChange(() => { if (window.server) window.server.clock.speed = this.speed });
+        debugMenu.add(this, 'step').onChange(() => { if (window.server) window.server.clock.step() });
         this.zero();
     }
 
@@ -71,16 +70,12 @@ export class Clock {
     tick() {
         const time = performance.now();
 
-        // Attempt to prevent the case where the tick starts exactly on a frame boundary, in which case a short tick
-        // followed by a long tick could produce 0 and then two simulation frames. So set the tick phase two be right
-        // in the middle of a sim frame. 
-        if (this.realTime === 0.0) {
-            this.realTime = time - this.simDt * 0.5;
-        }
-
         // Measure the real time since the last tick()
         this.realDt = time - this.realTime;
         this.realTime = time;
+
+        this.realDt *= this.speed;
+        if (this.paused) this.realDt = this.stepDt;
 
         // Server time
         this.serverTime += this.realDt;
@@ -112,13 +107,12 @@ export class Clock {
         } else {
             const minDt = this.realDt * (1 - kRenderTimeWarpMax);
             const maxDt = this.realDt * (1 + kRenderTimeWarpMax);
-
-            const renderDt = clamp(deltaRenderTime, minDt, maxDt);
-            this.renderDt = this.paused ? this.stepDt : renderDt * this.speed;
+            
+            this.renderDt = clamp(deltaRenderTime, minDt, maxDt);
             this.renderTime += this.renderDt;
         }
 
-        this.stepDt = 0.0
+        this.stepDt = 0.0;
     }
 
     updateFixed() {
@@ -139,27 +133,16 @@ export class Clock {
         const dt = performance.now() - this.realTime;
         return this.serverTime + dt;
     }
-    
-    /**
-     * If the fixed simulation timestep is modified, the times must be reset so that the simulation 
-     * frame can always be accurately computed from the simulation time.
-     */
-    set simDt(value: number) {
-        this.zero();
-        this._simDt = value;
-    }
-
-    get simDt() {
-        return this._simDt;
-    }
 
     /**
      * Pause the clock (if it isn't already), and step one frame the next time update() is called.
      * @param stepDurationMs The timestep for next frame (in milliseconds). Defaults to 16.6ms.
      * @note The current `speed` settings affects the timestep duration
      */
-    step(stepDurationMs: number = kDefaultStepDuration) {
+    step(stepDurationMs: number = this.simDt) {
         this.paused = true;
-        this.stepDt = stepDurationMs * this.speed;
+
+        // Step so that we simulate the next frame
+        this.stepDt = stepDurationMs;
     }
 }
