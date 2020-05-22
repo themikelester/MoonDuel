@@ -52,10 +52,6 @@ export class Client {
     public state = new StateManager();
     public userCommands = new UserCommandBuffer();
     public weapons = new WeaponSystem(this.world);
-    
-    constructor() {
-        this.init();
-    }
 
     public async init() {
         console.log(`Source for this build available at ${GITHUB_REVISION_URL}`);

@@ -33,6 +33,8 @@ async function Main() {
     // Start loading and running the client
     const client = new Client();
     window.client = client;
+    
+    client.init();
 
     // Parse and apply URL parameters
     // See kUrlParameters for potential values
