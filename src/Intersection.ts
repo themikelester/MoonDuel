@@ -27,17 +27,17 @@ export function intersectAabbLine(aabb: Aabb, line: Line): boolean {
   let r: number;
 
   // Look for a separating axis in the three principal axes
-  if (Math.abs(t[0]) > aabb.extents[0] + Math.abs(line.extent[0])) return false;
-  if (Math.abs(t[1]) > aabb.extents[1] + Math.abs(line.extent[1])) return false;
-  if (Math.abs(t[2]) > aabb.extents[2] + Math.abs(line.extent[2])) return false;
+  if (Math.abs(t[0]) > aabb.halfLengths[0] + Math.abs(line.extent[0])) return false;
+  if (Math.abs(t[1]) > aabb.halfLengths[1] + Math.abs(line.extent[1])) return false;
+  if (Math.abs(t[2]) > aabb.halfLengths[2] + Math.abs(line.extent[2])) return false;
 
-  r = aabb.extents[1] * Math.abs(line.extent[2]) + aabb.extents[2] * Math.abs(line.extent[1]);
+  r = aabb.halfLengths[1] * Math.abs(line.extent[2]) + aabb.halfLengths[2] * Math.abs(line.extent[1]);
   if (Math.abs(line.center[1] * line.extent[2] - line.center[2] * line.extent[1]) > r) return false;
 
-  r = aabb.extents[0] * Math.abs(line.extent[2]) + aabb.extents[2] * Math.abs(line.extent[0]);
+  r = aabb.halfLengths[0] * Math.abs(line.extent[2]) + aabb.halfLengths[2] * Math.abs(line.extent[0]);
   if (Math.abs(line.center[0] * line.extent[2] - line.center[2] * line.extent[0]) > r) return false;
 
-  r = aabb.extents[0] * Math.abs(line.extent[1]) + aabb.extents[1] * Math.abs(line.extent[0]);
+  r = aabb.halfLengths[0] * Math.abs(line.extent[1]) + aabb.halfLengths[1] * Math.abs(line.extent[0]);
   if (Math.abs(line.center[0] * line.extent[1] - line.center[1] * line.extent[0]) > r) return false;
 
   return true;
@@ -98,19 +98,25 @@ export function intersectObbRay(obb: Obb, origin: vec3, dir: vec3, maxLength: nu
 /**
  * Determine if a triangle intersects an oriented bounding box
  * Based on the "Triangle/Box Overlap" section of Real-Time Rendering, Third Edition (pg. 742).
+ * See http://fileadmin.cs.lth.se/cs/Personal/Tomas_Akenine-Moller/code/tribox2.txt
  * @param obb Deconstructed OBB which has origin, basis vectors, and half-lengths for efficient querying
  * @param a Triangle corner
  * @param b Triangle corner
  * @param c Triangle corner
  * @return true if an intersection occurs, false otherwise
  */
-export function intersectObbTriangle(obb: Obb, a: vec3, b: vec3, c: vec3): boolean {
+export function intersectAabbTriangle(aabb: Aabb, a: vec3, b: vec3, c: vec3): boolean {
   let min = Infinity, max = -Infinity, rad = 0, p0, p1, p2, fex, fey, fez;
 
+  // Half lengths
+  const hX = aabb.halfLengths[X];
+  const hY = aabb.halfLengths[Y];
+  const hZ = aabb.halfLengths[Z];
+
   /* move everything so that the boxcenter is in (0,0,0) */
-  const v0 = vec3.subtract(scratchVec3a, a, obb.center);
-  const v1 = vec3.subtract(scratchVec3b, b, obb.center);
-  const v2 = vec3.subtract(scratchVec3c, c, obb.center);
+  const v0 = vec3.subtract(scratchVec3a, a, aabb.center);
+  const v1 = vec3.subtract(scratchVec3b, b, aabb.center);
+  const v2 = vec3.subtract(scratchVec3c, c, aabb.center);
 
   /* compute triangle edges */
   const e0 = vec3.subtract(scratchVec3d, v1, v0);      /* tri edge 0 */
@@ -122,7 +128,7 @@ export function intersectObbTriangle(obb: Obb, a: vec3, b: vec3, c: vec3): boole
     max = Math.max(x0, x1, x2);
   }
 
-  function planeBoxOverlap(normal: vec3, d: number, maxbox: number[]) {
+  function planeBoxOverlap(normal: vec3, d: number, maxbox: vec3) {
     let q: number;
     const vmin = scratchVec3h;
     const vmax = scratchVec3i;
@@ -148,27 +154,27 @@ export function intersectObbTriangle(obb: Obb, a: vec3, b: vec3, c: vec3): boole
     p0 = a * v0[Y] - b * v0[Z];
     p2 = a * v2[Y] - b * v2[Z];
     if (p0 < p2) { min = p0; max = p2; } else { min = p2; max = p0; }
-    rad = fa * obb.halfLengths[Y] + fb * obb.halfLengths[Z];
+    rad = fa * hY + fb * hZ;
   }
 
   function AXISTEST_X2(a: number, b: number, fa: number, fb: number) {
     p0 = a * v0[Y] - b * v0[Z];
     p1 = a * v1[Y] - b * v1[Z];
     if (p0 < p1) { min = p0; max = p1; } else { min = p1; max = p0; }
-    rad = fa * obb.halfLengths[Y] + fb * obb.halfLengths[Z];
+    rad = fa * hY + fb * hZ;
   }
   /*======================== Y-tests ========================*/
   function AXISTEST_Y02(a: number, b: number, fa: number, fb: number) {
     p0 = -a * v0[X] + b * v0[Z];
     p2 = -a * v2[X] + b * v2[Z];
     if (p0 < p2) { min = p0; max = p2; } else { min = p2; max = p0; }
-    rad = fa * obb.halfLengths[X] + fb * obb.halfLengths[Z];
+    rad = fa * hX + fb * hZ;
   }
   function AXISTEST_Y1(a: number, b: number, fa: number, fb: number) {
     p0 = -a * v0[X] + b * v0[Z];
     p1 = -a * v1[X] + b * v1[Z];
     if (p0 < p1) { min = p0; max = p1; } else { min = p1; max = p0; }
-    rad = fa * obb.halfLengths[X] + fb * obb.halfLengths[Z];
+    rad = fa * hX + fb * hZ;
   }
   /*======================== Z-tests ========================*/
 
@@ -176,13 +182,13 @@ export function intersectObbTriangle(obb: Obb, a: vec3, b: vec3, c: vec3): boole
     p1 = a * v1[X] - b * v1[Y];
     p2 = a * v2[X] - b * v2[Y];
     if (p2 < p1) { min = p2; max = p1; } else { min = p1; max = p2; }
-    rad = fa * obb.halfLengths[X] + fb * obb.halfLengths[Y];
+    rad = fa * hX + fb * hY;
   }
   function AXISTEST_Z0(a: number, b: number, fa: number, fb: number) {
     p0 = a * v0[X] - b * v0[Y];
     p1 = a * v1[X] - b * v1[Y];
     if (p0 < p1) { min = p0; max = p1; } else { min = p1; max = p0; }
-    rad = fa * obb.halfLengths[X] + fb * obb.halfLengths[Y];
+    rad = fa * hX + fb * hY;
   }
 
   /* Bullet 3:  */
@@ -216,22 +222,22 @@ export function intersectObbTriangle(obb: Obb, a: vec3, b: vec3, c: vec3): boole
 
   /* test in X-direction */
   FINDMINMAX(v0[X], v1[X], v2[X]);
-  if (min > obb.halfLengths[X] || max < -obb.halfLengths[X]) return false;
+  if (min > hX || max < -hX) return false;
 
   /* test in Y-direction */
   FINDMINMAX(v0[Y], v1[Y], v2[Y]);
-  if (min > obb.halfLengths[Y] || max < -obb.halfLengths[Y]) return false;
+  if (min > hY || max < -hY) return false;
 
   /* test in Z-direction */
   FINDMINMAX(v0[Z], v1[Z], v2[Z]);
-  if (min > obb.halfLengths[Z] || max < -obb.halfLengths[Z]) return false;
+  if (min > hZ || max < -hZ) return false;
 
   /* Bullet 2: */
   /*  test if the box intersects the plane of the triangle */
   /*  compute plane equation of triangle: normal*x+d=0 */
   const normal = vec3.cross(scratchVec3g, e0, e1);
   const d = -vec3.dot(normal, v0);  /* plane eq: normal.x+d=0 */
-  if (!planeBoxOverlap(normal, d, obb.halfLengths)) return false;
+  if (!planeBoxOverlap(normal, d, aabb.halfLengths)) return false;
 
   return true;
 }

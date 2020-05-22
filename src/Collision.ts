@@ -1,5 +1,5 @@
-import { mat4, vec3 } from "gl-matrix";
-import { intersectObbRay, intersectObbTriangle } from "./Intersection";
+import { mat4, vec3, mat3 } from "gl-matrix";
+import { intersectObbRay, intersectAabbTriangle } from "./Intersection";
 import { GameObject } from "./World";
 import { defined, assert, defaultValue } from "./util";
 import { DebugRenderUtils } from "./DebugRender";
@@ -7,7 +7,7 @@ import { DebugRenderUtils } from "./DebugRender";
 export class Obb {
   center: vec3 = vec3.create();
   bases: vec3[] = [vec3.create(), vec3.create(), vec3.create()];
-  halfLengths: number[] = [0, 0, 0];
+  halfLengths: vec3 = vec3.create();
 
   setFromMatrix(obb: mat4) {
     mat4.getTranslation(this.center, obb);
@@ -32,11 +32,25 @@ export class Obb {
     );
     return obb;
   }
+
+  /**
+   * Construct a rotation matrix that will rotate a point into the same basis as the OBB
+   * I.e. Transform to OBB space, without the translation
+   * @param worldToLocalBasis 
+   */
+  createBasisTransform(worldToLocalBasis: mat3) {
+    mat3.set(worldToLocalBasis,
+      this.bases[0][0], this.bases[1][0], this.bases[2][0],
+      this.bases[0][1], this.bases[1][1], this.bases[2][1],
+      this.bases[0][2], this.bases[1][2], this.bases[2][2],
+    );
+    return worldToLocalBasis;
+  }
 }
 
 export interface Aabb {
   center: vec3,
-  extents: vec3
+  halfLengths: vec3
 }
 
 export interface Line {
@@ -60,6 +74,12 @@ export interface HitResult {
 }
 
 const kHitCacheSize = 8;
+
+const scratchMat3 = mat3.create();
+const scratchVec3a = vec3.create();
+const scratchVec3b = vec3.create();
+const scratchVec3c = vec3.create();
+const scratchVec3d = vec3.create();
 
 export class CollisionSystem {
   attacks: Quad[] = [];
@@ -97,11 +117,20 @@ export class CollisionSystem {
     const obb = this.targets[colId];
     const hits: HitResult[] = [];
     let hitIdx = 0;
-    
+  
+    const worldToObbBasis = obb.createBasisTransform(scratchMat3);
+
     for (let i = 0; i < this.attacks.length; i++) {
       const quad = this.attacks[i];
-      let hit = intersectObbTriangle(obb, quad.verts[0], quad.verts[1], quad.verts[2]);
-      if (!hit) hit = intersectObbTriangle(obb, quad.verts[1], quad.verts[2], quad.verts[3]);
+
+      // Transform triangles into OBB basis (OBB space sans translation)
+      const a = vec3.transformMat3(scratchVec3a, quad.verts[0], worldToObbBasis);
+      const b = vec3.transformMat3(scratchVec3b, quad.verts[1], worldToObbBasis);
+      const c = vec3.transformMat3(scratchVec3c, quad.verts[2], worldToObbBasis);
+      const d = vec3.transformMat3(scratchVec3d, quad.verts[3], worldToObbBasis);
+
+      let hit = intersectAabbTriangle(obb, a, b, c);
+      if (!hit) hit = intersectAabbTriangle(obb, b, c, d);
 
       if (hit) { 
         assert(hitIdx < kHitCacheSize, 'Too many hits in one frame');
