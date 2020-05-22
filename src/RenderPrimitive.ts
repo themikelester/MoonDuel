@@ -27,6 +27,8 @@ export class RenderPrimitive implements IRenderPrimitive {
     depthMode?: Id;
     cullMode?: CullMode;
 
+    instanceCount?: number;
+
     constructor(renderPipeline: Id, vertexTable: Id, resourceTable: Id) {
         this.resourceTable = resourceTable;
         this.vertexTable = vertexTable; 

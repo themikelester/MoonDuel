@@ -71,7 +71,12 @@ function executeRenderList(gfxDevice: Gfx.Renderer, list: RenderList) {
         if (defined(prim.indexBuffer)) {
             const indexSize = prim.indexType === Gfx.Type.Ushort ? 2 : 4;
             const indexOffset = defaultValue(prim.indexBuffer.byteOffset, 0) / indexSize;
-            gfxDevice.draw(prim.type, prim.indexBuffer.buffer, assertDefined(prim.indexType), indexOffset, prim.elementCount);
+            if (defined(prim.instanceCount)) {
+                gfxDevice.drawInstanced(prim.type, prim.indexBuffer.buffer, assertDefined(prim.indexType), indexOffset, 
+                    prim.elementCount, prim.instanceCount)
+            } else {
+                gfxDevice.draw(prim.type, prim.indexBuffer.buffer, assertDefined(prim.indexType), indexOffset, prim.elementCount);
+            }
         } else {
             gfxDevice.drawNonIndexed(prim.type, 0, prim.elementCount);
         }
