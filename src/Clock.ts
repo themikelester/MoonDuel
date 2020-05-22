@@ -35,9 +35,12 @@ export class Clock {
     private stepDt = 0.0;
 
     initialize({ debugMenu }: { debugMenu: DebugMenu }) {
-        debugMenu.add(this, 'paused').onChange(() => { if (window.server) window.server.clock.paused = this.paused });
-        debugMenu.add(this, 'speed', 0.05, 2.0, 0.05).onChange(() => { if (window.server) window.server.clock.speed = this.speed });
-        debugMenu.add(this, 'step').onChange(() => { if (window.server) window.server.clock.step() });
+        if (window.client?.debugMenu === debugMenu) {
+            debugMenu.add(this, 'paused').onChange(() => { if (window.server) window.server.clock.paused = this.paused });
+            debugMenu.add(this, 'speed', 0.05, 2.0, 0.05).onChange(() => { if (window.server) window.server.clock.speed = this.speed });
+            debugMenu.add(this, 'step').onChange(() => { if (window.server) window.server.clock.step() });
+        }
+            
         this.zero();
     }
 
