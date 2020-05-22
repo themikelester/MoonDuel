@@ -18,6 +18,7 @@ import { SimStream, SimState, EntityState, World, GameObjectType, GameObject, Ga
 import { vec3, mat4 } from "gl-matrix";
 import { DebugRenderUtils } from "./DebugRender";
 import { CollisionSystem } from "./Collision";
+import { kEmptyCommand } from "./UserCommand";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -230,6 +231,9 @@ export class AvatarSystemServer implements GameObjectFactory {
         });
 
         this.animation.initialize(this.avatars);
+
+        // Let's add a bot
+        this.addAvatar(7);
     }
 
     onResourcesLoaded(game: ServerDependencies) {
@@ -295,36 +299,39 @@ export class AvatarSystemServer implements GameObjectFactory {
             const avatar = this.avatars[i];
             const client = game.net.clients[i];
             const state = avatar.state;
+
+            if (!avatar.isActive) continue;
             
-            if (avatar.isActive && client && client.state === NetClientState.Active) {
-                // Update core state
-                const inputCmd = client.getUserCommand(game.clock.simFrame);
-                const dtSec = game.clock.simDt / 1000.0;
-                this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
+            // If we're not a bot, read the user input
+            let inputCmd = kEmptyCommand;
+            if (client && client.state === NetClientState.Active) {
+                inputCmd = client.getUserCommand(game.clock.simFrame);
             }
+            
+            // Update core state
+            const dtSec = game.clock.simDt / 1000.0;
+            this.controllers[i].update(state, game.clock.simFrame, dtSec, inputCmd);
 
-            if (avatar.isActive) {
-                // Sync state changes with GameObject
-                const pos = new Vector3(state.origin);
-                avatar.position.copy(pos);
-                avatar.lookAt(
-                    state.origin[0] + state.orientation[0],
-                    state.origin[1] + state.orientation[1],
-                    state.origin[2] + state.orientation[2],
-                )
-    
-                avatar.updateMatrix();
-                avatar.updateMatrixWorld();
+            // Sync state changes with GameObject
+            const pos = new Vector3(state.origin);
+            avatar.position.copy(pos);
+            avatar.lookAt(
+                state.origin[0] + state.orientation[0],
+                state.origin[1] + state.orientation[1],
+                state.origin[2] + state.orientation[2],
+            )
 
-                // Register bounds with the collision system
-                (scratchMat4 as Float32Array).set(avatar.matrixWorld.elements);
-                mat4.multiply(avatar.bounds, scratchMat4, kBaseObb);
-                avatar.collisionId = game.collision.addTargetObb(avatar.bounds, avatar);
+            avatar.updateMatrix();
+            avatar.updateMatrixWorld();
 
-                // And register them with the collision system
-                if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
-                    game.collision.addAttackRegion({ verts: avatar.weapon.attackQuad }, avatar.weapon);
-                }
+            // Register bounds with the collision system
+            (scratchMat4 as Float32Array).set(avatar.matrixWorld.elements);
+            mat4.multiply(avatar.bounds, scratchMat4, kBaseObb);
+            avatar.collisionId = game.collision.addTargetObb(avatar.bounds, avatar);
+
+            // And register them with the collision system
+            if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
+                game.collision.addAttackRegion({ verts: avatar.weapon.attackQuad }, avatar.weapon);
             }
         }
 
