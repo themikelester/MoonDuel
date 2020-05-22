@@ -206,6 +206,16 @@ export class DebugRenderUtils {
     ]);
     const unitCubeIdxBuf = this.renderer.createBuffer('ObbIndices', Gfx.BufferType.Index, Gfx.Usage.Static, unitCubeIndices);
 
+    const quadIndices: number[] = []
+    for (let q = 0; q < kMaxQuads; q++) {
+      const i = q * 4;
+      quadIndices.push(
+        i + 0, i + 1, i + 2,
+        i + 2, i + 1, i + 3,
+      );
+    }
+    const quadIdxBuf = this.renderer.createBuffer('QuadIndices', Gfx.BufferType.Index, Gfx.Usage.Static, new Uint16Array(quadIndices));
+
     const unitCubeVertLayout: Gfx.BufferLayout = { a_pos: { type: Gfx.Type.Float3, offset: 0 } };
     const unitCubeVertBufLayout: Gfx.VertexLayout = { buffers: [{ stride: 4 * 3, layout: unitCubeVertLayout }] };
 
@@ -326,6 +336,7 @@ export class DebugRenderUtils {
     quadsPrim.resources = this.renderer.createResourceTable(PointsShader.resourceLayout);
     quadsPrim.vertTable = this.renderer.createVertexTable(quadsPrim.pipeline);
     quadsPrim.depthState = depthDisabled;
+    quadsPrim.indexBuffer = quadIdxBuf;
     quadsPrim.vertexBuffer = this.renderer.createBuffer('QuadVerts', Gfx.BufferType.Vertex, Gfx.Usage.Dynamic, kMaxQuads * 4 * pointsVertLayout.buffers[0].stride);
     quadsPrim.count = 0;
 
@@ -485,7 +496,7 @@ export class DebugRenderUtils {
     this.renderer.writeBufferData(quadsPrim.vertexBuffer, quadsPrim.count * 32, 
         floatScratch.subarray(0, quads.length * 8));
 
-    quadsPrim.count += quads.length;
+    quadsPrim.count += quads.length / 4;
   }
 
   static renderSpheres(spheres: vec4[], color: vec4 = defaultSphereColor) {
@@ -546,8 +557,11 @@ export class DebugRenderUtils {
         depthMode: quadsPrim.depthState,
         resourceTable: quadsPrim.resources,
         vertexTable: quadsPrim.vertTable,
-        type: Gfx.PrimitiveType.TriangleStrip,
-        elementCount: quadsPrim.count,
+        type: Gfx.PrimitiveType.Triangles,
+        elementCount: 6 * quadsPrim.count,
+
+        indexBuffer: { buffer: quadsPrim.indexBuffer },
+        indexType: Gfx.Type.Ushort,
       }
       
       renderLists.debug.push(prim);
