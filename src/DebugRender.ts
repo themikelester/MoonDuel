@@ -528,7 +528,8 @@ export class DebugRenderUtils {
         resourceTable: spherePrim.resources,
         vertexTable: spherePrim.vertTable,
         type: Gfx.PrimitiveType.Lines,
-        elementCount: spherePrim.count * 24,
+        elementCount: 24,
+        instanceCount: spherePrim.count,
 
         indexBuffer: { buffer: spherePrim.indexBuffer },
         indexType: Gfx.Type.Ushort,
