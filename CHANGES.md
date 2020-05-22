@@ -15,6 +15,12 @@ Change Log
 * Start in offline mode. Don't wait for connection before becoming playable. This may mean implementing prediction.
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 
+### 2020-05-22
+##### Morning
+Yesterday I was able to add an Avatar hit reaction animation. The collision seems to be missing quite often, to today I'm going to robustify it. Currently the sword has a line (two vertices) on its front edge that is added to the collision system while the attack is active. When the sword is swinging quickly, that line can move pretty far between frames. If it "jumps" over the Avatar's OBB, it will miss when it should have hit. Instead, I'm going to generate a quad between the current and last line points. This represents the swept attack line between the current and last frames. I'll then test those two triangles against the OBB. That should be robust enough to ship with, especially once I add triangle vs triangle collision detection.
+
+Additionally, this quad can be textured and rendered to look like a motion blur effect for the sword.
+
 ### 2020-05-20
 ##### Evening
 I finally did it! I added a bounding OBB to the avatar, and a collision system to go with it. First, the avatar system updates all avatar positions and poses, and adds them to the collision system as "targets". Then the weapon system adds all of its attack bounds (currently lines, represented as a ray with a maxLength) to the collision system. The avatar system then does a second pass (updateFixedLate()) in which it queries the collision system for hits against its bounds. 
