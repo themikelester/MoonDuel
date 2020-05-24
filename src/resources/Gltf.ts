@@ -226,7 +226,7 @@ export interface GltfPrimitive {
 
     depthMode?: Gfx.Id;
     cullMode?: Gfx.CullMode;
-    materialIndex: number;
+    materialIndex?: number;
 }
 
 export interface GltfMesh {
@@ -445,13 +445,7 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
     const prim = gltfPrimitive;
     const gltf = asset.gltf;
 
-    let material;
-    if (defined(gltfPrimitive.material)) {
-        material = assertDefined(res.transient.materials[gltfPrimitive.material]);
-    } else {
-        // @TODO: Default material
-        throw new Error('Default material not yet supported');
-    }
+    let material = defined(gltfPrimitive.material) ? assertDefined(res.transient.materials[gltfPrimitive.material]) : undefined;
 
     const shaderDefines: string[] = [];
 
@@ -466,7 +460,7 @@ function loadPrimitive(res: GltfResource, asset: GltfAsset, gltfPrimitive: GlTf.
 
     // If the material specifies vertex attribute names, use those. Otherwise use the defaults.
     let attribNameMap: { [semantic: string]: string };
-    if (defined(material.techniqueIndex)) {
+    if (material && defined(material.techniqueIndex)) {
         attribNameMap = {};
         const technique = assertDefined(res.transient.techniques).techniques[material.techniqueIndex];
         const attribNames = Object.keys(technique.attributes);
