@@ -82,7 +82,7 @@ export class AvatarRender {
             return resourceLayout;
         }
 
-        const primMaterial = gltf.materials[prim.materialIndex];
+        const primMaterial = gltf.materials[prim.materialIndex!];
         const technique = assertDefined(primMaterial.technique);
 
         const shader = technique.shaderId;

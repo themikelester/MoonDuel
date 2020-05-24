@@ -145,7 +145,7 @@ class SwordBlueprint extends WeaponBlueprint {
         const gltf = resource as GltfResource;
 
         const prim = gltf.meshes[0].primitives[0];
-        const material = gltf.materials[prim.materialIndex];
+        const material = gltf.materials[prim.materialIndex!];
         const technique = assertDefined(material.technique);
         this.shader = technique.shaderId;
         this.mesh = prim.mesh;
