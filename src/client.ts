@@ -22,6 +22,7 @@ import { assertDefined } from './util';
 import { WeaponSystem } from './Weapon';
 import { DebugRenderUtils } from './DebugRender';
 import { SimState, World } from './World';
+import { Stage } from './Stage';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -52,6 +53,7 @@ export class Client {
     public state = new StateManager();
     public userCommands = new UserCommandBuffer();
     public weapons = new WeaponSystem(this.world);
+    public stage = new Stage();
 
     public async init() {
         console.log(`Source for this build available at ${GITHUB_REVISION_URL}`);
@@ -79,6 +81,7 @@ export class Client {
         this.globalUniforms.initialize();
         this.avatar.initialize(this);
         this.weapons.initialize(this);
+        this.stage.initialize(this);
         this.debugGrid.initialize(this);
         this.state.initialize(this);
         
@@ -153,6 +156,7 @@ export class Client {
     private render() {
         this.avatar.render(this);
         this.weapons.render(this);
+        this.stage.render(this);
         this.debugGrid.render(this);
         
         DebugRenderUtils.flush();
