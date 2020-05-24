@@ -86,11 +86,10 @@ export class InputManager {
         return this.controller.getAxis(axisName);
     }
 
-    update() {
-        this.controller.updateAxes();
-    }
-
     updateFixed({ camera, clock, userCommands }: { camera: Camera, clock: Clock, userCommands: UserCommandBuffer }) {
+        // Sample all axes
+        this.controller.updateAxes();
+
         // Sample the current input state to find the currently active actions
         const actionCount = Object.keys(Keymap).length;
         let actions = 0;

@@ -144,7 +144,6 @@ export class Client {
             // this.displaySnapshot = baselineSnapshot;
         }
 
-        this.input.update();
         this.net.update(this);
         this.resources.update();
         this.avatar.update(this);
