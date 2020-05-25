@@ -342,6 +342,14 @@ function TranslateGfxTextureFilter(filter: Gfx.TextureFilter) {
   }
 }
 
+function TranslateGfxTextureWrap(wrap: Gfx.TextureWrap) {
+  switch (wrap) {
+    case Gfx.TextureWrap.Clamp: return gl.CLAMP_TO_EDGE;
+    case Gfx.TextureWrap.Repeat: return gl.REPEAT;
+    default: return error(`Unsupported texture wrap: ${wrap}`);
+  }
+}
+
 function TranslateGfxCullMode(cullMode: Gfx.CullMode): GLInt {
   switch (cullMode) {
     case Gfx.CullMode.None: return gl.NONE;
@@ -1224,14 +1232,16 @@ export class WebGlRenderer implements Gfx.Renderer {
       depth: desc.depth || 1,
       minFilter: TranslateGfxTextureFilter((desc.defaultMinFilter !== undefined) ? desc.defaultMinFilter : Gfx.TextureFilter.Linear),
       magFilter: TranslateGfxTextureFilter((desc.defaultMagFilter !== undefined) ? desc.defaultMagFilter : Gfx.TextureFilter.Linear),
+      wrapS: TranslateGfxTextureWrap((desc.defaultWrapS !== undefined) ? desc.defaultWrapS : Gfx.TextureWrap.Repeat),
+      wrapT: TranslateGfxTextureWrap((desc.defaultWrapT !== undefined) ? desc.defaultWrapT : Gfx.TextureWrap.Repeat),
       glId: gl.createTexture(),
     }
 
     gl.bindTexture(tex.target, tex.glId);
     gl.texParameteri(tex.target, gl.TEXTURE_MIN_FILTER, tex.minFilter );
     gl.texParameteri(tex.target, gl.TEXTURE_MAG_FILTER, tex.magFilter );
-    gl.texParameteri(tex.target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
-    gl.texParameteri(tex.target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
+    gl.texParameteri(tex.target, gl.TEXTURE_WRAP_S, tex.wrapS );
+    gl.texParameteri(tex.target, gl.TEXTURE_WRAP_T, tex.wrapT );
 
     if (defined(desc.maxAnistropy) && desc.maxAnistropy > 1 && this.isGfxFeatureSupported(Gfx.Feature.AnistropicFiltering)) {
       const max = Math.min(this.maxAnisotropy, desc.maxAnistropy);

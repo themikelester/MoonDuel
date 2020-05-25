@@ -47,6 +47,8 @@ export interface TextureDescriptor {
   depth?: number,
   defaultMinFilter?: TextureFilter,
   defaultMagFilter?: TextureFilter,
+  defaultWrapS?: TextureWrap,
+  defaultWrapT?: TextureWrap,
   maxAnistropy?: number,
 }
 
@@ -208,6 +210,11 @@ export enum TexelFormat {
 export enum TextureFilter {
   Nearest,
   Linear,
+}
+
+export enum TextureWrap {
+  Clamp,
+  Repeat,
 }
 
 export enum CompareFunc {

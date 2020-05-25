@@ -378,7 +378,8 @@ const GLTF_SAMPLER_MIN_FILTER: { [index: number]: any } = {
 };
 
 const GLTF_SAMPLER_WRAP: { [index: number]: any } = {
-    // Currently unsupported
+    33071: Gfx.TextureWrap.Clamp,
+    10497: Gfx.TextureWrap.Repeat,
 };
 
 /** Spec: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#accessor-element-size */
@@ -866,8 +867,14 @@ async function loadTexturesAsync(res: GltfResource, asset: GltfAsset) {
             if (!defined(desc.defaultMagFilter)) console.warn(`Unsupported texture min filter: ${sampler.magFilter}`);
         }
 
-        if (defined(sampler.wrapS) || defined(sampler.wrapT)) {
-            if (!defined(desc.defaultMagFilter)) console.warn(`Texture wrapping not yet supported: ${sampler.magFilter}`);
+        if (defined(sampler.wrapS)) {
+            desc.defaultWrapS = GLTF_SAMPLER_WRAP[sampler.wrapS];
+            if (!defined(desc.defaultWrapS)) console.warn(`Unsupported texture wrap mode: ${sampler.wrapS}`);
+        }
+
+        if (defined(sampler.wrapT)) {
+            desc.defaultWrapT = GLTF_SAMPLER_WRAP[sampler.wrapT];
+            if (!defined(desc.defaultWrapT)) console.warn(`Unsupported texture wrap mode: ${sampler.wrapS}`);
         }
 
         return {
