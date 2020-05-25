@@ -235,7 +235,7 @@ export class AvatarSystemServer implements GameObjectFactory {
         this.animation.initialize(this.avatars);
 
         // Let's add a bot
-        this.addAvatar(7);
+        // this.addAvatar(7);
     }
 
     onResourcesLoaded(game: ServerDependencies) {
