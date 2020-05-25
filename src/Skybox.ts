@@ -12,6 +12,11 @@ import { assert, assertDefined } from "./util";
 import { computePackedBufferLayout, UniformBuffer } from './UniformBuffer';
 import { renderLists } from './RenderList';
 import { DebugMenu } from './DebugMenu';
+import { Clock } from './Clock';
+import { vec3, vec4 } from 'gl-matrix';
+import { Camera } from './Camera';
+
+const scratchVec3a = vec3.create();
 
 interface Dependencies { 
   resources: ResourceManager, 
@@ -27,7 +32,8 @@ class BackgroundCloudShader implements Gfx.ShaderDescriptor {
 
   static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
     u_color: { type: Gfx.Type.Float4 },
-    u_scroll: { type: Gfx.Type.Float },
+    u_scrollColor: { type: Gfx.Type.Float },
+    u_scrollAlpha: { type: Gfx.Type.Float },
   });
 
   static resourceLayout: Gfx.ShaderResourceLayout = {
@@ -42,6 +48,11 @@ export class Skybox {
 
   cloudModels: Model[] = [];
   shader: Gfx.Id;
+
+  cloudScrollNear = 0.0;
+  cloudScrollMid = 0.15;
+  cloudScrollFar = 0.3;
+  cloudScrollFarAlpha = 0.5;
 
   private enableNearClouds = true;
   private enableMiddleClouds = true;
@@ -91,13 +102,46 @@ export class Skybox {
     this.cloudModels.push(cloudModelFar, cloudModelMiddle, cloudModelNear);
   }
 
-  update({ gfxDevice }: { gfxDevice: Gfx.Renderer }) {
-    for (const model of this.cloudModels) {
-      const uniforms = model.material.getUniformBuffer('model');
-      uniforms.setVec4('u_color', [1, 0, 0, 1]);
-      uniforms.setFloat('u_scroll', 0.0);
-      uniforms.write(gfxDevice);
+  update({ gfxDevice, clock, camera }: { gfxDevice: Gfx.Renderer, clock: Clock, camera: Camera }) {
+    if (this.cloudModels.length === 0) {
+      return;
     }
+    
+    // @TODO: Get these from the environment system
+    const windPower = 1.0;
+    const windVec = vec3.fromValues(0, 0, 1);
+    const cloudColor = vec4.fromValues(1, 0, 0, 1);
+
+    const camX = camera.forward[0];
+    const camZ = camera.forward[2];
+    const windX = windVec[0];
+    const windZ = windVec[2];
+
+    const scrollSpeed = clock.renderDt * windPower * 0.000015 * ((-windX * camZ) - (-windZ * camX));
+    this.cloudScrollNear = (this.cloudScrollNear + 1.0 * scrollSpeed) % 1.0;
+    this.cloudScrollMid = (this.cloudScrollMid + 0.8 * scrollSpeed) % 1.0;
+    this.cloudScrollFar = (this.cloudScrollFar + 0.6 * scrollSpeed) % 1.0;
+    this.cloudScrollFarAlpha = (this.cloudScrollFarAlpha + 1.6 * scrollSpeed) % 1.0;
+
+    const farUniforms = this.cloudModels[0].material.getUniformBuffer('model');
+    const midUniforms = this.cloudModels[1].material.getUniformBuffer('model');
+    const nearUniforms = this.cloudModels[2].material.getUniformBuffer('model');
+
+    farUniforms.setFloat('u_scrollColor', this.cloudScrollFar);
+    midUniforms.setFloat('u_scrollColor', this.cloudScrollMid);
+    nearUniforms.setFloat('u_scrollColor', this.cloudScrollNear);
+
+    farUniforms.setFloat('u_scrollAlpha', this.cloudScrollFarAlpha);
+    midUniforms.setFloat('u_scrollAlpha', this.cloudScrollMid);
+    nearUniforms.setFloat('u_scrollAlpha', this.cloudScrollNear);
+
+    farUniforms.setVec4('u_color', cloudColor);
+    midUniforms.setVec4('u_color', cloudColor);
+    nearUniforms.setVec4('u_color', cloudColor);
+
+    farUniforms.write(gfxDevice);
+    midUniforms.write(gfxDevice);
+    nearUniforms.write(gfxDevice);
   }
 
   render({}) {

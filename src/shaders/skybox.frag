@@ -5,14 +5,18 @@ uniform vec4 u_color;
 uniform float u_scroll;
 uniform sampler2D u_tex;
 
-varying vec2 v_uv;
+varying vec2 v_uvColor;
+varying vec2 v_uvAlpha;
 
 void main()
 {
-    vec4 tapA = texture2D(u_tex, v_uv);
-    vec4 tapB = texture2D(u_tex, vec2(v_uv.x + 0.2, v_uv.y));
-    vec3 cloudTap = tapA.rgb + tapB.rgb - tapA.rgb * tapB.rgb;
-    float cloudAlpha = tapA.a * tapB.a;
+    vec3 tapA = texture2D(u_tex, v_uvColor).rgb;
+    vec3 tapB = texture2D(u_tex, vec2(v_uvColor.x + 0.2, v_uvColor.y)).rgb;
+    vec3 cloudTap = tapA + tapB - tapA * tapB;
+
+    float alphaA = texture2D(u_tex, v_uvAlpha).a;
+    float alphaB = texture2D(u_tex, vec2(v_uvAlpha.x + 0.2, v_uvAlpha.y)).a;
+    float cloudAlpha = alphaA * alphaB;
 
     gl_FragColor = vec4(cloudTap, cloudAlpha);
 }
