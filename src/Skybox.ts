@@ -1,6 +1,7 @@
 import bgCloudVertSource from './shaders/skybox.vert';
 import bgCloudFragSource from './shaders/skybox.frag';
-
+import simpleVertSource from './shaders/simple.vert';
+import simpleFragSource from './shaders/simple.frag';
 
 import { Model, Material, IMesh } from "./Mesh";
 import * as Gfx from "./gfx/GfxTypes";
@@ -43,6 +44,21 @@ class BackgroundCloudShader implements Gfx.ShaderDescriptor {
   };
 }
 
+class SkyShader implements Gfx.ShaderDescriptor {
+  name = 'Sky';
+  vertSource = simpleVertSource.sourceCode;
+  fragSource = simpleFragSource.sourceCode;
+
+  static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
+    u_color: { type: Gfx.Type.Float4 },
+  });
+
+  static resourceLayout: Gfx.ShaderResourceLayout = {
+    global: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
+    model: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: SkyShader.uniformLayout },
+  };
+}
+
 const kNightLight = {
   hazeColor: vec4.fromValues(0.23529411764705882, 0.29411764705882354, 0.39215686274509803, 1),
   cloudCenterColor: vec4.fromValues(0.22745098039215686, 0.39215686274509803, 0.5254901960784314, 0),
@@ -54,9 +70,11 @@ const kNightLight = {
 export class Skybox {
   static filename = 'data/Skybox.glb';
 
-  cloudModels: Model[] = [];
-  shader: Gfx.Id;
+  skyShader: Gfx.Id;
+  skyModel: Model;
 
+  bgCloudShader: Gfx.Id;
+  cloudModels: Model[] = [];
   cloudScrollNear = 0.0;
   cloudScrollMid = 0.0;
   cloudScrollFar = 0.0;
@@ -67,7 +85,8 @@ export class Skybox {
   private enableFarClouds = true;
 
   initialize({ resources, gfxDevice, globalUniforms, debugMenu }: Dependencies) {
-    this.shader = gfxDevice.createShader(new BackgroundCloudShader());
+    this.bgCloudShader = gfxDevice.createShader(new BackgroundCloudShader());
+    this.skyShader = gfxDevice.createShader(new SkyShader());
 
     resources.load(Skybox.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
@@ -85,13 +104,20 @@ export class Skybox {
 
     const createCloudModel = (gltfMesh: GltfMesh) => {
       const mesh = gltfMesh.primitives[0].mesh;
-      const material = new Material(gfxDevice, 'BackgroundCloud', this.shader, BackgroundCloudShader.resourceLayout);
+      const material = new Material(gfxDevice, 'BackgroundCloud', this.bgCloudShader, BackgroundCloudShader.resourceLayout);
       const model = new Model(gfxDevice, renderLists.skybox, mesh, material);
       material.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
       material.setUniformBuffer(gfxDevice, 'model', new UniformBuffer('CloudUniforms', gfxDevice, BackgroundCloudShader.uniformLayout));
       return model;
     }
 
+    // Sky
+    const skyMesh = assertDefined(gltf.meshes.find(m => m.name === 'Sky')).primitives[0].mesh;
+    const material = new Material(gfxDevice, 'Sky', this.skyShader, SkyShader.resourceLayout);
+    material.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
+    material.setUniformBuffer(gfxDevice, 'model', new UniformBuffer('SkyUniforms', gfxDevice, SkyShader.uniformLayout));
+    this.skyModel = new Model(gfxDevice, renderLists.skybox, skyMesh, material);
+      
     // Background clouds
     const cloudTexNear = gltf.textures[0].id;
     const cloudTexMiddle = gltf.textures[1].id;
@@ -150,10 +176,16 @@ export class Skybox {
     farUniforms.write(gfxDevice);
     midUniforms.write(gfxDevice);
     nearUniforms.write(gfxDevice);
+
+    const skyUniforms = this.skyModel.material.getUniformBuffer('model');
+    skyUniforms.setVec4('u_color', light.skyColor);
+    skyUniforms.write(gfxDevice);
   }
 
   render({}) {
     if (this.cloudModels.length > 0) {
+      this.skyModel.renderList.push(this.skyModel.primitive);
+
       if (this.enableFarClouds) this.cloudModels[0].renderList.push(this.cloudModels[0].primitive);
       if (this.enableMiddleClouds) this.cloudModels[1].renderList.push(this.cloudModels[1].primitive);
       if (this.enableNearClouds) this.cloudModels[2].renderList.push(this.cloudModels[2].primitive);
