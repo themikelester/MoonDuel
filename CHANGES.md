@@ -13,6 +13,18 @@ Change Log
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 * Use sword attack edges to add a fake motion blur effect (See 2020-05-22)
 
+### 2020-05-25
+##### Morning
+Environment week! By the end of this week I'd like to have the game looking like it takes place in a real world. This entails: 
+- Modelling the "arena", which I picture as basically Orthanc (Saruman's tower) sticking out of the ocean, with a cliff a kilometer or two away for some visual reference. 
+- Skybox, a somewhat foggy night on the ocean with stars and a big fat moon acting as the primary light source
+- Environment and fog shading fragments. The light and shadow colors, and fog settings
+- Some kind of water effects on the ocean
+
+To this end yesterday I spent some time making an arena asset. It looks pretty good! The model is exported with a total radius of 1.0, so I can scale it to whatever radius I'd like. I feel like this is hard to pin down until the gameplay is finished. Right now it's at 2000 which feels good. 
+
+Today I'd like to work on the environment and skybox. The plan is to have global uniforms for ambient+diffuse colors for static and actor objects, as well as the light (moon) position. 
+
 ### 2020-05-22
 ##### Morning
 Yesterday I was able to add an Avatar hit reaction animation. The collision seems to be missing quite often, to today I'm going to robustify it. Currently the sword has a line (two vertices) on its front edge that is added to the collision system while the attack is active. When the sword is swinging quickly, that line can move pretty far between frames. If it "jumps" over the Avatar's OBB, it will miss when it should have hit. Instead, I'm going to generate a quad between the current and last line points. This represents the swept attack line between the current and last frames. I'll then test those two triangles against the OBB. That should be robust enough to ship with, especially once I add triangle vs triangle collision detection.
