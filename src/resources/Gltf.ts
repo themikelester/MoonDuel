@@ -789,6 +789,8 @@ function loadNodesSync(data: TransientData['nodes']): GltfNode[] {
         obj.quaternion.set(node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]);
         obj.scale.set(node.scale[0], node.scale[1], node.scale[2]);
 
+        obj.updateWorldMatrix(true, false);
+
         obj.skinId = node.skinId;
         obj.meshId = node.meshId;
         obj.morphWeight = node.morphWeight;
