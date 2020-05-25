@@ -12,7 +12,7 @@ void main()
 {
     vec3 tapA = texture2D(u_tex, v_uvColor).rgb;
     vec3 tapB = texture2D(u_tex, vec2(v_uvColor.x + 0.2, v_uvColor.y)).rgb;
-    vec3 cloudTap = tapA + tapB - tapA * tapB;
+    vec3 cloudTap = u_color.rgb * (tapA + tapB - tapA * tapB);
 
     float alphaA = texture2D(u_tex, v_uvAlpha).a;
     float alphaB = texture2D(u_tex, vec2(v_uvAlpha.x + 0.2, v_uvAlpha.y)).a;

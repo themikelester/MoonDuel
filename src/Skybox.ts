@@ -43,6 +43,14 @@ class BackgroundCloudShader implements Gfx.ShaderDescriptor {
   };
 }
 
+const kNightLight = {
+  hazeColor: vec4.fromValues(0.23529411764705882, 0.29411764705882354, 0.39215686274509803, 1),
+  cloudCenterColor: vec4.fromValues(0.22745098039215686, 0.39215686274509803, 0.5254901960784314, 0),
+  cloudColor: vec4.fromValues(0.20392156862745098, 0.33725490196078434, 0.47058823529411764, 0.39215686274509803),
+  skyColor: vec4.fromValues(0.0392156862745098, 0.19607843137254902, 0.3333333333333333, 1),
+  oceanColor: vec4.fromValues(0, 0.19215686274509805, 0.2901960784313726, 1),
+}
+
 export class Skybox {
   static filename = 'data/Skybox.glb';
 
@@ -50,9 +58,9 @@ export class Skybox {
   shader: Gfx.Id;
 
   cloudScrollNear = 0.0;
-  cloudScrollMid = 0.15;
-  cloudScrollFar = 0.3;
-  cloudScrollFarAlpha = 0.5;
+  cloudScrollMid = 0.0;
+  cloudScrollFar = 0.0;
+  cloudScrollFarAlpha = 0.0;
 
   private enableNearClouds = true;
   private enableMiddleClouds = true;
@@ -110,7 +118,7 @@ export class Skybox {
     // @TODO: Get these from the environment system
     const windPower = 1.0;
     const windVec = vec3.fromValues(0, 0, 1);
-    const cloudColor = vec4.fromValues(1, 0, 0, 1);
+    const light = kNightLight;
 
     const camX = camera.forward[0];
     const camZ = camera.forward[2];
@@ -135,9 +143,9 @@ export class Skybox {
     midUniforms.setFloat('u_scrollAlpha', this.cloudScrollMid);
     nearUniforms.setFloat('u_scrollAlpha', this.cloudScrollNear);
 
-    farUniforms.setVec4('u_color', cloudColor);
-    midUniforms.setVec4('u_color', cloudColor);
-    nearUniforms.setVec4('u_color', cloudColor);
+    farUniforms.setVec4('u_color', light.cloudColor);
+    midUniforms.setVec4('u_color', light.cloudColor);
+    nearUniforms.setVec4('u_color', light.cloudColor);
 
     farUniforms.write(gfxDevice);
     midUniforms.write(gfxDevice);
