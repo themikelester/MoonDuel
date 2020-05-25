@@ -41,8 +41,8 @@ class BackgroundCloudShader implements Gfx.ShaderDescriptor {
   };
 }
 
-class SkyShader implements Gfx.ShaderDescriptor {
-  name = 'Sky';
+class FlatShader implements Gfx.ShaderDescriptor {
+  name = 'Flat';
   vertSource = simpleVertSource.sourceCode;
   fragSource = simpleFragSource.sourceCode;
 
@@ -52,7 +52,7 @@ class SkyShader implements Gfx.ShaderDescriptor {
 
   static resourceLayout: Gfx.ShaderResourceLayout = {
     global: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
-    model: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: SkyShader.uniformLayout },
+    model: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: FlatShader.uniformLayout },
   };
 }
 
@@ -67,8 +67,10 @@ const kNightLight = {
 export class Skybox {
   static filename = 'data/Skybox.glb';
 
-  skyShader: Gfx.Id;
+  flatShader: Gfx.Id;
+
   skyModel: Model;
+  oceanModel: Model;
 
   bgCloudShader: Gfx.Id;
   cloudModels: Model[] = [];
@@ -82,7 +84,7 @@ export class Skybox {
 
   initialize({ resources, gfxDevice, globalUniforms, debugMenu }: Dependencies) {
     this.bgCloudShader = gfxDevice.createShader(new BackgroundCloudShader());
-    this.skyShader = gfxDevice.createShader(new SkyShader());
+    this.flatShader = gfxDevice.createShader(new FlatShader());
 
     resources.load(Skybox.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
@@ -109,11 +111,18 @@ export class Skybox {
 
     // Sky
     const skyMesh = assertDefined(gltf.meshes.find(m => m.name === 'Sky')).primitives[0].mesh;
-    const material = new Material(gfxDevice, 'Sky', this.skyShader, SkyShader.resourceLayout);
-    material.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
-    material.setUniformBuffer(gfxDevice, 'model', new UniformBuffer('SkyUniforms', gfxDevice, SkyShader.uniformLayout));
-    this.skyModel = new Model(gfxDevice, renderLists.skybox, skyMesh, material);
+    const skyMaterial = new Material(gfxDevice, 'Sky', this.flatShader, FlatShader.resourceLayout);
+    skyMaterial.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
+    skyMaterial.setUniformBuffer(gfxDevice, 'model', new UniformBuffer('SkyUniforms', gfxDevice, FlatShader.uniformLayout));
+    this.skyModel = new Model(gfxDevice, renderLists.skybox, skyMesh, skyMaterial);
       
+    // Background ocean
+    const oceanMesh = assertDefined(gltf.meshes.find(m => m.name === 'Ocean')).primitives[0].mesh;
+    const oceanMaterial = new Material(gfxDevice, 'Ocean', this.flatShader, FlatShader.resourceLayout);
+    oceanMaterial.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
+    oceanMaterial.setUniformBuffer(gfxDevice, 'model', new UniformBuffer('OceanUniforms', gfxDevice, FlatShader.uniformLayout));
+    this.oceanModel = new Model(gfxDevice, renderLists.skybox, oceanMesh, oceanMaterial);
+
     // Background clouds
     const cloudTexNear = gltf.textures[0].id;
     const cloudTexMiddle = gltf.textures[1].id;
@@ -171,11 +180,16 @@ export class Skybox {
     const skyUniforms = this.skyModel.material.getUniformBuffer('model');
     skyUniforms.setVec4('u_color', light.skyColor);
     skyUniforms.write(gfxDevice);
+
+    const oceanUniforms = this.oceanModel.material.getUniformBuffer('model');
+    oceanUniforms.setVec4('u_color', light.oceanColor);
+    oceanUniforms.write(gfxDevice);
   }
 
   render({}) {
     if (this.cloudModels.length > 0) {
       this.skyModel.renderList.push(this.skyModel.primitive);
+      this.oceanModel.renderList.push(this.oceanModel.primitive);
 
       if (this.enableFarClouds) this.cloudModels[0].renderList.push(this.cloudModels[0].primitive);
       if (this.enableMiddleClouds) this.cloudModels[1].renderList.push(this.cloudModels[1].primitive);
