@@ -17,8 +17,6 @@ import { Clock } from './Clock';
 import { vec3, vec4 } from 'gl-matrix';
 import { Camera } from './Camera';
 
-const scratchVec3a = vec3.create();
-
 interface Dependencies { 
   resources: ResourceManager, 
   gfxDevice: Gfx.Renderer, 
@@ -33,8 +31,7 @@ class BackgroundCloudShader implements Gfx.ShaderDescriptor {
 
   static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
     u_color: { type: Gfx.Type.Float4 },
-    u_scrollColor: { type: Gfx.Type.Float },
-    u_scrollAlpha: { type: Gfx.Type.Float },
+    u_scroll: { type: Gfx.Type.Float },
   });
 
   static resourceLayout: Gfx.ShaderResourceLayout = {
@@ -78,7 +75,6 @@ export class Skybox {
   cloudScrollNear = 0.0;
   cloudScrollMid = 0.0;
   cloudScrollFar = 0.0;
-  cloudScrollFarAlpha = 0.0;
 
   private enableNearClouds = true;
   private enableMiddleClouds = true;
@@ -155,19 +151,14 @@ export class Skybox {
     this.cloudScrollNear = (this.cloudScrollNear + 1.0 * scrollSpeed) % 1.0;
     this.cloudScrollMid = (this.cloudScrollMid + 0.8 * scrollSpeed) % 1.0;
     this.cloudScrollFar = (this.cloudScrollFar + 0.6 * scrollSpeed) % 1.0;
-    this.cloudScrollFarAlpha = (this.cloudScrollFarAlpha + 1.6 * scrollSpeed) % 1.0;
 
     const farUniforms = this.cloudModels[0].material.getUniformBuffer('model');
     const midUniforms = this.cloudModels[1].material.getUniformBuffer('model');
     const nearUniforms = this.cloudModels[2].material.getUniformBuffer('model');
 
-    farUniforms.setFloat('u_scrollColor', this.cloudScrollFar);
-    midUniforms.setFloat('u_scrollColor', this.cloudScrollMid);
-    nearUniforms.setFloat('u_scrollColor', this.cloudScrollNear);
-
-    farUniforms.setFloat('u_scrollAlpha', this.cloudScrollFarAlpha);
-    midUniforms.setFloat('u_scrollAlpha', this.cloudScrollMid);
-    nearUniforms.setFloat('u_scrollAlpha', this.cloudScrollNear);
+    farUniforms.setFloat('u_scroll', this.cloudScrollFar);
+    midUniforms.setFloat('u_scroll', this.cloudScrollMid);
+    nearUniforms.setFloat('u_scroll', this.cloudScrollNear);
 
     farUniforms.setVec4('u_color', light.cloudColor);
     midUniforms.setVec4('u_color', light.cloudColor);
