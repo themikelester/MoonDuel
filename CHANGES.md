@@ -25,6 +25,9 @@ To this end yesterday I spent some time making an arena asset. It looks pretty g
 
 Today I'd like to work on the environment and skybox. The plan is to have global uniforms for ambient+diffuse colors for static and actor objects, as well as the light (moon) position. 
 
+##### Evening
+Super fun day. I looked into how Wind Waker handles the clouds along the horizon and implemented something similar. There are three layers of background cloud, and they scroll at different speeds to simulate parallax. The speed is determined by the wind direction and look vector. If you're looking directly into the wind, they don't scroll at all because the only way to simulate them moving toward the viewer would be to translate them closer, or scale, which we cannot do. When looking across the wind direction, they scroll at maximum speed. Pretty great effect. I also added a skybox that just draws a solid color, but it needs more work. That's for tomorrow!
+
 ### 2020-05-22
 ##### Morning
 Yesterday I was able to add an Avatar hit reaction animation. The collision seems to be missing quite often, to today I'm going to robustify it. Currently the sword has a line (two vertices) on its front edge that is added to the collision system while the attack is active. When the sword is swinging quickly, that line can move pretty far between frames. If it "jumps" over the Avatar's OBB, it will miss when it should have hit. Instead, I'm going to generate a quad between the current and last line points. This represents the swept attack line between the current and last frames. I'll then test those two triangles against the OBB. That should be robust enough to ship with, especially once I add triangle vs triangle collision detection.
