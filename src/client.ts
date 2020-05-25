@@ -23,6 +23,7 @@ import { WeaponSystem } from './Weapon';
 import { DebugRenderUtils } from './DebugRender';
 import { SimState, World } from './World';
 import { Stage } from './Stage';
+import { Skybox } from './Skybox';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -54,6 +55,7 @@ export class Client {
     public userCommands = new UserCommandBuffer();
     public weapons = new WeaponSystem(this.world);
     public stage = new Stage();
+    public skybox = new Skybox();
 
     public async init() {
         console.log(`Source for this build available at ${GITHUB_REVISION_URL}`);
@@ -82,6 +84,7 @@ export class Client {
         this.avatar.initialize(this);
         this.weapons.initialize(this);
         this.stage.initialize(this);
+        this.skybox.initialize(this);
         this.debugGrid.initialize(this);
         this.state.initialize(this);
         
@@ -149,6 +152,7 @@ export class Client {
         this.avatar.update(this);
         this.cameraSystem.update(this);
         this.state.update(this);
+        this.skybox.update(this);
         this.globalUniforms.update();
     }
 
@@ -156,6 +160,7 @@ export class Client {
         this.avatar.render(this);
         this.weapons.render(this);
         this.stage.render(this);
+        this.skybox.render(this);
         this.debugGrid.render(this);
         
         DebugRenderUtils.flush();

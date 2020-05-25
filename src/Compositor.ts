@@ -38,6 +38,7 @@ export class Compositor {
             {                
                 executeRenderList(this.gfxDevice, renderLists.opaque);
                 executeRenderList(this.gfxDevice, renderLists.debug);
+                executeRenderList(this.gfxDevice, renderLists.skybox);
             }
         this.gfxDevice.endFrame();
 

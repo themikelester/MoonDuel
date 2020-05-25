@@ -1,5 +1,5 @@
 import { RenderPrimitive } from './RenderPrimitive';
-import { Id, CullMode, DepthStateDescriptor, RenderFormat } from './gfx/GfxTypes';
+import { Id, CullMode, DepthStateDescriptor, RenderFormat, BlendFactor } from './gfx/GfxTypes';
 
 export class RenderList {
     primitives: RenderPrimitive[] = [];
@@ -11,5 +11,6 @@ export class RenderList {
 
 export const renderLists: { [name: string]: RenderList } = {
     opaque: new RenderList(CullMode.Back, { depthWriteEnabled: true, depthTestEnabled: true }, { blendingEnabled: false }),
+    skybox: new RenderList(CullMode.None, { depthWriteEnabled: false, depthTestEnabled: true }, { blendingEnabled: true, srcBlendFactor: BlendFactor.Source, dstBlendFactor: BlendFactor.OneMinusSource }),
     debug: new RenderList(CullMode.None, { depthWriteEnabled: false, depthTestEnabled: false }, { blendingEnabled: false }),
 }
