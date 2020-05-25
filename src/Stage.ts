@@ -12,6 +12,7 @@ import { Material } from "./Mesh";
 import { GlobalUniforms } from "./GlobalUniforms";
 import { mat4, vec3 } from "gl-matrix";
 import { assert } from "./util";
+import { DebugMenu } from './DebugMenu';
 
 class StageShader implements Gfx.ShaderDescriptor {
   name = 'Stage';
@@ -37,12 +38,17 @@ export class Stage {
   model: Model;
   shader: Gfx.Id;
 
-  initialize({ resources, gfxDevice, globalUniforms }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms }) {
+  private show = true;
+
+  initialize({ resources, gfxDevice, globalUniforms, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, debugMenu: DebugMenu }) {
     this.shader = gfxDevice.createShader(new StageShader());
     resources.load(Stage.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
       this.onResourcesLoaded(gfxDevice, globalUniforms, resource!);
     });
+
+    const menu = debugMenu.addFolder('Stage');
+    menu.add(this, 'show');
   }
 
   onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, resource: Resource) {
@@ -72,6 +78,10 @@ export class Stage {
   }
 
   render({}) {
+    if (!this.show) {
+      return;
+    }
+
     if (this.model) this.model.renderList.push(this.model.primitive);
   }
 }
