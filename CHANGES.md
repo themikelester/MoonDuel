@@ -15,6 +15,10 @@ Change Log
 
 ### 2020-05-25
 ##### Morning
+Today I'm going to work on the skybox gradient (right now it's a solid color), and add in a foreground haze effect which covers both the skybox and background clouds. After that I'll also look into adding a gradient towards the horizon on the ocean. Then setting up an Environment system to handle install global uniforms so that other meshes can share the lighting information.
+
+### 2020-05-25
+##### Morning
 Environment week! By the end of this week I'd like to have the game looking like it takes place in a real world. This entails: 
 - Modelling the "arena", which I picture as basically Orthanc (Saruman's tower) sticking out of the ocean, with a cliff a kilometer or two away for some visual reference. 
 - Skybox, a somewhat foggy night on the ocean with stars and a big fat moon acting as the primary light source
