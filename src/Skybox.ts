@@ -2,6 +2,8 @@ import bgCloudVertSource from './shaders/skybox.vert';
 import bgCloudFragSource from './shaders/skybox.frag';
 import simpleVertSource from './shaders/simple.vert';
 import simpleFragSource from './shaders/simple.frag';
+import fadeVertSource from './shaders/fade.vert';
+import fadeFragSource from './shaders/fade.frag';
 
 import { Model, Material, IMesh } from "./Mesh";
 import * as Gfx from "./gfx/GfxTypes";
@@ -21,7 +23,7 @@ interface Dependencies {
   resources: ResourceManager, 
   gfxDevice: Gfx.Renderer, 
   globalUniforms: GlobalUniforms, 
-  debugMenu: DebugMenu 
+  debugMenu: DebugMenu
 }
 
 class BackgroundCloudShader implements Gfx.ShaderDescriptor {
@@ -32,6 +34,7 @@ class BackgroundCloudShader implements Gfx.ShaderDescriptor {
   static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
     u_color: { type: Gfx.Type.Float4 },
     u_scroll: { type: Gfx.Type.Float },
+    u_yOffset: { type: Gfx.Type.Float },
   });
 
   static resourceLayout: Gfx.ShaderResourceLayout = {
@@ -56,6 +59,24 @@ class FlatShader implements Gfx.ShaderDescriptor {
   };
 }
 
+class FadeShader implements Gfx.ShaderDescriptor {
+  name = 'Fade';
+  vertSource = fadeVertSource.sourceCode;
+  fragSource = fadeFragSource.sourceCode;
+
+  static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
+    u_colorA: { type: Gfx.Type.Float4 },
+    u_colorB: { type: Gfx.Type.Float4 },
+    u_height: { type: Gfx.Type.Float },
+    u_yOffset: { type: Gfx.Type.Float },
+  });
+
+  static resourceLayout: Gfx.ShaderResourceLayout = {
+    global: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
+    model: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: FadeShader.uniformLayout },
+  };
+}
+
 const kNightLight = {
   hazeColor: vec4.fromValues(0.23529411764705882, 0.29411764705882354, 0.39215686274509803, 1),
   cloudCenterColor: vec4.fromValues(0.22745098039215686, 0.39215686274509803, 0.5254901960784314, 0),
@@ -68,23 +89,37 @@ export class Skybox {
   static filename = 'data/Skybox.glb';
 
   flatShader: Gfx.Id;
+  fadeShader: Gfx.Id;
+  bgCloudShader: Gfx.Id;
 
   skyModel: Model;
   oceanModel: Model;
+  bgHazeModel: Model;
+  fgHazeModel: Model;
 
-  bgCloudShader: Gfx.Id;
   cloudModels: Model[] = [];
   cloudScrollNear = 0.0;
   cloudScrollMid = 0.0;
   cloudScrollFar = 0.0;
 
-  private enableNearClouds = true;
-  private enableMiddleClouds = true;
+  private enableSky = true;
+  private enableFarHaze = true;
   private enableFarClouds = true;
+  private enableMiddleClouds = true;
+  private enableNearClouds = true;
+  private enableNearHaze = true;
+  private enableOcean = true;
+  
+  private cloudYOffset = -2.25;
+  private farHazeYOffset = -4.3;
+  private farHazeHeight = 27;
+  private nearHazeHeight = 18;
+  private nearHazeYOffset = 0.1;
 
   initialize({ resources, gfxDevice, globalUniforms, debugMenu }: Dependencies) {
     this.bgCloudShader = gfxDevice.createShader(new BackgroundCloudShader());
     this.flatShader = gfxDevice.createShader(new FlatShader());
+    this.fadeShader = gfxDevice.createShader(new FadeShader());
 
     resources.load(Skybox.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
@@ -92,9 +127,18 @@ export class Skybox {
     });
 
     const menu = debugMenu.addFolder('Skybox');
-    menu.add(this, 'enableNearClouds');
-    menu.add(this, 'enableMiddleClouds');
+    menu.add(this, 'enableSky');
+    menu.add(this, 'enableFarHaze');
     menu.add(this, 'enableFarClouds');
+    menu.add(this, 'enableMiddleClouds');
+    menu.add(this, 'enableNearClouds');
+    menu.add(this, 'enableNearHaze');
+    menu.add(this, 'enableOcean');
+    menu.add(this, 'cloudYOffset', -10, 20, 0.25);
+    menu.add(this, 'farHazeYOffset', -50, 50);
+    menu.add(this, 'farHazeHeight', 5, 50);
+    menu.add(this, 'nearHazeYOffset', -50, 50);
+    menu.add(this, 'nearHazeHeight', 5, 50);
   }
 
   onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, resource: Resource) {
@@ -115,6 +159,17 @@ export class Skybox {
     skyMaterial.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
     skyMaterial.setUniformBuffer(gfxDevice, 'model', new UniformBuffer('SkyUniforms', gfxDevice, FlatShader.uniformLayout));
     this.skyModel = new Model(gfxDevice, renderLists.skybox, skyMesh, skyMaterial);
+
+    // Haze
+    const hazeMesh = assertDefined(gltf.meshes.find(m => m.name === 'Haze')).primitives[0].mesh;
+    const hazeMaterial = new Material(gfxDevice, 'Haze', this.fadeShader, FadeShader.resourceLayout);
+    hazeMaterial.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
+    hazeMaterial.setUniformBuffer(gfxDevice, 'model', new UniformBuffer('HazeUniforms', gfxDevice, FadeShader.uniformLayout));
+    this.bgHazeModel = new Model(gfxDevice, renderLists.skybox, hazeMesh, hazeMaterial);
+    const fgHazeMaterial = new Material(gfxDevice, 'Haze', this.fadeShader, FadeShader.resourceLayout);
+    fgHazeMaterial.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
+    fgHazeMaterial.setUniformBuffer(gfxDevice, 'model', new UniformBuffer('HazeUniforms', gfxDevice, FadeShader.uniformLayout));
+    this.fgHazeModel = new Model(gfxDevice, renderLists.skybox, hazeMesh, fgHazeMaterial);
       
     // Background ocean
     const oceanMesh = assertDefined(gltf.meshes.find(m => m.name === 'Ocean')).primitives[0].mesh;
@@ -156,6 +211,7 @@ export class Skybox {
     const windX = windVec[0];
     const windZ = windVec[2];
 
+    // Clouds
     const scrollSpeed = clock.renderDt * windPower * 0.000015 * ((-windX * camZ) - (-windZ * camX));
     this.cloudScrollNear = (this.cloudScrollNear + 1.0 * scrollSpeed) % 1.0;
     this.cloudScrollMid = (this.cloudScrollMid + 0.8 * scrollSpeed) % 1.0;
@@ -173,27 +229,57 @@ export class Skybox {
     midUniforms.setVec4('u_color', light.cloudColor);
     nearUniforms.setVec4('u_color', light.cloudColor);
 
+    farUniforms.setFloat('u_yOffset', this.cloudYOffset);
+    midUniforms.setFloat('u_yOffset', this.cloudYOffset);
+    nearUniforms.setFloat('u_yOffset', this.cloudYOffset);
+
     farUniforms.write(gfxDevice);
     midUniforms.write(gfxDevice);
     nearUniforms.write(gfxDevice);
 
+    // Sky
     const skyUniforms = this.skyModel.material.getUniformBuffer('model');
     skyUniforms.setVec4('u_color', light.skyColor);
     skyUniforms.write(gfxDevice);
 
+    // Ocean
     const oceanUniforms = this.oceanModel.material.getUniformBuffer('model');
     oceanUniforms.setVec4('u_color', light.oceanColor);
     oceanUniforms.write(gfxDevice);
+
+    // Far Haze 
+    const hazeUniforms = this.bgHazeModel.material.getUniformBuffer('model');
+    hazeUniforms.setVec4('u_colorA', light.hazeColor);
+    hazeUniforms.setVec4('u_colorB', light.skyColor);
+    hazeUniforms.setFloat('u_height', this.farHazeHeight);
+    hazeUniforms.setFloat('u_yOffset', this.farHazeYOffset);
+    hazeUniforms.write(gfxDevice);
+
+    // Near Haze
+    const fgHazeUniforms = this.fgHazeModel.material.getUniformBuffer('model');
+    const hazeColor = vec4.clone(light.hazeColor);
+    const hazeAlpha = light.cloudColor[3];
+    hazeColor[3] = hazeAlpha;
+    fgHazeUniforms.setVec4('u_colorA', hazeColor);
+    hazeColor[3] = 0.0;
+    fgHazeUniforms.setVec4('u_colorB', hazeColor);
+    fgHazeUniforms.setFloat('u_height', this.nearHazeHeight);
+    fgHazeUniforms.setFloat('u_yOffset', this.nearHazeYOffset);
+    fgHazeUniforms.write(gfxDevice);
   }
 
   render({}) {
     if (this.cloudModels.length > 0) {
-      this.skyModel.renderList.push(this.skyModel.primitive);
-      this.oceanModel.renderList.push(this.oceanModel.primitive);
+      if (this.enableSky) this.skyModel.renderList.push(this.skyModel.primitive);
+      if (this.enableFarHaze) this.bgHazeModel.renderList.push(this.bgHazeModel.primitive);
 
       if (this.enableFarClouds) this.cloudModels[0].renderList.push(this.cloudModels[0].primitive);
       if (this.enableMiddleClouds) this.cloudModels[1].renderList.push(this.cloudModels[1].primitive);
       if (this.enableNearClouds) this.cloudModels[2].renderList.push(this.cloudModels[2].primitive);
+
+      if (this.enableNearHaze) this.fgHazeModel.renderList.push(this.fgHazeModel.primitive);
+
+      if (this.enableOcean) this.oceanModel.renderList.push(this.oceanModel.primitive);
     }
   }
 }
