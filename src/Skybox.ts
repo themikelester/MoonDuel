@@ -110,7 +110,8 @@ export class Skybox {
   private enableNearHaze = true;
   private enableOcean = true;
   
-  private cloudYOffset = -2.25;
+  private yOffset = 0;
+  private cloudYOffset = -3;
   private farHazeYOffset = -4.3;
   private farHazeHeight = 27;
   private nearHazeHeight = 18;
@@ -134,6 +135,7 @@ export class Skybox {
     menu.add(this, 'enableNearClouds');
     menu.add(this, 'enableNearHaze');
     menu.add(this, 'enableOcean');
+    menu.add(this, 'yOffset', -50, 20);
     menu.add(this, 'cloudYOffset', -10, 20, 0.25);
     menu.add(this, 'farHazeYOffset', -50, 50);
     menu.add(this, 'farHazeHeight', 5, 50);
@@ -229,9 +231,9 @@ export class Skybox {
     midUniforms.setVec4('u_color', light.cloudColor);
     nearUniforms.setVec4('u_color', light.cloudColor);
 
-    farUniforms.setFloat('u_yOffset', this.cloudYOffset);
-    midUniforms.setFloat('u_yOffset', this.cloudYOffset);
-    nearUniforms.setFloat('u_yOffset', this.cloudYOffset);
+    farUniforms.setFloat('u_yOffset', this.cloudYOffset + this.yOffset);
+    midUniforms.setFloat('u_yOffset', this.cloudYOffset + this.yOffset);
+    nearUniforms.setFloat('u_yOffset', this.cloudYOffset + this.yOffset);
 
     farUniforms.write(gfxDevice);
     midUniforms.write(gfxDevice);
@@ -252,7 +254,7 @@ export class Skybox {
     hazeUniforms.setVec4('u_colorA', light.hazeColor);
     hazeUniforms.setVec4('u_colorB', light.skyColor);
     hazeUniforms.setFloat('u_height', this.farHazeHeight);
-    hazeUniforms.setFloat('u_yOffset', this.farHazeYOffset);
+    hazeUniforms.setFloat('u_yOffset', this.farHazeYOffset + this.yOffset);
     hazeUniforms.write(gfxDevice);
 
     // Near Haze
@@ -264,7 +266,7 @@ export class Skybox {
     hazeColor[3] = 0.0;
     fgHazeUniforms.setVec4('u_colorB', hazeColor);
     fgHazeUniforms.setFloat('u_height', this.nearHazeHeight);
-    fgHazeUniforms.setFloat('u_yOffset', this.nearHazeYOffset);
+    fgHazeUniforms.setFloat('u_yOffset', this.nearHazeYOffset + this.yOffset);
     fgHazeUniforms.write(gfxDevice);
   }
 
