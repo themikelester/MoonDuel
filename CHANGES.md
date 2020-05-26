@@ -17,6 +17,11 @@ Change Log
 ##### Morning
 Today I'm going to work on the skybox gradient (right now it's a solid color), and add in a foreground haze effect which covers both the skybox and background clouds. After that I'll also look into adding a gradient towards the horizon on the ocean. Then setting up an Environment system to handle install global uniforms so that other meshes can share the lighting information.
 
+##### Evening
+Got the haze layers in, and to my satisfaction too. The far layer only affects the sky color, and is approximating something like mae and rayleigh scattering. The near haze layer sits in front of the background clouds, and haze a configurable alpha scale. The effect is that it adds a bit of haze color (and therefore light) to the bottom of the clouds, approximating light bouncing between the horizon and the cloud bottoms. Both of these layers have tweakable heights and y-offsets, its fun to tweak them. 
+
+I started implementing an ocean quad, but didn't get far. 
+
 ### 2020-05-25
 ##### Morning
 Environment week! By the end of this week I'd like to have the game looking like it takes place in a real world. This entails: 
