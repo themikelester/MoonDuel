@@ -13,7 +13,11 @@ Change Log
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 * Use sword attack edges to add a fake motion blur effect (See 2020-05-22)
 
-### 2020-05-25
+### 2020-05-28
+##### Morning
+Today I'd like to add the Environment system and get the Avatar and Stage rendering using the correct light position and colors. This might entail rewriting a new shader for the Avatar. It's likely going to be too dark, which may mean I'll do sconses and dynamic lighting tomorrow. If I have time left over I'll work on the sea.
+
+### 2020-05-26
 ##### Morning
 Today I'm going to work on the skybox gradient (right now it's a solid color), and add in a foreground haze effect which covers both the skybox and background clouds. After that I'll also look into adding a gradient towards the horizon on the ocean. Then setting up an Environment system to handle install global uniforms so that other meshes can share the lighting information.
 
