@@ -7,6 +7,13 @@ export interface DiffuseAmbient {
   ambient: vec4,
 }
 
+export class LightInfluence {
+  position: vec3 = vec3.create();
+  color: vec4 = vec4.create();
+  power: number = 0.0;
+  fluctuation: number = 0.0;
+}
+
 export class Environment {
   // Stage
   actorColor: DiffuseAmbient = { diffuse: vec4.create(), ambient: vec4.create() };
@@ -22,6 +29,13 @@ export class Environment {
   // Wind 
   windPower: number;
   windVec: vec3 = vec3.create();
+
+  // Lights
+  baseLight: LightInfluence = new LightInfluence();
+  localLights: LightInfluence[] = [];
+
+  // Sun/Moon
+  moonPos: vec3 = vec3.create();
 }
 
 const kNightSkybox = {
@@ -68,6 +82,9 @@ const kEnvBufferLayout: BufferLayout = computePackedBufferLayout({
   u_cloudColor: { type: Type.Float4 },
   u_skyColor: { type: Type.Float4 },
   u_oceanColor: { type: Type.Float4 },
+
+  u_baseLightPos: { type: Type.Float3 },
+  u_baseLightColor: { type: Type.Float4 },
 });
 
 export class EnvironmentSystem {
@@ -79,6 +96,14 @@ export class EnvironmentSystem {
   }
 
   update({ gfxDevice }: { gfxDevice: Renderer}) {
+    vec3.set(this.current.moonPos, 100000, 100000, 100000);
+
+    // Update Sun/Moon light info
+    this.current.baseLight.position = this.current.moonPos; 
+    vec4.set(this.current.baseLight.color, 1, 1, 1, 1);
+    this.current.baseLight.power = 0.0;
+    this.current.baseLight.fluctuation = 0.0;
+
     // Update environment
     // @HACK: For now, we only have a single environment (night), so no blending
     Object.assign(this.current, kNightSkybox);
@@ -96,7 +121,17 @@ export class EnvironmentSystem {
     this.uniforms.setVec4('u_cloudColor', this.current.cloudColor);
     this.uniforms.setVec4('u_skyColor', this.current.skyColor);
     this.uniforms.setVec4('u_oceanColor', this.current.oceanColor);
+    this.uniforms.setVec3('u_baseLightPos', this.current.baseLight.position);
+    this.uniforms.setVec3('u_baseLightColor', this.current.baseLight.color);
     this.uniforms.write(gfxDevice);
+  }
+
+  static get bufferLayout() {
+    return kEnvBufferLayout;
+  }
+
+  getUniformBuffer() {
+    return this.uniforms;
   }
 
   getCurrentEnvironment() {

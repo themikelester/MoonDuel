@@ -13,6 +13,7 @@ import { GlobalUniforms } from "./GlobalUniforms";
 import { mat4, vec3 } from "gl-matrix";
 import { assert } from "./util";
 import { DebugMenu } from './DebugMenu';
+import { EnvironmentSystem, Environment } from './Environment';
 
 class StageShader implements Gfx.ShaderDescriptor {
   name = 'Stage';
@@ -21,12 +22,12 @@ class StageShader implements Gfx.ShaderDescriptor {
 
   static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
     u_model: { type: Gfx.Type.Float4x4 },
-    u_color: { type: Gfx.Type.Float4 },
   });
 
   static resourceLayout: Gfx.ShaderResourceLayout = {
     model: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: StageShader.uniformLayout },
     global: { index: 1, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
+    env: { index: 2, type: Gfx.BindingType.UniformBuffer, layout: EnvironmentSystem.bufferLayout },
     u_tex: { index: 2, type: Gfx.BindingType.Texture },
   };
 }
@@ -40,18 +41,18 @@ export class Stage {
 
   private show = true;
 
-  initialize({ resources, gfxDevice, globalUniforms, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, debugMenu: DebugMenu }) {
+  initialize({ resources, gfxDevice, globalUniforms, environment, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, debugMenu: DebugMenu }) {
     this.shader = gfxDevice.createShader(new StageShader());
     resources.load(Stage.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
-      this.onResourcesLoaded(gfxDevice, globalUniforms, resource!);
+      this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!);
     });
 
     const menu = debugMenu.addFolder('Stage');
     menu.add(this, 'show');
   }
 
-  onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, resource: Resource) {
+  onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, env: EnvironmentSystem, resource: Resource) {
     const gltf = resource as GltfResource;
 
     const mainTex = gltf.textures[0].id;
@@ -68,10 +69,10 @@ export class Stage {
     mat4.multiply(modelMat, scale, modelMat);
     
     const uniforms = new UniformBuffer('ArenaUniforms', gfxDevice, StageShader.uniformLayout);
-    uniforms.setVec4('u_color', [1, 0, 0, 1]);
     uniforms.setMat4('u_model', modelMat);
     uniforms.write(gfxDevice);
     material.setUniformBuffer(gfxDevice, 'model', uniforms);
+    material.setUniformBuffer(gfxDevice, 'env', env.getUniformBuffer());
     material.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
 
     material.setTexture(gfxDevice, 'u_tex', mainTex);

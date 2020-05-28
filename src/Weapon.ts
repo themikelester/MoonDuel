@@ -15,6 +15,7 @@ import { DebugRenderUtils } from "./DebugRender";
 import { EntityState, GameObject, GameObjectFactory, World, GameObjectType } from "./World";
 import { CollisionSystem } from "./Collision";
 import { Ray } from "./Collision";
+import { EnvironmentSystem } from "./Environment";
 
 const scratchMat4 = mat4.create();
 const scratchVec3a = vec3.create();
@@ -34,7 +35,7 @@ enum WeaponFlags {
 export class Weapon implements GameObject {
     state: EntityState;
 
-    type: WeaponType ;
+    type: WeaponType;
     transform: Object3D = new Object3D();
     model?: Model; // May be undefined while the resources are loading
 
@@ -54,15 +55,17 @@ export class Weapon implements GameObject {
 //#region Weapon Blueprints
 
 abstract class WeaponBlueprint {
+    ready: boolean;
     attackObb: mat4;
     attackLine: vec3[];
+    matUniformBuf: UniformBuffer;
 
     abstract loadResources(resources: ResourceManager, gfxDevice?: Gfx.Renderer): void;
     abstract create(state: EntityState, gfxDevice?: Gfx.Renderer): Weapon;
 }
 
 class EmptyBlueprint extends WeaponBlueprint {
-    loadResources() {}
+    loadResources() { }
     create(): never {
         throw new Error('Attempted to create an empty weapon');
     }
@@ -104,7 +107,7 @@ class SwordBlueprint extends WeaponBlueprint {
                 resources.load(SwordBlueprint.kFilename, 'gltf', (error, resource) => {
                     if (error) { return console.error(`Failed to load resource`, error); }
                     this.onResourcesLoaded(assertDefined(resource), gfxDevice);
-                    
+
                     this.ready = true;
                     resolve();
                 });
@@ -120,20 +123,20 @@ class SwordBlueprint extends WeaponBlueprint {
             this.readyPromise.then(() => {
                 const material = new Material(gfxDevice, name, this.shader, this.resourceLayout);
                 const model = new Model(gfxDevice, renderLists.opaque, this.mesh, material);
-                
+
                 // Ignore the parent node, which only centers the model. The current origin is the avatar's grab point.
                 model.updateWorldMatrix(true, false);
                 weapon.transform.add(model); // @HACK: Unnecessary extra hierarchy. Model should not be an Object3D.
-                
+
                 // Set shared resources
                 Object.keys(this.matTextures).forEach(name => material.setTexture(gfxDevice, name, this.matTextures[name]));
                 material.setUniformBuffer(gfxDevice, 'material', this.matUniformBuf);
-                
+
                 // Create a new uniform buffer for the per-instance data
                 const bufLayout = (this.resourceLayout['model'] as Gfx.UniformBufferResourceBinding).layout;
                 const uniforms = new UniformBuffer('SwordModelUniforms', gfxDevice, bufLayout);
                 material.setUniformBuffer(gfxDevice, 'model', uniforms);
-                
+
                 weapon.model = model;
             });
         }
@@ -207,9 +210,6 @@ class SwordBlueprint extends WeaponBlueprint {
             }
         }
 
-        // @HACK:
-        this.matUniformBuf.setVec4('u_Color0', vec4.fromValues(0.4266, 0.4171, 0.5057, 1));
-
         this.matUniformBuf.write(gfxDevice);
     }
 }
@@ -242,7 +242,7 @@ export class WeaponSystem implements GameObjectFactory {
     }
 
     deleteGameObject() {
-        
+
     }
 
     updateFixed({ world, collision }: { world: World, collision: CollisionSystem }) {
@@ -267,21 +267,30 @@ export class WeaponSystem implements GameObjectFactory {
         }
     }
 
-    render({ gfxDevice, camera }: { gfxDevice: Gfx.Renderer, camera: Camera, avatar: AvatarSystemClient }, debug = false) {
-       for (const weapon of this.weapons) {
+    render({ gfxDevice, camera, environment }: { gfxDevice: Gfx.Renderer, camera: Camera, environment: EnvironmentSystem }, debug = false) {
+        const blueprint = this.blueprints[WeaponType.Sword];
+        if (blueprint.ready) {
+            const env = environment.getCurrentEnvironment();
+            const matUniforms = this.blueprints[WeaponType.Sword].matUniformBuf;
+            matUniforms.setVec4('u_Color0', env.actorColor.ambient);
+            matUniforms.setVec4('u_KonstColor0', env.actorColor.diffuse);
+            matUniforms.write(gfxDevice);
+        }
+
+        for (const weapon of this.weapons) {
             if (!weapon.isActive) continue;
 
             const model = weapon.model;
             if (defined(model)) {
                 weapon.transform.updateWorldMatrix(false, true);
-                
+
                 const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
-                
+
                 const uniforms = model.material.getUniformBuffer('model');
                 uniforms.setMat4('u_model', matrixWorld);
                 uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
                 uniforms.write(gfxDevice);
-                
+
                 model.renderList.push(model.primitive);
             }
         }
