@@ -21,6 +21,7 @@ export interface IDebugMenu {
     add(target: Object, propName:string, items:string[]): IGUIController;
     add(target: Object, propName:string, items:number[]): IGUIController;
     add(target: Object, propName:string, items:Object): IGUIController;
+    addColor(target: Object, propName:string): IGUIController;
 
     addFolder(propName:string): IDebugMenu;
 
@@ -39,15 +40,26 @@ export class DebugMenu implements IDebugMenu {
     private _gui: any;
     private _guiPromise: Promise<any>;
     private _add: DebugAdd[] = [];
+    private _addColor: DebugAdd[] = [];
     private _folders: { [name: string]: DebugMenu } = {};
     private _saveObject: any;
 
     constructor() {
     }
 
-    add(target: Object, propName:string, min?: number | boolean | string[] | Object, max?: number, step?: number): IGUIController { 
+    add(target: Object, propName: string, min?: number | boolean | string[] | Object, max?: number, step?: number): IGUIController { 
         const debugAdd: DebugAdd = { args: arguments };
         this._add.push(debugAdd);
+        return {
+            onChange: (fnc: ICallback) => { 
+                debugAdd.onChange = fnc; 
+            }
+        }
+    }
+
+    addColor(target: Object, propName: string) {
+        const debugAdd: DebugAdd = { args: arguments };
+        this._addColor.push(debugAdd);
         return {
             onChange: (fnc: ICallback) => { 
                 debugAdd.onChange = fnc; 
@@ -78,6 +90,15 @@ export class DebugMenu implements IDebugMenu {
         for (const debugAdd of this._add) {
             this._gui.getRoot().remember(debugAdd.args[0]); 
             const controller = this._gui.add.apply(this._gui, debugAdd.args); 
+            if (debugAdd.onChange) { 
+                controller.onChange(debugAdd.onChange); 
+                debugAdd.onChange(controller.object[controller.property]);
+            }
+        }
+
+        for (const debugAdd of this._addColor) {
+            this._gui.getRoot().remember(debugAdd.args[0]); 
+            const controller = this._gui.addColor.apply(this._gui, debugAdd.args); 
             if (debugAdd.onChange) { 
                 controller.onChange(debugAdd.onChange); 
                 debugAdd.onChange(controller.object[controller.property]);
