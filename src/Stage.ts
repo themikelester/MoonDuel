@@ -11,7 +11,7 @@ import { renderLists } from "./RenderList";
 import { Material } from "./Mesh";
 import { GlobalUniforms } from "./GlobalUniforms";
 import { mat4, vec3 } from "gl-matrix";
-import { assert } from "./util";
+import { assert, defined } from "./util";
 import { DebugMenu } from './DebugMenu';
 import { EnvironmentSystem, Environment } from './Environment';
 
@@ -36,7 +36,7 @@ export class Stage {
   static filename = 'data/Arena.glb';
   static outerRadius = 2000;
 
-  model: Model;
+  models: Model[] = [];
   shader: Gfx.Id;
 
   private show = true;
@@ -55,27 +55,33 @@ export class Stage {
   onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, env: EnvironmentSystem, resource: Resource) {
     const gltf = resource as GltfResource;
 
-    const mainTex = gltf.textures[0].id;
+    for (const node of gltf.nodes) {
+      if (defined(node.meshId)) {
+        const prim = gltf.meshes[node.meshId!].primitives[0];
 
-    const prim = gltf.meshes[0].primitives[0];
-    const material = new Material(gfxDevice, 'Arena', this.shader, StageShader.resourceLayout);
-    this.model = new Model(gfxDevice, renderLists.opaque, prim.mesh, material);
+        const mainTex = gltf.textures[0].id;
 
-    // Scale the model body so that the outer radii match
-    const node = gltf.nodes.find(n => n.meshId === 0);
-    node?.updateMatrixWorld();
-    const modelMat = mat4.fromValues.apply(null, node?.matrixWorld.elements);
-    const scale = mat4.fromScaling(mat4.create(), vec3.fromValues(Stage.outerRadius, Stage.outerRadius, Stage.outerRadius));
-    mat4.multiply(modelMat, scale, modelMat);
-    
-    const uniforms = new UniformBuffer('ArenaUniforms', gfxDevice, StageShader.uniformLayout);
-    uniforms.setMat4('u_model', modelMat);
-    uniforms.write(gfxDevice);
-    material.setUniformBuffer(gfxDevice, 'model', uniforms);
-    material.setUniformBuffer(gfxDevice, 'env', env.getUniformBuffer());
-    material.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
+        const material = new Material(gfxDevice, 'Arena', this.shader, StageShader.resourceLayout);
+        const model = new Model(gfxDevice, renderLists.opaque, prim.mesh, material);
 
-    material.setTexture(gfxDevice, 'u_tex', mainTex);
+        // Scale the model body so that the outer radii match
+        node?.updateMatrixWorld();
+        const modelMat = mat4.fromValues.apply(null, node?.matrixWorld.elements);
+        const scale = mat4.fromScaling(mat4.create(), vec3.fromValues(Stage.outerRadius, Stage.outerRadius, Stage.outerRadius));
+        mat4.multiply(modelMat, scale, modelMat);
+        
+        const uniforms = new UniformBuffer('ArenaUniforms', gfxDevice, StageShader.uniformLayout);
+        uniforms.setMat4('u_model', modelMat);
+        uniforms.write(gfxDevice);
+        material.setUniformBuffer(gfxDevice, 'model', uniforms);
+        material.setUniformBuffer(gfxDevice, 'env', env.getUniformBuffer());
+        material.setUniformBuffer(gfxDevice, 'global', globalUniforms.buffer);
+
+        material.setTexture(gfxDevice, 'u_tex', mainTex);
+
+        this.models.push(model);
+      }
+    }
   }
 
   render({}) {
@@ -83,6 +89,8 @@ export class Stage {
       return;
     }
 
-    if (this.model) this.model.renderList.push(this.model.primitive);
+    for (let i = 0; i < this.models.length; i++) {
+      if (this.models[i]) this.models[i].renderList.push(this.models[i].primitive);
+    }
   }
 }
