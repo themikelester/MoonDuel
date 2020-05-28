@@ -274,6 +274,12 @@ export class WeaponSystem implements GameObjectFactory {
             const matUniforms = this.blueprints[WeaponType.Sword].matUniformBuf;
             matUniforms.setVec4('u_Color0', env.actorColor.ambient);
             matUniforms.setVec4('u_KonstColor0', env.actorColor.diffuse);
+            matUniforms.setFloats('u_LightTransforms', [
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                env.baseLight.position[0], env.baseLight.position[1], env.baseLight.position[2], 1,
+            ]);
             matUniforms.write(gfxDevice);
         }
 

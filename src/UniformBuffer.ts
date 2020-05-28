@@ -105,7 +105,7 @@ export class UniformBuffer {
 
   setFloats(name: string, value: ArrayLike<number>) {
     const uniform = assertDefined(this.bufferLayout[name], `Attempted to set unknown uniform ${name}`);
-    if (value.length !== getUniformSize(uniform) / 4) throw new Error('Invalid size');
+    if (value.length > getUniformSize(uniform) / 4) throw new Error('Invalid size');
     this.bufferFloats.set(value, uniform.offset / 4);
   }
 

@@ -1,6 +1,7 @@
 import { vec4, vec3 } from "gl-matrix";
 import { BufferLayout, Type, Renderer } from "./gfx/GfxTypes";
 import { computePackedBufferLayout, UniformBuffer } from "./UniformBuffer";
+import { DebugMenu } from "./DebugMenu";
 
 export interface DiffuseAmbient {
   diffuse: vec4,
@@ -91,12 +92,22 @@ export class EnvironmentSystem {
   private uniforms: UniformBuffer;
   private current: Environment = new Environment();
 
-  initialize({ gfxDevice }: { gfxDevice: Renderer}) {
+  private moonAzimuth: number = Math.PI * 0.25;
+  private moonPolar: number = Math.PI * 0.25;
+
+  initialize({ gfxDevice, debugMenu }: { gfxDevice: Renderer, debugMenu: DebugMenu }) {
     this.uniforms = new UniformBuffer('EnvUniforms', gfxDevice, kEnvBufferLayout);
+
+    const menu = debugMenu.addFolder('Environment');
+    menu.add(this, 'moonAzimuth', 0.001, Math.PI * 2.0);
+    menu.add(this, 'moonPolar', 0.001, Math.PI * 0.5);
   }
 
   update({ gfxDevice }: { gfxDevice: Renderer}) {
-    vec3.set(this.current.moonPos, 100000, 100000, 100000);
+    const x = Math.cos(this.moonAzimuth) * Math.cos(this.moonPolar);
+    const z = Math.sin(this.moonAzimuth) * Math.cos(this.moonPolar);
+    const y = Math.sin(this.moonPolar);
+    vec3.set(this.current.moonPos, x * 100000, y * 100000, z * 100000);
 
     // Update Sun/Moon light info
     this.current.baseLight.position = this.current.moonPos; 

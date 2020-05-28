@@ -172,6 +172,12 @@ export class AvatarRender {
 
                 uniforms.setVec4('u_Color0', env.actorColor.ambient);
                 uniforms.setVec4('u_KonstColor0', env.actorColor.diffuse);
+                uniforms.setFloats('u_LightTransforms', [
+                    1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    env.baseLight.position[0], env.baseLight.position[1], env.baseLight.position[2], 1,
+                ]);
 
                 uniforms.write(gfxDevice);
 
@@ -187,6 +193,12 @@ export class AvatarRender {
                 uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
                 uniforms.setVec4('u_Color0', env.actorColor.ambient);
                 uniforms.setVec4('u_KonstColor0', env.actorColor.diffuse);
+                uniforms.setFloats('u_LightTransforms', [
+                    1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    env.baseLight.position[0], env.baseLight.position[1], env.baseLight.position[2], 1,
+                ]);
                 uniforms.write(gfxDevice);
 
                 model.renderList.push(model.primitive);
