@@ -37,6 +37,10 @@ export class Environment {
 
   // Sun/Moon
   moonPos: vec3 = vec3.create();
+
+  addLocalLight(light: LightInfluence) {
+    this.localLights.push(light);
+  }
 }
 
 const kNightSkybox = {

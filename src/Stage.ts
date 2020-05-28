@@ -3,17 +3,18 @@ import fragShaderSource from './shaders/arena.frag';
 
 import { ResourceManager } from "./resources/ResourceLoading";
 import { Resource } from "./resources/Resource";
-import { GltfResource } from "./resources/Gltf";
+import { GltfResource, GltfNode } from "./resources/Gltf";
 import { computePackedBufferLayout, UniformBuffer } from "./UniformBuffer";
 import { Model } from "./Mesh";
 import * as Gfx from "./gfx/GfxTypes";
 import { renderLists } from "./RenderList";
 import { Material } from "./Mesh";
 import { GlobalUniforms } from "./GlobalUniforms";
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, vec3, vec4 } from "gl-matrix";
 import { assert, defined } from "./util";
 import { DebugMenu } from './DebugMenu';
 import { EnvironmentSystem, Environment } from './Environment';
+import { Vector3 } from 'three/src/math/Vector3';
 
 class StageShader implements Gfx.ShaderDescriptor {
   name = 'Stage';
@@ -40,6 +41,8 @@ export class Stage {
   shader: Gfx.Id;
 
   private show = true;
+  private torchPower = 3000;
+  private torchColor = [225, 111, 10, 1.0];
 
   initialize({ resources, gfxDevice, globalUniforms, environment, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, debugMenu: DebugMenu }) {
     this.shader = gfxDevice.createShader(new StageShader());
@@ -50,6 +53,8 @@ export class Stage {
 
     const menu = debugMenu.addFolder('Stage');
     menu.add(this, 'show');
+    menu.add(this, 'torchPower', 0.0, 5000);
+    menu.addColor(this, 'torchColor');
   }
 
   onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, env: EnvironmentSystem, resource: Resource) {
@@ -57,7 +62,8 @@ export class Stage {
 
     for (const node of gltf.nodes) {
       if (defined(node.meshId)) {
-        const prim = gltf.meshes[node.meshId!].primitives[0];
+        const gltfMesh = gltf.meshes[node.meshId];
+        const prim = gltfMesh.primitives[0];
 
         const mainTex = gltf.textures[0].id;
 
@@ -69,6 +75,10 @@ export class Stage {
         const modelMat = mat4.fromValues.apply(null, node?.matrixWorld.elements);
         const scale = mat4.fromScaling(mat4.create(), vec3.fromValues(Stage.outerRadius, Stage.outerRadius, Stage.outerRadius));
         mat4.multiply(modelMat, scale, modelMat);
+
+        if (gltfMesh.name === 'Sconce') {
+          loadSconce(modelMat, env.getCurrentEnvironment());
+        }
         
         const uniforms = new UniformBuffer('ArenaUniforms', gfxDevice, StageShader.uniformLayout);
         uniforms.setMat4('u_model', modelMat);
@@ -84,13 +94,30 @@ export class Stage {
     }
   }
 
-  render({}) {
+  render({ environment }: { environment: EnvironmentSystem }) {
     if (!this.show) {
       return;
+    }
+
+    const env = environment.getCurrentEnvironment();
+    for (let i = 0; i < env.localLights.length; i++) {
+      const light = env.localLights[i];
+      light.power = this.torchPower;
+      vec4.set(light.color, 
+        this.torchColor[0] / 255.0, this.torchColor[1] / 255.0, this.torchColor[2] / 255.0, this.torchColor[3] / 255.0);
     }
 
     for (let i = 0; i < this.models.length; i++) {
       if (this.models[i]) this.models[i].renderList.push(this.models[i].primitive);
     }
   }
+}
+
+function loadSconce(transform: mat4, environment: Environment) {
+  environment.addLocalLight({
+    position: mat4.getTranslation(vec3.create(), transform),
+    color: vec4.fromValues(1, 0, 0, 1),
+    fluctuation: 0.9,
+    power: 400
+  })
 }

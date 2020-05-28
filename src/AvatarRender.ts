@@ -4,7 +4,7 @@ import * as Gfx from './gfx/GfxTypes';
 import { renderLists } from "./RenderList";
 
 import { UniformBuffer, computePackedBufferLayout, BufferPackedLayout } from "./UniformBuffer";
-import { vec4, mat4 } from "gl-matrix";
+import { vec4, mat4, vec3 } from "gl-matrix";
 import { defaultValue, assertDefined, defined, assert } from "./util";
 import { Skeleton, drawSkeleton } from "./Skeleton";
 import { Object3D } from "./Object3D";
@@ -12,6 +12,10 @@ import { Camera } from "./Camera";
 import { Avatar } from "./Avatar";
 import { DebugMenu } from "./DebugMenu";
 import { Environment } from "./Environment";
+
+const scratchVec4a = vec4.create();
+const scratchVec4b = vec4.create();
+const scratchVec3a = vec3.create();
 
 interface AvatarRenderData {
     models: Model[];
@@ -159,6 +163,7 @@ export class AvatarRender {
                 model.writeBonesToTex(gfxDevice);
 
                 const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
+                const pos = vec3.set(scratchVec3a, matrixWorld[12], matrixWorld[13], matrixWorld[14]);
 
                 // @TODO: UniformBuffer.hasUniform()
                 // @TODO: UniformBuffer.trySet()
@@ -169,16 +174,7 @@ export class AvatarRender {
                 if (defined(uniforms.getBufferLayout()['u_modelViewProjection'])) {
                     uniforms.setMat4('u_model', matrixWorld);
                 }
-
-                uniforms.setVec4('u_Color0', env.actorColor.ambient);
-                uniforms.setVec4('u_KonstColor0', env.actorColor.diffuse);
-                uniforms.setFloats('u_LightTransforms', [
-                    1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 1, 0,
-                    env.baseLight.position[0], env.baseLight.position[1], env.baseLight.position[2], 1,
-                ]);
-
+                setLighting(uniforms, env, pos);
                 uniforms.write(gfxDevice);
 
                 model.renderList.push(model.primitive);
@@ -188,17 +184,11 @@ export class AvatarRender {
                 const model = data.models[i];
 
                 const matrixWorld = new Float32Array(model.matrixWorld.elements) as mat4;
+                const pos = vec3.set(scratchVec3a, matrixWorld[12], matrixWorld[13], matrixWorld[14]);
 
                 const uniforms = model.material.getUniformBuffer('uniforms');
                 uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
-                uniforms.setVec4('u_Color0', env.actorColor.ambient);
-                uniforms.setVec4('u_KonstColor0', env.actorColor.diffuse);
-                uniforms.setFloats('u_LightTransforms', [
-                    1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 1, 0,
-                    env.baseLight.position[0], env.baseLight.position[1], env.baseLight.position[2], 1,
-                ]);
+                setLighting(uniforms, env, pos);
                 uniforms.write(gfxDevice);
 
                 model.renderList.push(model.primitive);
@@ -214,4 +204,39 @@ export class AvatarRender {
             }
         }
     }
+}
+
+function setLighting(uniforms: UniformBuffer, env: Environment, pos: vec3) {
+    const diffuse = vec4.copy(scratchVec4a, env.actorColor.diffuse);
+    const ambient = vec4.copy(scratchVec4b, env.actorColor.ambient);
+       
+    const localLightIdx = 0; // @TODO: Pick based on proximity
+    const light = env.localLights[localLightIdx];
+
+    const dist = vec3.distance(pos, light.position);
+    const power = Math.max(0.001, light.power);
+    const atten = Math.min(1.0, dist / power);
+    const influence = 1.0 - atten * atten; 
+
+    const colorInfluence = influence * 0.2;
+    vec4.scaleAndAdd(diffuse, diffuse, light.color, colorInfluence);
+    vec4.scaleAndAdd(ambient, ambient, light.color, colorInfluence);
+
+    uniforms.setVec4('u_Color0', ambient);
+    uniforms.setVec4('u_KonstColor0', diffuse);
+    uniforms.setFloats('u_LightTransforms', [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        env.baseLight.position[0], env.baseLight.position[1], env.baseLight.position[2], 1,
+
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        light.position[0], light.position[1], light.position[2], 1,
+    ]);
+    uniforms.setFloats('u_LightColors', [
+        1, 0, 0, 1,
+        1, 0, 0, 1,
+    ]);
 }
