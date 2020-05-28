@@ -53,7 +53,7 @@ export class Stage {
 
     const menu = debugMenu.addFolder('Stage');
     menu.add(this, 'show');
-    menu.add(this, 'torchPower', 0.0, 5000);
+    menu.add(this, 'torchPower', 0.0, 10000);
     menu.addColor(this, 'torchColor');
   }
 
