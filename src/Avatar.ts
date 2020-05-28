@@ -20,6 +20,7 @@ import { DebugRenderUtils } from "./DebugRender";
 import { CollisionSystem } from "./Collision";
 import { kEmptyCommand } from "./UserCommand";
 import { InputAction } from "./Input";
+import { EnvironmentSystem } from "./Environment";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -40,6 +41,7 @@ interface ClientDependencies {
 
     gfxDevice: Renderer;
     camera: Camera;
+    environment: EnvironmentSystem;
 }
 
 export class Avatar extends Object3D implements GameObject {
@@ -187,7 +189,7 @@ export class AvatarSystemClient implements GameObjectFactory {
     }
 
     render(game: ClientDependencies) {
-        this.renderer.render(game.gfxDevice, game.camera);
+        this.renderer.render(game.gfxDevice, game.camera, game.environment.getCurrentEnvironment());
     }
 
     createGameObject(initialState: EntityState) {

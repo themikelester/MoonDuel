@@ -11,6 +11,7 @@ import { Object3D } from "./Object3D";
 import { Camera } from "./Camera";
 import { Avatar } from "./Avatar";
 import { DebugMenu } from "./DebugMenu";
+import { Environment } from "./Environment";
 
 interface AvatarRenderData {
     models: Model[];
@@ -146,7 +147,7 @@ export class AvatarRender {
         }
     }
 
-    render(gfxDevice: Gfx.Renderer, camera: Camera) {
+    render(gfxDevice: Gfx.Renderer, camera: Camera, env: Environment) {
         for (let avatarIdx = 0; avatarIdx < this.avatars.length; avatarIdx++) {
             if (!this.avatars[avatarIdx].isActive) continue;
             const data = this.data[avatarIdx];
@@ -169,6 +170,9 @@ export class AvatarRender {
                     uniforms.setMat4('u_model', matrixWorld);
                 }
 
+                uniforms.setVec4('u_Color0', env.actorColor.ambient);
+                uniforms.setVec4('u_KonstColor0', env.actorColor.diffuse);
+
                 uniforms.write(gfxDevice);
 
                 model.renderList.push(model.primitive);
@@ -181,6 +185,8 @@ export class AvatarRender {
 
                 const uniforms = model.material.getUniformBuffer('uniforms');
                 uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
+                uniforms.setVec4('u_Color0', env.actorColor.ambient);
+                uniforms.setVec4('u_KonstColor0', env.actorColor.diffuse);
                 uniforms.write(gfxDevice);
 
                 model.renderList.push(model.primitive);
