@@ -12,10 +12,21 @@ Change Log
 * Start in offline mode. Don't wait for connection before becoming playable. This may mean implementing prediction.
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 * Use sword attack edges to add a fake motion blur effect (See 2020-05-22)
+* Ground check each frame (Translate Y if not on ground, within small range) for Avatar's feet, so they don't penetrate
 
 ### 2020-05-28
 ##### Morning
 Today I'd like to add the Environment system and get the Avatar and Stage rendering using the correct light position and colors. This might entail rewriting a new shader for the Avatar. It's likely going to be too dark, which may mean I'll do sconses and dynamic lighting tomorrow. If I have time left over I'll work on the sea.
+
+##### Evening
+Today I added the Environment class, which stores a pile of global data that a lot of the visual systems need. Wind, skybox, and avatar and background colors. All relevant systems/shaders now pull colors from this environment object, so they're all easily tweakable. I also added sconce (torch) objects around the edge of the arena, which will eventually hold flames. 
+
+I'm going to give myself two more days on environment stuff. In that time I need to:
+- Create a minimal particle system with a flame particle emitter so that the sconces can have a visible flame effect
+- Avatar (and weapon) chooses nearest local light to be lit by. 
+- Some kind of Sea shader
+
+Next week I'll move on to collision stuff. We need some basic collision detection for the static parts of the stage, so that we can either have the avatar fall or "invisible wall" when he runs off the edge. Additionally ground penetration testing to fix up the feet clipping through the floor during animations, and then ability to get hit into the air and fall back down. This would work well with falling off the map.
 
 ### 2020-05-26
 ##### Morning
