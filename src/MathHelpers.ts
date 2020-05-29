@@ -16,8 +16,8 @@ export const ZeroVec3 = vec3.create();
  *  const foo = 0.4, bar = 0.8;
  *  lerp(foo, bar, 0.25); // 0.5
  */
-export function lerp(p: number, q: number, t: number): number { 
-  return (1.0 - t) * p + t * q; 
+export function lerp(p: number, q: number, t: number): number {
+  return (1.0 - t) * p + t * q;
 }
 
 /** Inverse of the {@link lerp} function. For given values p, q and val, return the t that would yield val if
@@ -26,8 +26,8 @@ export function lerp(p: number, q: number, t: number): number {
  *  const foo = 0.4, bar = 0.8;
  *  delerp(foo, bar, 0.5); // 0.25
  */
-export function delerp(p: number, q: number, val: number): number { 
-  return (val - p) / (q - p); 
+export function delerp(p: number, q: number, val: number): number {
+  return (val - p) / (q - p);
 }
 
 /** Smoothstep performs smooth Hermite interpolation between 0 and 1 when min < x < max. This is useful in
@@ -45,8 +45,8 @@ export function smoothstep(min: number, max: number, value: number): number {
  *  var a = clamp(0.3, 0.0, 0.5); // 0.3
  */
 
-export function clamp(value: number, min: number, max: number): number { 
-  return Math.max(Math.min(value, max), min); 
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(Math.min(value, max), min);
 }
 
 /** Clamp a number to a value between 0.0 and 1.0, inclusive.
@@ -54,8 +54,8 @@ export function clamp(value: number, min: number, max: number): number {
  *  var a = saturate(1.1); // 1.0
  *  var a = saturate(-1.2); // 0.0
  */
-export function saturate(value: number): number { 
-  return clamp(value, 0.0, 1.0); 
+export function saturate(value: number): number {
+  return clamp(value, 0.0, 1.0);
 }
 
 /** Returns true if two numbers are within epsilon of each other
@@ -77,7 +77,7 @@ export function equalsEpsilon(a: number, b: number, epsilon = MathConstants.EPSI
  */
 export function wrappedDistance(a: number, b: number, domainMax: number = 1.0): number {
   const da = (b - a) % domainMax;
-  return (2*da) % domainMax - da;
+  return (2 * da) % domainMax - da;
 }
 
 /** Returns the signed angular distance from angle a to angle b, wrapping at maxAngle.
@@ -91,4 +91,84 @@ export function wrappedDistance(a: number, b: number, domainMax: number = 1.0): 
  */
 export function angularDistance(a: number, b: number, maxAngle = MathConstants.TAU): number {
   return wrappedDistance(a, b, maxAngle);
+}
+
+/** Normalize a vector to a specific length
+ *  @param dst - The vector that will be normalized, and then scaled so that it is len long
+ *  @param len - The length to which the a vector will be scaled
+ *  @example
+ *  const someVec = vec3.fromValues(2, 2, 2);
+ *  normToLength(vec3.create(), someVec, 5); // vel = [2.88675134595, 2.88675134595, 2.88675134595];
+ */
+export function normToLength(dst: vec3, len: number): vec3 {
+  const vlen = vec3.length(dst);
+  if (vlen > 0) {
+    const inv = len / vlen;
+    dst[0] = dst[0] * inv;
+    dst[1] = dst[1] * inv;
+    dst[2] = dst[2] * inv;
+  }
+  return dst;
+}
+
+/** Normalize a vector to a specific length, and add it to the destination
+ *  @param dst - Destination vector to which the scaled a vector will be added
+ *  @param a - The vector that will be normalized, and then scaled so that it is len long
+ *  @param len - The length to which the a vector will be scaled
+ *  @example
+ *  const someVec = vec3.fromValues(2, 2, 2);
+ *  const vel = vec3.fromValues(1, 1, 1);
+ *  normToLengthAndAdd(vel, someVec, 5); // vel = [3.88675134595, 3.88675134595, 3.88675134595];
+ */
+export function normToLengthAndAdd(dst: vec3, a: vec3, len: number): vec3 {
+  const vlen = vec3.length(a);
+  if (vlen > 0) {
+    const inv = len / vlen;
+    dst[0] += a[0] * inv;
+    dst[1] += a[1] * inv;
+    dst[2] += a[2] * inv;
+  }
+  return dst;
+}
+
+/**
+ * 
+ * Computes a model matrix {@param dst} from given SRT parameters. Rotation is assumed
+ * to be in radians.
+ * 
+ * This is roughly equivalent to {@link mat4.fromTranslationRotationScale}, but the
+ * math is done by hand to be a bit faster, and more trustworthy.
+ *
+ * Note that this does *not* compute a Maya model matrix, as sometimes used by Nintendo
+ * middleware.
+ * 
+ * From noclip.website by @JasperRLZ.
+ * See https://github.com/magcius/noclip.website/blob/8b3687f446e4bedc98f2922399513f932d58267c/src/MathHelpers.ts#L20
+ */
+export function computeModelMatrixSRT(dst: mat4, scaleX: number, scaleY: number, scaleZ: number, rotationX: number, rotationY: number, rotationZ: number, translationX: number, translationY: number, translationZ: number): mat4 {
+  const sinX = Math.sin(rotationX), cosX = Math.cos(rotationX);
+  const sinY = Math.sin(rotationY), cosY = Math.cos(rotationY);
+  const sinZ = Math.sin(rotationZ), cosZ = Math.cos(rotationZ);
+
+  dst[0] =  scaleX * (cosY * cosZ);
+  dst[1] =  scaleX * (sinZ * cosY);
+  dst[2] =  scaleX * (-sinY);
+  dst[3] =  0.0;
+
+  dst[4] =  scaleY * (sinX * cosZ * sinY - cosX * sinZ);
+  dst[5] =  scaleY * (sinX * sinZ * sinY + cosX * cosZ);
+  dst[6] =  scaleY * (sinX * cosY);
+  dst[7] =  0.0;
+
+  dst[8] =  scaleZ * (cosX * cosZ * sinY + sinX * sinZ);
+  dst[9] =  scaleZ * (cosX * sinZ * sinY - sinX * cosZ);
+  dst[10] = scaleZ * (cosY * cosX);
+  dst[11] = 0.0;
+
+  dst[12] = translationX;
+  dst[13] = translationY;
+  dst[14] = translationZ;
+  dst[15] = 1.0;
+
+  return dst;
 }
