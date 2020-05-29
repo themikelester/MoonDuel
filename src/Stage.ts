@@ -11,10 +11,11 @@ import { renderLists } from "./RenderList";
 import { Material } from "./Mesh";
 import { GlobalUniforms } from "./GlobalUniforms";
 import { mat4, vec3, vec4 } from "gl-matrix";
-import { assert, defined } from "./util";
+import { assert, defined, assertDefined } from "./util";
 import { DebugMenu } from './DebugMenu';
 import { EnvironmentSystem, Environment } from './Environment';
 import { Vector3 } from 'three/src/math/Vector3';
+import { ParticleSystem } from './Particles';
 
 class StageShader implements Gfx.ShaderDescriptor {
   name = 'Stage';
@@ -44,11 +45,11 @@ export class Stage {
   private torchPower = 3000;
   private torchColor = [225, 111, 10, 1.0];
 
-  initialize({ resources, gfxDevice, globalUniforms, environment, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, debugMenu: DebugMenu }) {
+  initialize({ resources, gfxDevice, globalUniforms, environment, particles, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, debugMenu: DebugMenu, particles: ParticleSystem }) {
     this.shader = gfxDevice.createShader(new StageShader());
     resources.load(Stage.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
-      this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!);
+      this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!, particles);
     });
 
     const menu = debugMenu.addFolder('Stage');
@@ -57,7 +58,7 @@ export class Stage {
     menu.addColor(this, 'torchColor');
   }
 
-  onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, env: EnvironmentSystem, resource: Resource) {
+  onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, env: EnvironmentSystem, resource: Resource, particles: ParticleSystem) {
     const gltf = resource as GltfResource;
 
     for (const node of gltf.nodes) {
@@ -77,7 +78,7 @@ export class Stage {
         mat4.multiply(modelMat, scale, modelMat);
 
         if (gltfMesh.name === 'Sconce') {
-          loadSconce(modelMat, env.getCurrentEnvironment());
+          loadSconce(modelMat, env.getCurrentEnvironment(), particles);
         }
         
         const uniforms = new UniformBuffer('ArenaUniforms', gfxDevice, StageShader.uniformLayout);
@@ -113,11 +114,14 @@ export class Stage {
   }
 }
 
-function loadSconce(transform: mat4, environment: Environment) {
+function loadSconce(transform: mat4, environment: Environment, particles: ParticleSystem) {
   environment.addLocalLight({
     position: mat4.getTranslation(vec3.create(), transform),
     color: vec4.fromValues(1, 0, 0, 1),
     fluctuation: 0.9,
     power: 400
   })
+
+  const emitter = assertDefined(particles.createEmitter(0));
+  mat4.getTranslation(emitter.pos, transform);
 }

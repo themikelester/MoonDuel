@@ -25,6 +25,7 @@ import { SimState, World } from './World';
 import { Stage } from './Stage';
 import { Skybox } from './Skybox';
 import { EnvironmentSystem } from './Environment';
+import { ParticleSystem } from './Particles';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -52,6 +53,7 @@ export class Client {
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
     public input = new InputManager();
     public net = new NetModuleClient();
+    public particles = new ParticleSystem();
     public resources = new ResourceManager();
     public state = new StateManager();
     public userCommands = new UserCommandBuffer();
@@ -87,6 +89,7 @@ export class Client {
         this.weapons.initialize(this);
         this.stage.initialize(this);
         this.environment.initialize(this);
+        this.particles.initialize(this);
         this.skybox.initialize(this);
         this.debugGrid.initialize(this);
         this.state.initialize(this);
@@ -156,6 +159,7 @@ export class Client {
         this.cameraSystem.update(this);
         this.state.update(this);
         this.environment.update(this);
+        this.particles.update(this);
         this.skybox.update(this);
         this.globalUniforms.update();
     }
@@ -164,6 +168,7 @@ export class Client {
         this.avatar.render(this);
         this.weapons.render(this);
         this.stage.render(this);
+        this.particles.render(this);
         this.skybox.render(this);
         this.debugGrid.render(this);
         
