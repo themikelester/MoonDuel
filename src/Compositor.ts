@@ -37,8 +37,9 @@ export class Compositor {
             this.gfxDevice.bindRenderPass(Gfx.kDefaultRenderPass); 
             {                
                 executeRenderList(this.gfxDevice, renderLists.opaque);
-                executeRenderList(this.gfxDevice, renderLists.debug);
                 executeRenderList(this.gfxDevice, renderLists.skybox);
+                executeRenderList(this.gfxDevice, renderLists.effects);
+                executeRenderList(this.gfxDevice, renderLists.debug);
             }
         this.gfxDevice.endFrame();
 
