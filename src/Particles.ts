@@ -95,24 +95,26 @@ export class ShapeDef {
   // alphaIncreaseRate: 9.727626768226491
   // alphaOutTiming: 0.7294999957084656
   // alphaOutValue: 0
-
-  // // Scale animation
-  // isDiffXY: true
-  // isEnableScale: true
-  // scaleInTiming: 0.7910000085830688
-  // scaleInValueX: 1.7999999523162842
-  // scaleInValueY: 0.699999988079071
-  // scaleIncreaseRateX: -1.0113779312712488
-  // scaleIncreaseRateY: 0.37926676190348446
-  // scaleOutRandom: 0.19999998807907104
-  // scaleOutTiming: 0.7910000085830688
-  // scaleOutValueX: 1
-  // scaleOutValueY: 1
 };
+
+export class ScalingDef {
+  scaleRandom = 0.0 // Scale the final sprite size by a random amount
+
+  // Sprite scale starts at InValueX/Y, and changes smoothly until it reaches 1 at normalized time InTiming
+  scaleInTiming = 0;
+  scaleInValueX = 0;
+  scaleInValueY = 0;
+
+  // After normalized time OutTiming [0-1], scale smoothly changes to match OutValueX/Y at end of particle lifetime
+  scaleOutTiming = 1;
+  scaleOutValueX = 1;
+  scaleOutValueY = 1;
+}
 
 export class EmitterDefinition {
   spawn: SpawnDef = new SpawnDef();
   shape: ShapeDef = new ShapeDef();
+  scaling?: ScalingDef = new ScalingDef();
 }
 
 /**
@@ -137,6 +139,10 @@ class EmitterFrameData {
   emitterScale: vec3 = vec3.create();
   emitterDirMatrix: mat4;
   emitterTextures: Id[];
+  emitterScaleIncRateX = 0;
+  emitterScaleIncRateY = 0;
+  emitterScaleDecRateX = 0;
+  emitterScaleDecRateY = 0;
 
   volumePos: vec3 = vec3.create();
   velOmni: vec3 = vec3.create();
@@ -146,26 +152,26 @@ class EmitterFrameData {
 }
 
 function computeDirMatrix(m: mat4, v: vec3): void {
-    // Perp
-    vec3.set(scratchVec3a, v[1], -v[0], 0);
-    const mag = vec3.length(scratchVec3a);
-    vec3.normalize(scratchVec3a, scratchVec3a);
+  // Perp
+  vec3.set(scratchVec3a, v[1], -v[0], 0);
+  const mag = vec3.length(scratchVec3a);
+  vec3.normalize(scratchVec3a, scratchVec3a);
 
-    const x = scratchVec3a[0], y = scratchVec3a[1], z = v[2];
-    m[0]  = x*x + z * (1.0 - x*x);
-    m[4]  = (1.0 - z) * (x * y);
-    m[8]  = -y*mag;
-    m[12] = 0.0;
+  const x = scratchVec3a[0], y = scratchVec3a[1], z = v[2];
+  m[0] = x * x + z * (1.0 - x * x);
+  m[4] = (1.0 - z) * (x * y);
+  m[8] = -y * mag;
+  m[12] = 0.0;
 
-    m[1]  = (1.0 - z) * (x * y);
-    m[5]  = y*y + z * (1.0 - y*y);
-    m[9]  = x*mag;
-    m[13] = 0.0;
+  m[1] = (1.0 - z) * (x * y);
+  m[5] = y * y + z * (1.0 - y * y);
+  m[9] = x * mag;
+  m[13] = 0.0;
 
-    m[2]  = y*mag;
-    m[6]  = -x*mag;
-    m[10] = z;
-    m[14] = 0.0;
+  m[2] = y * mag;
+  m[6] = -x * mag;
+  m[10] = z;
+  m[14] = 0.0;
 }
 
 /**
@@ -188,11 +194,30 @@ class Emitter {
   private textures: Id[] = [];
   private texturesLoaded = false;
 
+  private scaleIncRateX = 0;
+  private scaleIncRateY = 0;
+  private scaleDecRateX = 0;
+  private scaleDecRateY = 0;
+
   constructor(private emitterManager: EmitterManager) { }
 
   initialize(data: EmitterData) {
     this.data = data;
-    
+
+    if (data.def.scaling) {
+      const def = data.def.scaling;
+
+      if (def.scaleInTiming > 0) {
+        this.scaleIncRateX = (1.0 - def.scaleInValueX) / def.scaleInTiming;
+        this.scaleIncRateY = (1.0 - def.scaleInValueY) / def.scaleInTiming;
+      }
+
+      if (def.scaleOutTiming < 1) {
+        this.scaleDecRateX = (def.scaleOutValueX - 1.0) / (1.0 - def.scaleOutTiming);
+        this.scaleDecRateY = (def.scaleOutValueY - 1.0) / (1.0 - def.scaleOutTiming);
+      }
+    }
+
     computeDirMatrix(this.dirMtx, this.data.def.spawn.forward);
   }
 
@@ -223,6 +248,10 @@ class Emitter {
     vec3.mul(frameData.emitterScale, this.data.def.spawn.scale, this.emitterManager.globalScale);
     frameData.emitterDirMatrix = this.dirMtx;
     frameData.emitterTextures = this.textures;
+    frameData.emitterScaleDecRateX = this.scaleDecRateX
+    frameData.emitterScaleDecRateY = this.scaleDecRateY
+    frameData.emitterScaleIncRateX = this.scaleIncRateX
+    frameData.emitterScaleIncRateY = this.scaleIncRateY
 
     // if (bsp1.texIdxAnimData !== null && bsp1.texCalcOnEmitter)
     //   this.texAnmIdx = calcTexIdx(workData, this.time, 0, 0);
@@ -327,6 +356,9 @@ class Particle {
   accel = vec3.create();
   pos = vec3.create();
 
+  baseScale: number = 1.0;
+  scale = vec2.create();
+
   prim: RenderPrimitive;
   uniforms: UniformBuffer;
 
@@ -346,6 +378,7 @@ class Particle {
     const emitter = frameData.emitter;
     const spawnDef = emitter.data.def.spawn;
     const shapeDef = emitter.data.def.shape;
+    const scaleDef = emitter.data.def.scaling;
 
     const lifeTimeRandom = Math.random();
     this.lifeTime = spawnDef.lifeTime * (1.0 - lifeTimeRandom * spawnDef.lifeTimeRndm);
@@ -409,6 +442,11 @@ class Particle {
 
     vec3.copy(this.pos, emitter.pos);
 
+    // Scale (2D sprite size)
+    if (scaleDef) {
+      this.baseScale = 1.0 + (scaleDef.scaleRandom * (Math.random() * 2.0 - 1.0));
+    }
+
     this.texAnimRandomPhase = Math.floor(Math.random() * shapeDef.texIdxAnimData.length) & shapeDef.texIdxAnimRandomMask;
 
     this.uniforms.setVec4('u_colorPrim', shapeDef.colorPrm);
@@ -419,6 +457,7 @@ class Particle {
 
   update(frameData: EmitterFrameData): boolean {
     const shapeDef = frameData.emitter.data.def.shape;
+    const scaleDef = frameData.emitter.data.def.scaling;
 
     this.time += frameData.deltaTime;
     this.t = this.time / this.lifeTime;
@@ -435,72 +474,15 @@ class Particle {
       this.texAnimIdx = frame % shapeDef.texIdxAnimData.length;
     }
 
-    // Color animation
-    // if (!bsp1.colorCalcOnEmitter) {
-    //   const randomPhase = this.anmRandom & bsp1.colorAnimRndmMask;
-    //   calcColor(this.colorPrm, this.colorEnv, frameData, this.tick, this.t, randomPhase);
-    // } else {
-    //   colorCopy(this.colorPrm, frameData.baseEmitter.colorPrm);
-    //   colorCopy(this.colorEnv, frameData.baseEmitter.colorEnv);
-    // }
+    if (defined(scaleDef)) {
+      const incRateX = frameData.emitterScaleIncRateX;
+      const incRateY = frameData.emitterScaleIncRateY;
+      const decRateX = frameData.emitterScaleDecRateX;
+      const decRateY = frameData.emitterScaleDecRateY;
 
-    // if (esp1 !== null) {
-    //   const hasScaleAnm = esp1.isEnableScale;
-    //   if (hasScaleAnm) {
-    //     const scaleAnmX = this.calcScaleAnm(esp1.scaleAnmTypeX, esp1.scaleAnmMaxFrameX);
-    //     this.scale[0] = this.scaleOut * this.calcScaleFade(scaleAnmX, esp1, esp1.scaleInValueX, esp1.scaleIncreaseRateX, esp1.scaleDecreaseRateX);
-
-    //     if (esp1.isEnableScaleBySpeedX)
-    //       this.scale[0] *= 1 / vec3.length(this.velocity);
-
-    //     const hasScaleAnmY = esp1.isDiffXY;
-    //     if (hasScaleAnmY) {
-    //       const scaleAnmY = this.calcScaleAnm(esp1.scaleAnmTypeY, esp1.scaleAnmMaxFrameY);
-    //       this.scale[1] = this.scaleOut * this.calcScaleFade(scaleAnmY, esp1, esp1.scaleInValueY, esp1.scaleIncreaseRateY, esp1.scaleDecreaseRateY);
-
-    //       if (esp1.isEnableScaleBySpeedY)
-    //         this.scale[1] *= 1 / vec3.length(this.velocity);
-    //     } else {
-    //       this.scale[1] = this.scale[0];
-    //     }
-    //   }
-
-    //   if (esp1.isEnableAlpha || esp1.alphaWaveType !== CalcAlphaWaveType.None) {
-    //     let alpha: number;
-
-    //     if (this.t < esp1.alphaInTiming)
-    //       alpha = esp1.alphaInValue + this.t * esp1.alphaIncreaseRate;
-    //     else if (this.t > esp1.alphaOutTiming)
-    //       alpha = esp1.alphaBaseValue + ((this.t - esp1.alphaOutTiming) * esp1.alphaDecreaseRate);
-    //     else
-    //       alpha = esp1.alphaBaseValue;
-
-    //     const flickerWaveAmplitude = this.alphaWaveRandom * esp1.alphaWaveParam3;
-    //     const flickerWaveTime = this.alphaWaveRandom * this.tick * MathConstants.TAU / 4;
-
-    //     if (esp1.alphaWaveType === CalcAlphaWaveType.NrmSin) {
-    //       const flickerWave = Math.sin(flickerWaveTime * (1.0 - esp1.alphaWaveParam1));
-    //       const flickerMult = 1.0 + (flickerWaveAmplitude * (0.5 * (flickerWave - 1.0)));
-    //       this.prmColorAlphaAnm = alpha * flickerMult;
-    //     } else if (esp1.alphaWaveType === CalcAlphaWaveType.AddSin) {
-    //       const flickerWave1 = Math.sin(flickerWaveTime * (1.0 - esp1.alphaWaveParam1));
-    //       const flickerWave2 = Math.sin(flickerWaveTime * (1.0 - esp1.alphaWaveParam2));
-    //       const flickerWave = flickerWave1 + flickerWave2;
-    //       const flickerMult = 1.0 + (flickerWaveAmplitude * (0.5 * (flickerWave - 1.0)));
-    //       this.prmColorAlphaAnm = alpha * flickerMult;
-    //     } else if (esp1.alphaWaveType === CalcAlphaWaveType.MultSin) {
-    //       const flickerWave1 = Math.sin(flickerWaveTime * (1.0 - esp1.alphaWaveParam1));
-    //       const flickerWave2 = Math.sin(flickerWaveTime * (1.0 - esp1.alphaWaveParam2));
-    //       const flickerMult1 = 1.0 + (flickerWaveAmplitude * (0.5 * (flickerWave1 - 1.0)));
-    //       const flickerMult2 = 1.0 + (flickerWaveAmplitude * (0.5 * (flickerWave2 - 1.0)));
-    //       this.prmColorAlphaAnm = alpha * flickerMult1 * flickerMult2;
-    //     } else {
-    //       this.prmColorAlphaAnm = alpha;
-    //     }
-    //   }
-    // }
-
-    // this.rotateAngle += this.rotateSpeed * frameData.deltaTime;
+      this.scale[0] = this.baseScale * this.calcScaleFade(this.t, scaleDef, scaleDef.scaleInValueX, incRateX, decRateX);
+      this.scale[1] = this.baseScale * this.calcScaleFade(this.t, scaleDef, scaleDef.scaleInValueY, incRateY, decRateY);
+    }
 
     vec3.scaleAndAdd(this.pos, this.pos, this.velocity, frameData.deltaTime);
 
@@ -515,13 +497,13 @@ class Particle {
       case ShapeType.Billboard: {
         const pos = vec3.transformMat4(scratchVec3a, this.pos, frameData.viewMatrix);
         modelView = computeModelMatrixSRT(scratchMat4a,
-          100.0 * shapeDef.scale2d[0] * frameData.emitter.scale2D[0],
-          100.0 * shapeDef.scale2d[1] * frameData.emitter.scale2D[1],
+          100.0 * this.scale[0] * shapeDef.scale2d[0] * frameData.emitter.scale2D[0],
+          100.0 * this.scale[1] * shapeDef.scale2d[1] * frameData.emitter.scale2D[1],
           1,
           0, 0, 0,// rotateAngle,
           pos[0], pos[1], pos[2]);
       }
-      break;
+        break;
       default: throw new Error('Whoops');
     }
 
@@ -532,6 +514,15 @@ class Particle {
     gfxDevice.setTexture(this.prim.resourceTable, 0, frameData.emitterTextures[texIndex]);
 
     renderLists.effects.push(this.prim);
+  }
+
+  private calcScaleFade(t: number, scaleDef: ScalingDef, base: number, increase: number, decrease: number): number {
+    if (t < scaleDef.scaleInTiming)
+      return (t * increase) + base;
+    else if (t > scaleDef.scaleOutTiming)
+      return ((t - scaleDef.scaleOutTiming) * decrease) + 1.0;
+    else
+      return 1;
   }
 }
 
@@ -544,7 +535,7 @@ class GfxResources {
 
   gfxDevice: Renderer;
   primitive: RenderPrimitive;
-  
+
   static uniformLayout: BufferLayout = computePackedBufferLayout({
     u_modelView: { type: Type.Float4x4 },
     u_colorEnv: { type: Type.Float4 },
@@ -700,9 +691,9 @@ export class ParticleSystem {
     this.emitterManager.initialize(gfxDevice, globalUniforms, this.textures);
 
     // @TODO: Load emitter definitions and textures from a new resource type
-    const cb = (i: number) => (error?: string, res?: TextureResource) => { 
+    const cb = (i: number) => (error?: string, res?: TextureResource) => {
       if (error) console.error(`Failed to load: ${error}`);
-      if (res) this.textures[i] = res 
+      if (res) this.textures[i] = res
     };
 
     resources.load('data/flame0.png', 'texture', cb(0));
@@ -737,14 +728,30 @@ export class ParticleSystem {
 
 const kFlameData: EmitterData = {
   textureIds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-  def: { 
-    spawn: new SpawnDef(),
-    shape: { 
+  def: {
+    spawn: {
+      ...new SpawnDef(),
+      rate: 13.5,
+      rateRndm: 0,
+      spread: 0.11649999767541885
+    },
+    shape: {
       ...new ShapeDef(),
       colorEnv: vec4.fromValues(0.29411764705882354, 0.34509803921568627, 0.1568627450980392, 1),
       colorPrm: vec4.fromValues(0.5882352941176471, 0.09411764705882353, 0, 1),
       scale2d: vec2.fromValues(1, 1.3),
       texIdxAnimData: [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9],
+    },
+    scaling: {
+      scaleRandom: 0.19999998807907104,
+
+      scaleInTiming: 0.7910000085830688,
+      scaleInValueX: 1.7999999523162842,
+      scaleInValueY: 0.699999988079071,
+
+      scaleOutTiming: 1,
+      scaleOutValueX: 1,
+      scaleOutValueY: 1,
     }
   },
 }
