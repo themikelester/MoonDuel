@@ -15,6 +15,6 @@ export class RenderList {
 export const renderLists: { [name: string]: RenderList } = {
     opaque: new RenderList(CullMode.Back, { depthWriteEnabled: true, depthTestEnabled: true }, { blendingEnabled: false }),
     skybox: new RenderList(CullMode.None, { depthWriteEnabled: false, depthTestEnabled: true }, { blendingEnabled: true, srcBlendFactor: BlendFactor.Source, dstBlendFactor: BlendFactor.OneMinusSource }),
-    effects: new RenderList(CullMode.None, { depthWriteEnabled: false, depthTestEnabled: true }, { blendingEnabled: true, srcBlendFactor: BlendFactor.Source, dstBlendFactor: BlendFactor.OneMinusSource }),
+    effects: new RenderList(CullMode.None, { depthWriteEnabled: false, depthTestEnabled: true }, { blendingEnabled: true, srcBlendFactor: BlendFactor.Source, dstBlendFactor: BlendFactor.One }),
     debug: new RenderList(CullMode.None, { depthWriteEnabled: false, depthTestEnabled: false }, { blendingEnabled: false }),
 }
