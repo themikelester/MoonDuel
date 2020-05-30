@@ -362,7 +362,7 @@ function TranslateGfxCullMode(cullMode: Gfx.CullMode): GLInt {
 function TranslateBlendFactor(blendFactor: Gfx.BlendFactor): GLInt {
   switch (blendFactor) {
     case Gfx.BlendFactor.Zero: return gl.ZERO;
-    case Gfx.BlendFactor.One: return gl.One;
+    case Gfx.BlendFactor.One: return gl.ONE;
     case Gfx.BlendFactor.Source: return gl.SRC_ALPHA;
     case Gfx.BlendFactor.OneMinusSource: return gl.ONE_MINUS_SRC_ALPHA;
     default: return error(`Unsupported blend factor: ${blendFactor}`);   
