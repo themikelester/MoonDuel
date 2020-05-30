@@ -54,8 +54,8 @@ export class SpawnDef {
   pos: vec3 = vec3.fromValues(0, 0, 0);
 
   initialVelAxis = 0;
-  initialVelOmni = 0
-  initialVelDir = 0;
+  initialVelOmni = 0;
+  initialVelDir = 0.1;
   initialVelRatio = 0;
   initialVelRndm = 0;
   spread = 0;
@@ -311,6 +311,7 @@ class Particle {
       // this.velocity[0] += spawnDef.initialVelDir * scratchMat4a[8];
       // this.velocity[1] += spawnDef.initialVelDir * scratchMat4a[9];
       // this.velocity[2] += spawnDef.initialVelDir * scratchMat4a[10];
+      vec3.scaleAndAdd(this.velocity, this.velocity, spawnDef.forward, spawnDef.initialVelDir);
     }
 
     if (spawnDef.initialVelRndm !== 0) {
@@ -432,9 +433,7 @@ class Particle {
 
     // this.rotateAngle += this.rotateSpeed * frameData.deltaTime;
 
-    // vec3.scaleAndAdd(this.localPosition, this.localPosition, this.velocity, frameData.deltaTime);
-    // vec3.mul(this.position, this.localPosition, frameData.globalScale);
-    // vec3.add(this.position, this.position, this.globalPosition);
+    vec3.scaleAndAdd(this.pos, this.pos, this.velocity, frameData.deltaTime);
 
     return true;
   }
