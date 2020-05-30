@@ -13,6 +13,12 @@ Change Log
 * Fix save state for faster iteration time. Entities (including camera) should be placed back in their same states.
 * Use sword attack edges to add a fake motion blur effect (See 2020-05-22)
 * Ground check each frame (Translate Y if not on ground, within small range) for Avatar's feet, so they don't penetrate
+* "Report bug" button which takes a screenshot, captures all logs, collects device info, and lets users write a statement.
+
+### 2020-05-30
+##### Evening
+![Daily Screenshot](/screenshots//2020-05-30.png?raw=true)
+I spent all day yesterday and today working on the particle system, and it's now in a working form. I've got a flame emitter which just layers about 8 animated sprites on top of each other. I also added vertex colors to the arena model which are used to blend towards the torch color, which lets me essentially paint torchlight into the scene. 
 
 ### 2020-05-28
 ##### Morning
@@ -54,6 +60,8 @@ Super fun day. I looked into how Wind Waker handles the clouds along the horizon
 
 ### 2020-05-22
 ##### Morning
+![Daily Screenshot](/screenshots//2020-05-21.png?raw=true)
+
 Yesterday I was able to add an Avatar hit reaction animation. The collision seems to be missing quite often, to today I'm going to robustify it. Currently the sword has a line (two vertices) on its front edge that is added to the collision system while the attack is active. When the sword is swinging quickly, that line can move pretty far between frames. If it "jumps" over the Avatar's OBB, it will miss when it should have hit. Instead, I'm going to generate a quad between the current and last line points. This represents the swept attack line between the current and last frames. I'll then test those two triangles against the OBB. That should be robust enough to ship with, especially once I add triangle vs triangle collision detection.
 
 Additionally, this quad can be textured and rendered to look like a motion blur effect for the sword.
