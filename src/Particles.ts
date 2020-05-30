@@ -133,6 +133,7 @@ class EmitterFrameData {
 
   emitter: Emitter;
   emitterScale: vec3 = vec3.create();
+  emitterDirMatrix: mat4;
 
   volumePos: vec3 = vec3.create();
   velOmni: vec3 = vec3.create();
@@ -210,6 +211,7 @@ class Emitter {
 
     frameData.emitter = this;
     vec3.mul(frameData.emitterScale, this.data.def.spawn.scale, this.emitterManager.globalScale);
+    frameData.emitterDirMatrix = this.dirMtx;
 
     // if (bsp1.texIdxAnimData !== null && bsp1.texCalcOnEmitter)
     //   this.texAnmIdx = calcTexIdx(workData, this.time, 0, 0);
@@ -339,7 +341,7 @@ class Particle {
       mat4.identity(scratchMat4a);
       mat4.rotateZ(scratchMat4a, scratchMat4a, randZ * Math.PI);
       mat4.rotateY(scratchMat4a, scratchMat4a, spawnDef.spread * randY * Math.PI);
-      mat4.mul(scratchMat4a, frameData.emitter.dirMtx, scratchMat4a);
+      mat4.mul(scratchMat4a, frameData.emitterDirMatrix, scratchMat4a);
       this.velocity[0] += spawnDef.initialVelDir * scratchMat4a[8];
       this.velocity[1] += spawnDef.initialVelDir * scratchMat4a[9];
       this.velocity[2] += spawnDef.initialVelDir * scratchMat4a[10];
