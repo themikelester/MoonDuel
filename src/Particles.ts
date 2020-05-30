@@ -536,7 +536,9 @@ class Particle {
       default: throw new Error('Whoops');
     }
 
-    const primColor = vec4.set(scratchVec4a, shapeDef.colorPrm[0], shapeDef.colorPrm[1], shapeDef.colorPrm[2], this.alpha);
+    const primColor = vec4.copy(scratchVec4a, shapeDef.colorPrm);
+    primColor[3] *= this.alpha;
+
     this.uniforms.setVec4('u_colorPrim', primColor);
     this.uniforms.setFloats('u_modelView', modelView);
     this.uniforms.write(gfxDevice);
