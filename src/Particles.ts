@@ -330,6 +330,8 @@ class Particle {
   prim: RenderPrimitive;
   uniforms: UniformBuffer;
 
+  texAnimIdx = 0;
+
   constructor(gfxResources: GfxResources) {
     // Create a new resource table and a Primitive for this particle
     const resourceTable = gfxResources.gfxDevice.createResourceTable(GfxResources.resLayout);
@@ -413,6 +415,8 @@ class Particle {
   }
 
   update(frameData: EmitterFrameData): boolean {
+    const shapeDef = frameData.emitter.data.def.shape;
+
     this.time += frameData.deltaTime;
     this.t = this.time / this.lifeTime;
 
@@ -423,10 +427,10 @@ class Particle {
     vec3.scaleAndAdd(this.velocity, this.velocity, this.accel, frameData.deltaTime);
 
     // Texture animation
-    // if (bsp1.texIdxAnimData !== null && !bsp1.texCalcOnEmitter) {
-    //   const randomPhase = this.anmRandom & bsp1.texIdxAnimRndmMask;
-    //   this.texAnmIdx = calcTexIdx(frameData, this.tick, this.t, randomPhase);
-    // }
+    if (shapeDef.texIdxAnimData !== null) {
+      const frame = Math.floor(this.time * 30); // Particles animate at 30fps
+      this.texAnimIdx = frame % shapeDef.texIdxAnimData.length;
+    }
 
     // Color animation
     // if (!bsp1.colorCalcOnEmitter) {
@@ -521,7 +525,7 @@ class Particle {
     this.uniforms.setFloats('u_modelView', modelView);
     this.uniforms.write(gfxDevice);
 
-    gfxDevice.setTexture(this.prim.resourceTable, 0, frameData.emitterTextures[0]);
+    gfxDevice.setTexture(this.prim.resourceTable, 0, frameData.emitterTextures[this.texAnimIdx]);
 
     renderLists.effects.push(this.prim);
   }
