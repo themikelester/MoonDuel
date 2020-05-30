@@ -342,6 +342,7 @@ class Particle {
   initialize(frameData: EmitterFrameData) {
     const emitter = frameData.emitter;
     const spawnDef = emitter.data.def.spawn;
+    const shapeDef = emitter.data.def.shape;
 
     const lifeTimeRandom = Math.random();
     this.lifeTime = spawnDef.lifeTime * (1.0 - lifeTimeRandom * spawnDef.lifeTimeRndm);
@@ -404,6 +405,9 @@ class Particle {
     vec3.zero(this.accel);
 
     vec3.copy(this.pos, emitter.pos);
+
+    this.uniforms.setVec4('u_colorPrim', shapeDef.colorPrm);
+    this.uniforms.setVec4('u_colorEnv', shapeDef.colorEnv);
 
     frameData.gfxDevice.setBuffer(this.prim.resourceTable, 0, frameData.globalUniforms.bufferView);
   }
@@ -514,7 +518,6 @@ class Particle {
       default: throw new Error('Whoops');
     }
 
-    this.uniforms.setVec4('u_color', [0, 0, 1, 1]);
     this.uniforms.setFloats('u_modelView', modelView);
     this.uniforms.write(gfxDevice);
 
@@ -536,7 +539,8 @@ class GfxResources {
   
   static uniformLayout: BufferLayout = computePackedBufferLayout({
     u_modelView: { type: Type.Float4x4 },
-    u_color: { type: Type.Float4 },
+    u_colorEnv: { type: Type.Float4 },
+    u_colorPrim: { type: Type.Float4 },
   })
 
   static resLayout: ShaderResourceLayout = {
@@ -729,6 +733,8 @@ const kFlameData: EmitterData = {
     spawn: new SpawnDef(),
     shape: { 
       ...new ShapeDef(),
+      colorEnv: vec4.fromValues(0.29411764705882354, 0.34509803921568627, 0.1568627450980392, 1),
+      colorPrm: vec4.fromValues(0.5882352941176471, 0.09411764705882353, 0, 1),
       scale2d: vec2.fromValues(1, 1.3),
       texCalcOnce: false,
       texIdxAnimData: [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9],
