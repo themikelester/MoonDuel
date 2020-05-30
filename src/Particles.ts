@@ -379,7 +379,6 @@ class Particle {
   t = 0; // Varies from 0-1 across our lifespan
 
   velocity = vec3.create();
-  accel = vec3.create();
   pos = vec3.create();
 
   alpha = 1.0;
@@ -459,15 +458,6 @@ class Particle {
       this.velocity[2] *= spawnDef.scale[2];
     }
 
-    // @TODO: Rotate initial velocity based on emitter rotation
-    // vec3.transformMat4(this.velocity, this.velocity, frameData.emitterGlobalRot);
-
-    // Acceleration
-    // vec3.copy(this.accel, this.velocity);
-    // const accel = spawnDef.accel * (1.0 + ((Math.random() * 2.0 - 1.0) * spawnDef.accelRndm));
-    // normToLength(this.accel, accel);
-    vec3.zero(this.accel);
-
     vec3.add(this.pos, emitter.pos, frameData.volumePos);
 
     // Scale (2D sprite size)
@@ -494,8 +484,6 @@ class Particle {
     // Die if we're too old
     if (this.time < 0 || this.time >= this.lifeTime)
       return false;
-
-    vec3.scaleAndAdd(this.velocity, this.velocity, this.accel, frameData.deltaTime);
 
     // Texture animation
     if (shapeDef.texIdxAnimData !== null) {
