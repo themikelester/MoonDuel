@@ -83,8 +83,8 @@ export class ShapeDef {
   colorPrm = vec4.fromValues(0, 1, 0, 0.5);
 
   // Texture animation
-  texCalcOnce = true;
   texIdxAnimData: number[] = [];
+  texIdxAnimRandomMask: number = -1;
 
   // Alpha animation
   // isEnableAlpha: true
@@ -331,6 +331,7 @@ class Particle {
   uniforms: UniformBuffer;
 
   texAnimIdx = 0;
+  texAnimRandomPhase = 0;
 
   constructor(gfxResources: GfxResources) {
     // Create a new resource table and a Primitive for this particle
@@ -408,6 +409,8 @@ class Particle {
 
     vec3.copy(this.pos, emitter.pos);
 
+    this.texAnimRandomPhase = Math.floor(Math.random() * shapeDef.texIdxAnimData.length) & shapeDef.texIdxAnimRandomMask;
+
     this.uniforms.setVec4('u_colorPrim', shapeDef.colorPrm);
     this.uniforms.setVec4('u_colorEnv', shapeDef.colorEnv);
 
@@ -428,7 +431,7 @@ class Particle {
 
     // Texture animation
     if (shapeDef.texIdxAnimData !== null) {
-      const frame = Math.floor(this.time * 30); // Particles animate at 30fps
+      const frame = this.texAnimRandomPhase + Math.floor(this.time * 30); // Particles animate at 30fps
       this.texAnimIdx = frame % shapeDef.texIdxAnimData.length;
     }
 
@@ -525,7 +528,8 @@ class Particle {
     this.uniforms.setFloats('u_modelView', modelView);
     this.uniforms.write(gfxDevice);
 
-    gfxDevice.setTexture(this.prim.resourceTable, 0, frameData.emitterTextures[this.texAnimIdx]);
+    const texIndex = shapeDef.texIdxAnimData[this.texAnimIdx];
+    gfxDevice.setTexture(this.prim.resourceTable, 0, frameData.emitterTextures[texIndex]);
 
     renderLists.effects.push(this.prim);
   }
@@ -740,7 +744,6 @@ const kFlameData: EmitterData = {
       colorEnv: vec4.fromValues(0.29411764705882354, 0.34509803921568627, 0.1568627450980392, 1),
       colorPrm: vec4.fromValues(0.5882352941176471, 0.09411764705882353, 0, 1),
       scale2d: vec2.fromValues(1, 1.3),
-      texCalcOnce: false,
       texIdxAnimData: [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9],
     }
   },
