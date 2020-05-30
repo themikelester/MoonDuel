@@ -10,7 +10,7 @@ varying vec2 v_uv;
 void main()
 {
     vec2 tap = texture2D(u_tex, v_uv).ra;
-    vec4 color = mix(u_colorEnv, u_colorPrim, tap.r);
+    vec3 color = mix(u_colorEnv.rgb, u_colorPrim.rgb, tap.r);
 
-    gl_FragColor = vec4(color.rgb, color.a * tap.g);
+    gl_FragColor = vec4(color.rgb, u_colorPrim.a * tap.g);
 }
