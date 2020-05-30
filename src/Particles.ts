@@ -55,12 +55,12 @@ export class SpawnDef {
 
   initialVelAxis = 0;
   initialVelOmni = 0;
-  initialVelDir = 0.1;
+  initialVelDir = 100;
   initialVelRatio = 0;
   initialVelRndm = 0;
   spread = 0;
 
-  lifeTime = 1000;
+  lifeTime = 1;
   lifeTimeRndm = 0;
 
   rate = 1;
@@ -223,7 +223,7 @@ class Emitter {
     const spawnDef = this.data.def.spawn;
 
     const rateHz = spawnDef.rate + spawnDef.rateRndm * (Math.random() * 2.0 - 1.0);
-    const count = rateHz * frameData.deltaTime * 0.001;
+    const count = rateHz * frameData.deltaTime;
     this.emitCount += count;
 
     while (this.emitCount >= 1) {
@@ -627,7 +627,8 @@ export class ParticleSystem {
   }
 
   update({ clock }: { clock: Clock }) {
-    this.emitterManager.update(clock.renderDt);
+    const dtSec = clock.renderDt * 0.001;
+    this.emitterManager.update(dtSec);
   }
 
   render({ gfxDevice, camera }: { gfxDevice: Renderer, camera: Camera }) {
