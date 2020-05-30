@@ -774,7 +774,7 @@ const kFlameData: EmitterData = {
   def: {
     spawn: {
       ...new SpawnDef(),
-      rate: 1.0/0.6,
+      rate: 12,
       rateRndm: 0,
       spread: 0.11649999767541885,
       volumeType: EmitterVolumeType.Point,

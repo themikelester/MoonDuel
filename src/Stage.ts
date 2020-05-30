@@ -124,6 +124,6 @@ function loadSconce(transform: mat4, environment: Environment, particles: Partic
 
   const emitter = assertDefined(particles.createEmitter(0));
   mat4.getTranslation(emitter.pos, transform);
-  emitter.pos[1] += 150;
+  emitter.pos[1] += 100;
   vec2.set(emitter.scale2D, 3, 3);
 }
