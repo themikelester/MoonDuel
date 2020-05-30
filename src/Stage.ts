@@ -10,7 +10,7 @@ import * as Gfx from "./gfx/GfxTypes";
 import { renderLists } from "./RenderList";
 import { Material } from "./Mesh";
 import { GlobalUniforms } from "./GlobalUniforms";
-import { mat4, vec3, vec4 } from "gl-matrix";
+import { mat4, vec3, vec4, vec2 } from "gl-matrix";
 import { assert, defined, assertDefined } from "./util";
 import { DebugMenu } from './DebugMenu';
 import { EnvironmentSystem, Environment } from './Environment';
@@ -124,4 +124,6 @@ function loadSconce(transform: mat4, environment: Environment, particles: Partic
 
   const emitter = assertDefined(particles.createEmitter(0));
   mat4.getTranslation(emitter.pos, transform);
+  emitter.pos[1] += 150;
+  vec2.set(emitter.scale2D, 2, 2);
 }

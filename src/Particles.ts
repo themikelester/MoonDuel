@@ -46,11 +46,11 @@ export const enum ShapeType {
 
 export class SpawnDef {
   maxTime = 0;
-  flags: EmitterDefFlags;
+  flags: EmitterDefFlags = EmitterDefFlags.ScaleVelocity;
 
   forward: vec3 = vec3.fromValues(0, 1, 0);
   rotation: vec3 = vec3.fromValues(0, 0, 0);
-  scale: vec3 = vec3.fromValues(1, 1, 1);
+  scale: vec3 = vec3.fromValues(0.5, 1, 0.5);
   pos: vec3 = vec3.fromValues(0, 0, 0);
 
   initialVelAxis = 0;
@@ -74,7 +74,7 @@ export class SpawnDef {
 
 export class ShapeDef {
   shapeType: ShapeType = ShapeType.Billboard;
-  scale = vec2.fromValues(1, 1);
+  scale2d = vec2.fromValues(1, 1.3);
 
   // Color animation
   colorEnv = vec4.fromValues(1, 0, 0, 0.5);
@@ -172,7 +172,10 @@ class Emitter {
   drawGroup: EmitterDrawGroup = EmitterDrawGroup.Default;
 
   pos = vec3.create();
-  dirMtx = mat4.create();
+  scale = vec3.fromValues(1, 1, 1);
+  scale2D = vec2.fromValues(1, 1);
+
+  private dirMtx = mat4.create();
 
   private flags: EmitterFlags;
   private time: number = -16.0;
@@ -297,7 +300,6 @@ class Particle {
   velocity = vec3.create();
   accel = vec3.create();
   pos = vec3.create();
-  scale = vec2.create();
 
   prim: RenderPrimitive;
   uniforms: UniformBuffer;
@@ -319,14 +321,18 @@ class Particle {
     this.lifeTime = spawnDef.lifeTime * (1.0 - lifeTimeRandom * spawnDef.lifeTimeRndm);
     this.time = 0.0;
 
-    // Velocity
     vec3.set(this.velocity, 0, 0, 0);
 
+    // Initial XYZ velocity based on the starting position inside the spawn volume
     if (spawnDef.initialVelOmni !== 0)
       normToLengthAndAdd(this.velocity, frameData.velOmni, spawnDef.initialVelOmni);
+
+    // Initial XY velocity based on the starting position inside the spawn volume
     if (spawnDef.initialVelAxis !== 0)
       normToLengthAndAdd(this.velocity, frameData.velAxis, spawnDef.initialVelAxis);
 
+    // Initial velocity based on the emitter's forward direction 
+    // @NOTE: the vector is random inside a cone determined by emitter direction and spread
     if (spawnDef.initialVelDir !== 0) {
       const randZ = Math.random();
       const randY = Math.random() * 2.0 - 1.0;
@@ -339,6 +345,7 @@ class Particle {
       this.velocity[2] += spawnDef.initialVelDir * scratchMat4a[10];
     }
 
+    // Add an additional random amount of velocity 
     if (spawnDef.initialVelRndm !== 0) {
       const randZ = Math.random() - 0.5;
       const randY = Math.random() - 0.5;
@@ -348,11 +355,13 @@ class Particle {
       this.velocity[2] += spawnDef.initialVelRndm * randZ;
     }
 
+    // Scale the velocity by a random amount within range
     const velRatio = 1.0 + (Math.random() * 2.0 - 1.0) * spawnDef.initialVelRatio;
     this.velocity[0] *= velRatio;
     this.velocity[1] *= velRatio;
     this.velocity[2] *= velRatio;
 
+    // Optionally scale the velocity based on the size of the emitter
     if (!!(spawnDef.flags & EmitterDefFlags.ScaleVelocity)) {
       this.velocity[0] *= spawnDef.scale[0];
       this.velocity[1] *= spawnDef.scale[1];
@@ -367,8 +376,6 @@ class Particle {
     // const accel = spawnDef.accel * (1.0 + ((Math.random() * 2.0 - 1.0) * spawnDef.accelRndm));
     // normToLength(this.accel, accel);
     vec3.zero(this.accel);
-
-    vec2.set(this.scale, 100, 100);
 
     vec3.copy(this.pos, emitter.pos);
 
@@ -471,8 +478,8 @@ class Particle {
       case ShapeType.Billboard: {
         const pos = vec3.transformMat4(scratchVec3a, this.pos, frameData.viewMatrix);
         modelView = computeModelMatrixSRT(scratchMat4a,
-          this.scale[0],// * frameData.globalScale2D[0],
-          this.scale[1],// * frameData.globalScale2D[1],
+          100.0 * shapeDef.scale2d[0] * frameData.emitter.scale2D[0],
+          100.0 * shapeDef.scale2d[1] * frameData.emitter.scale2D[1],
           1,
           0, 0, 0,// rotateAngle,
           pos[0], pos[1], pos[2]);
