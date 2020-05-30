@@ -14,8 +14,11 @@ import { mat4, vec3, vec4, vec2 } from "gl-matrix";
 import { assert, defined, assertDefined } from "./util";
 import { DebugMenu } from './DebugMenu';
 import { EnvironmentSystem, Environment } from './Environment';
-import { Vector3 } from 'three/src/math/Vector3';
 import { ParticleSystem } from './Particles';
+import { Renderer } from './gfx/GfxTypes';
+import { lerp } from './MathHelpers';
+
+const scratchVec4a = vec4.create();
 
 class StageShader implements Gfx.ShaderDescriptor {
   name = 'Stage';
@@ -24,6 +27,7 @@ class StageShader implements Gfx.ShaderDescriptor {
 
   static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
     u_model: { type: Gfx.Type.Float4x4 },
+    u_torchColor: { type: Gfx.Type.Float4 },
   });
 
   static resourceLayout: Gfx.ShaderResourceLayout = {
@@ -44,6 +48,7 @@ export class Stage {
   private show = true;
   private torchPower = 3000;
   private torchColor = [225, 111, 10, 1.0];
+  private torchFlicker = 1.0;
 
   initialize({ resources, gfxDevice, globalUniforms, environment, particles, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, debugMenu: DebugMenu, particles: ParticleSystem }) {
     this.shader = gfxDevice.createShader(new StageShader());
@@ -95,17 +100,28 @@ export class Stage {
     }
   }
 
-  render({ environment }: { environment: EnvironmentSystem }) {
+  render({ environment, gfxDevice }: { environment: EnvironmentSystem, gfxDevice: Renderer }) {
     if (!this.show) {
       return;
     }
 
     const env = environment.getCurrentEnvironment();
+    
+    // Handle flickering of lights
+    const flicker = (1.0 - Math.random() * 0.3);
+    this.torchFlicker = lerp(this.torchFlicker, flicker, 0.2);
+
     for (let i = 0; i < env.localLights.length; i++) {
       const light = env.localLights[i];
-      light.power = this.torchPower;
+      light.power = this.torchPower * this.torchFlicker;
       vec4.set(light.color, 
         this.torchColor[0] / 255.0, this.torchColor[1] / 255.0, this.torchColor[2] / 255.0, this.torchColor[3] / 255.0);
+    }
+
+    if (this.models.length > 0) {
+      const uniforms = this.models[0].material.getUniformBuffer('model');
+      uniforms.setVec4('u_torchColor', vec4.scale(scratchVec4a, env.localLights[0].color, this.torchFlicker));
+      uniforms.write(gfxDevice)
     }
 
     for (let i = 0; i < this.models.length; i++) {

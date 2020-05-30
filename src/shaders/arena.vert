@@ -5,17 +5,20 @@ precision mediump float;
 attribute vec3 a_pos;
 attribute vec3 a_normal;
 attribute vec2 a_uv0;
+attribute vec4 a_color;
 
 uniform vec3 u_baseLightPos;
 uniform mat4 u_model;
 uniform mat4 g_viewProj;
 
 varying vec2 v_uv;
+varying vec4 v_color;
 varying float v_NDotL;
 
 void main()
 {
     v_uv = a_uv0;
+    v_color = a_color;
 
     vec4 pos = u_model * vec4(a_pos, 1.0);
     
