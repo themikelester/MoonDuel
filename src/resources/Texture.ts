@@ -36,7 +36,7 @@ export class TextureLoader implements ResourceLoader {
       resource.texture = !context.renderer ? -1 : context.renderer.createTexture(resource.name, {
         usage: Gfx.Usage.Static,
         type: Gfx.TextureType.Texture2D,
-        format: Gfx.TexelFormat.U8x3,
+        format: Gfx.TexelFormat.U8x4,
         maxAnistropy: 16,
       }, resource.imageBitmap);
 
@@ -65,7 +65,7 @@ export class TextureLoader implements ResourceLoader {
         resource.texture = !context.renderer ? -1 : context.renderer.createTexture(resource.name, {
           usage: Gfx.Usage.Static,
           type: Gfx.TextureType.Texture2D,
-          format: Gfx.TexelFormat.U8x3,
+          format: Gfx.TexelFormat.U8x4,
           maxAnistropy: 16,
         }, resource.imageElement);
   

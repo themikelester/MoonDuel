@@ -2,7 +2,7 @@ import vsSource from './shaders/particle.vert';
 import fsSource from './shaders/particle.frag';
 
 import { Renderer, Id, PrimitiveType, Type, CullMode, VertexLayout, ResourceLayout, BindingType, ShaderResourceLayout, BufferType, Usage, BufferLayout } from "./gfx/GfxTypes";
-import { assertDefined, assert } from "./util";
+import { assertDefined, assert, defined } from "./util";
 import { vec3, vec2, vec4, mat3, mat4, quat } from "gl-matrix";
 import { Clock } from "./Clock";
 import { normToLengthAndAdd, normToLength, computeModelMatrixSRT } from "./MathHelpers";
@@ -11,6 +11,8 @@ import { RenderPrimitive } from "./RenderPrimitive";
 import { GlobalUniforms } from './GlobalUniforms';
 import { computePackedBufferLayout, UniformBuffer } from './UniformBuffer';
 import { Camera } from './Camera';
+import { ResourceManager } from './resources/ResourceLoading';
+import { TextureResource } from './resources/Texture';
 
 const kMaxDt = 16 * 1.5; // 1.5 frames
 const kMaxEmitters = 64;
@@ -81,7 +83,7 @@ export class ShapeDef {
   colorPrm = vec4.fromValues(0, 1, 0, 0.5);
 
   // Texture animation
-  texCalcOnce: true;
+  texCalcOnce = true;
   texIdxAnimData: number[] = [];
 
   // Alpha animation
@@ -134,6 +136,7 @@ class EmitterFrameData {
   emitter: Emitter;
   emitterScale: vec3 = vec3.create();
   emitterDirMatrix: mat4;
+  emitterTextures: Id[];
 
   volumePos: vec3 = vec3.create();
   velOmni: vec3 = vec3.create();
@@ -182,6 +185,8 @@ class Emitter {
   private time: number = -16.0;
   private emitCount: number = 0;
   private particles: Particle[] = [];
+  private textures: Id[] = [];
+  private texturesLoaded = false;
 
   constructor(private emitterManager: EmitterManager) { }
 
@@ -209,9 +214,15 @@ class Emitter {
       }
     }
 
+    // Don't do any work until all of our textures are loaded
+    if (!this.loadTextures()) {
+      return true;
+    }
+
     frameData.emitter = this;
     vec3.mul(frameData.emitterScale, this.data.def.spawn.scale, this.emitterManager.globalScale);
     frameData.emitterDirMatrix = this.dirMtx;
+    frameData.emitterTextures = this.textures;
 
     // if (bsp1.texIdxAnimData !== null && bsp1.texCalcOnEmitter)
     //   this.texAnmIdx = calcTexIdx(workData, this.time, 0, 0);
@@ -247,6 +258,19 @@ class Emitter {
     for (let i = 0; i < n; i++) {
       this.particles[i].render(gfxDevice, frameData);
     }
+  }
+
+  private loadTextures(): boolean {
+    if (!this.texturesLoaded) {
+      this.texturesLoaded = true;
+      for (let i = 0; i < this.data.textureIds.length; i++) {
+        const texIndex = this.data.textureIds[i];
+        const texRes = this.emitterManager.textures[texIndex];
+        if (defined(texRes)) this.textures[i] = assertDefined(texRes.texture);
+        else this.texturesLoaded = false;
+      }
+    }
+    return this.texturesLoaded;
   }
 
   private emitIfNecessary() {
@@ -494,6 +518,8 @@ class Particle {
     this.uniforms.setFloats('u_modelView', modelView);
     this.uniforms.write(gfxDevice);
 
+    gfxDevice.setTexture(this.prim.resourceTable, 0, frameData.emitterTextures[0]);
+
     renderLists.effects.push(this.prim);
   }
 }
@@ -542,15 +568,15 @@ class GfxResources {
     const v0 = -0.5;
     const v1 = 0.5;
     this.vertBuf = gfxDevice.createBuffer('ParticleVerts', BufferType.Vertex, Usage.Static, new Float32Array([
-      v0, v0, v0, 1, 0,
-      v0, v1, v0, 1, 1,
-      v1, v0, v0, 0, 0,
-      v1, v1, v0, 0, 1,
+      v0, v0, v0, 1, 1,
+      v0, v1, v0, 1, 0,
+      v1, v0, v0, 0, 1,
+      v1, v1, v0, 0, 0,
       // Cross
-      v0, v0, v0, 1, 0,
-      v0, v1, v0, 1, 1,
-      v0, v0, v1, 0, 0,
-      v0, v1, v1, 0, 1,
+      v0, v0, v0, 1, 1,
+      v0, v1, v0, 1, 0,
+      v0, v0, v1, 0, 1,
+      v0, v1, v1, 0, 0,
     ]));
 
     this.indexBuf = gfxDevice.createBuffer('ParticleIndices', BufferType.Index, Usage.Static, new Uint16Array([
@@ -585,6 +611,7 @@ class EmitterManager {
   emitters: Emitter[] = [];
   frameData: EmitterFrameData = new EmitterFrameData();
   gfxResources: GfxResources = new GfxResources();
+  textures: TextureResource[] = [];
 
   freeEmitters: Emitter[] = [];
   freeParticles: Particle[] = [];
@@ -593,8 +620,9 @@ class EmitterManager {
 
   constructor(private maxEmitters: number, private maxParticles: number) { }
 
-  initialize(gfxDevice: Renderer, globalUniforms: GlobalUniforms) {
+  initialize(gfxDevice: Renderer, globalUniforms: GlobalUniforms, textures: TextureResource[]) {
     this.gfxResources.initialize(gfxDevice);
+    this.textures = textures;
 
     for (let i = 0; i < this.maxEmitters; i++) { this.freeEmitters[i] = new Emitter(this); }
     for (let i = 0; i < this.maxParticles; i++) { this.freeParticles[i] = new Particle(this.gfxResources); }
@@ -653,11 +681,31 @@ class EmitterManager {
  */
 export class ParticleSystem {
   emitterManager: EmitterManager = new EmitterManager(kMaxEmitters, kMaxParticles);
-  // And all the loaded resource data
-  // And the camera matrices that billboards will need
+  textures: TextureResource[] = [];
+  data: EmitterData[] = [];
 
-  initialize({ gfxDevice, globalUniforms }: { gfxDevice: Renderer, globalUniforms: GlobalUniforms }) {
-    this.emitterManager.initialize(gfxDevice, globalUniforms);
+  initialize({ gfxDevice, globalUniforms, resources }: { gfxDevice: Renderer, globalUniforms: GlobalUniforms, resources: ResourceManager }) {
+    this.emitterManager.initialize(gfxDevice, globalUniforms, this.textures);
+
+    // @TODO: Load emitter definitions and textures from a new resource type
+    const cb = (i: number) => (error?: string, res?: TextureResource) => { 
+      if (error) console.error(`Failed to load: ${error}`);
+      if (res) this.textures[i] = res 
+    };
+
+    resources.load('data/flame0.png', 'texture', cb(0));
+    resources.load('data/flame1.png', 'texture', cb(1));
+    resources.load('data/flame2.png', 'texture', cb(2));
+    resources.load('data/flame3.png', 'texture', cb(3));
+    resources.load('data/flame4.png', 'texture', cb(4));
+    resources.load('data/flame5.png', 'texture', cb(5));
+    resources.load('data/flame6.png', 'texture', cb(6));
+    resources.load('data/flame7.png', 'texture', cb(7));
+    resources.load('data/flame8.png', 'texture', cb(8));
+    resources.load('data/flame9.png', 'texture', cb(9));
+
+    // @HACK
+    this.data[0] = kFlameData;
   }
 
   update({ clock }: { clock: Clock }) {
@@ -670,7 +718,20 @@ export class ParticleSystem {
   }
 
   createEmitter(emitterId: number) {
-    const data = new EmitterData(); // @TODO: Look up in emmitter data resource
+    const data = this.data[emitterId]; // @TODO: Look up in emmitter data resource
     return this.emitterManager.createEmitter(data);
   }
+}
+
+const kFlameData: EmitterData = {
+  textureIds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+  def: { 
+    spawn: new SpawnDef(),
+    shape: { 
+      ...new ShapeDef(),
+      scale2d: vec2.fromValues(1, 1.3),
+      texCalcOnce: false,
+      texIdxAnimData: [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9],
+    }
+  },
 }
