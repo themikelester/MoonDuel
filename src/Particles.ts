@@ -3,7 +3,7 @@ import fsSource from './shaders/particle.frag';
 
 import { Renderer, Id, PrimitiveType, Type, CullMode, VertexLayout, ResourceLayout, BindingType, ShaderResourceLayout, BufferType, Usage, BufferLayout } from "./gfx/GfxTypes";
 import { assertDefined, assert } from "./util";
-import { vec3, vec2, vec4, mat3, mat4 } from "gl-matrix";
+import { vec3, vec2, vec4, mat3, mat4, quat } from "gl-matrix";
 import { Clock } from "./Clock";
 import { normToLengthAndAdd, normToLength, computeModelMatrixSRT } from "./MathHelpers";
 import { renderLists } from "./RenderList";
@@ -58,12 +58,12 @@ export class SpawnDef {
   initialVelDir = 100;
   initialVelRatio = 0;
   initialVelRndm = 0;
-  spread = 0;
+  spread = 0.1;
 
-  lifeTime = 1;
-  lifeTimeRndm = 0;
+  lifeTime = 0.6;
+  lifeTimeRndm = 0.18;
 
-  rate = 1;
+  rate = 5;
   rateRndm = 0;
 
   volumeMinRad = 0;
@@ -141,6 +141,29 @@ class EmitterFrameData {
   viewMatrix: mat4 = mat4.create();
 }
 
+function computeDirMatrix(m: mat4, v: vec3): void {
+    // Perp
+    vec3.set(scratchVec3a, v[1], -v[0], 0);
+    const mag = vec3.length(scratchVec3a);
+    vec3.normalize(scratchVec3a, scratchVec3a);
+
+    const x = scratchVec3a[0], y = scratchVec3a[1], z = v[2];
+    m[0]  = x*x + z * (1.0 - x*x);
+    m[4]  = (1.0 - z) * (x * y);
+    m[8]  = -y*mag;
+    m[12] = 0.0;
+
+    m[1]  = (1.0 - z) * (x * y);
+    m[5]  = y*y + z * (1.0 - y*y);
+    m[9]  = x*mag;
+    m[13] = 0.0;
+
+    m[2]  = y*mag;
+    m[6]  = -x*mag;
+    m[10] = z;
+    m[14] = 0.0;
+}
+
 /**
  * Spawns and manages particles
  */
@@ -149,6 +172,7 @@ class Emitter {
   drawGroup: EmitterDrawGroup = EmitterDrawGroup.Default;
 
   pos = vec3.create();
+  dirMtx = mat4.create();
 
   private flags: EmitterFlags;
   private time: number = -16.0;
@@ -159,6 +183,8 @@ class Emitter {
 
   initialize(data: EmitterData) {
     this.data = data;
+    
+    computeDirMatrix(this.dirMtx, this.data.def.spawn.forward);
   }
 
   terminate() {
@@ -302,16 +328,15 @@ class Particle {
       normToLengthAndAdd(this.velocity, frameData.velAxis, spawnDef.initialVelAxis);
 
     if (spawnDef.initialVelDir !== 0) {
-      // const randZ = Math.random();
-      // const randY = Math.random() * 2.0 - 1.0;
-      // mat4.identity(scratchMat4a);
-      // mat4.rotateZ(scratchMat4a, scratchMat4a, randZ * Math.PI);
-      // mat4.rotateY(scratchMat4a, scratchMat4a, spawnDef.spread * randY * Math.PI);
-      // mat4.mul(scratchMat4a, frameData.emitterDirMtx, scratchMat4a);
-      // this.velocity[0] += spawnDef.initialVelDir * scratchMat4a[8];
-      // this.velocity[1] += spawnDef.initialVelDir * scratchMat4a[9];
-      // this.velocity[2] += spawnDef.initialVelDir * scratchMat4a[10];
-      vec3.scaleAndAdd(this.velocity, this.velocity, spawnDef.forward, spawnDef.initialVelDir);
+      const randZ = Math.random();
+      const randY = Math.random() * 2.0 - 1.0;
+      mat4.identity(scratchMat4a);
+      mat4.rotateZ(scratchMat4a, scratchMat4a, randZ * Math.PI);
+      mat4.rotateY(scratchMat4a, scratchMat4a, spawnDef.spread * randY * Math.PI);
+      mat4.mul(scratchMat4a, frameData.emitter.dirMtx, scratchMat4a);
+      this.velocity[0] += spawnDef.initialVelDir * scratchMat4a[8];
+      this.velocity[1] += spawnDef.initialVelDir * scratchMat4a[9];
+      this.velocity[2] += spawnDef.initialVelDir * scratchMat4a[10];
     }
 
     if (spawnDef.initialVelRndm !== 0) {
