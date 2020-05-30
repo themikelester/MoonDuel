@@ -41,6 +41,7 @@ export enum EmitterDefFlags {
 
 export enum EmitterVolumeType {
   Cube,
+  Point,
 }
 
 export const enum ShapeType {
@@ -345,7 +346,8 @@ class Emitter {
   private calcVolume(frameData: EmitterFrameData) {
     // Update the frame state to contain initial values for a new particle based on the emitter shape
     switch (this.data.def.spawn.volumeType) {
-      case EmitterVolumeType.Cube: this.calcVolumeCube(frameData);
+      case EmitterVolumeType.Cube: this.calcVolumeCube(frameData); break;
+      case EmitterVolumeType.Point: this.calcVolumePoint(frameData); break;
     }
   }
 
@@ -358,6 +360,16 @@ class Emitter {
     vec3.set(frameData.volumePos, rndX * size, rndY * size, rndZ * size);
     vec3.mul(frameData.velOmni, frameData.volumePos, frameData.emitterScale);
     vec3.set(frameData.velAxis, frameData.volumePos[0], 0.0, frameData.volumePos[2]);
+  }
+
+  private calcVolumePoint(frameData: EmitterFrameData) {
+    const rndX = Math.random() - 0.5;
+    const rndY = Math.random() - 0.5;
+    const rndZ = Math.random() - 0.5;
+
+    vec3.set(frameData.volumePos, 0, 0, 0);
+    vec3.set(frameData.velOmni, rndX, rndY, rndZ);
+    vec3.set(frameData.velAxis, frameData.velOmni[0], 0.0, frameData.velOmni[2]);
   }
 }
 
@@ -456,7 +468,7 @@ class Particle {
     // normToLength(this.accel, accel);
     vec3.zero(this.accel);
 
-    vec3.copy(this.pos, emitter.pos);
+    vec3.add(this.pos, emitter.pos, frameData.volumePos);
 
     // Scale (2D sprite size)
     if (scaleDef) {
@@ -762,9 +774,10 @@ const kFlameData: EmitterData = {
   def: {
     spawn: {
       ...new SpawnDef(),
-      rate: 13.5,
+      rate: 1.0/0.6,
       rateRndm: 0,
-      spread: 0.11649999767541885
+      spread: 0.11649999767541885,
+      volumeType: EmitterVolumeType.Point,
     },
     shape: {
       ...new ShapeDef(),
