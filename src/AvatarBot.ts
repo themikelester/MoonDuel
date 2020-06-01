@@ -1,9 +1,11 @@
-import { AvatarClient } from "./Avatar";
+import { AvatarClient, AvatarSystemServer, Avatar } from "./Avatar";
 import { UserCommand } from "./UserCommand";
 import { InputAction } from "./Input";
+import { vec3 } from "gl-matrix";
 
-export class IdleBot implements AvatarClient {
+export class AvatarBot implements AvatarClient {
   command =  new UserCommand();
+  avatar: Avatar;
 
   getUserCommand(simFrame: number): UserCommand {
     this.command.frame = simFrame;
@@ -16,7 +18,7 @@ export class IdleBot implements AvatarClient {
   };
 }
 
-export class SideAttackBot implements AvatarClient {
+export class SideAttackBot extends AvatarBot {
   command =  new UserCommand();
 
   getUserCommand(simFrame: number): UserCommand {
@@ -30,7 +32,7 @@ export class SideAttackBot implements AvatarClient {
   };
 }
 
-export class VertAttackBot implements AvatarClient {
+export class VertAttackBot extends AvatarBot {
   command =  new UserCommand();
 
   getUserCommand(simFrame: number): UserCommand {
@@ -42,4 +44,15 @@ export class VertAttackBot implements AvatarClient {
     this.command.actions = InputAction.AttackVert;
     return this.command;
   };
+}
+
+export class AvatarBotSystem {
+  constructor(private avatarSystem: AvatarSystemServer, private avatars: Avatar[]) {}
+
+  addBot(bot: AvatarBot, pos?: vec3) {
+    const avatarIdx = this.avatarSystem.addAvatar(bot);
+    bot.avatar = this.avatars[avatarIdx];
+    if (pos) vec3.copy(bot.avatar.state.origin, pos);
+    if (pos) vec3.normalize(bot.avatar.state.orientation, vec3.negate(bot.avatar.state.orientation, pos));
+  }
 }
