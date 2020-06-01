@@ -16,6 +16,12 @@ Change Log
 * Vector textures for particles. Fire quads without pixelation.
 * Drop shadows for avatars
 
+### 2020-06-02
+##### Morning
+Today I'd like to explicitly define attacks, such that they have "active" and "invulnerable" periods (defined as ranges of sim frames). During active periods the weapon attack region should be registered with the collision system, and during invulnerable periods the avatar cannot be hit by a specific attack. I imagine I'll start a new file and define an Attack interface along with the specific attack definitions. The collision system will need to change so that it stores the attack interface with collision region. 
+
+Afterwards I plan to start working on the lock-on camera. It'll need to be able to focus on at least two avatars and keep them in frame. There's an old GDC talk from the God of War team that I seem to remember describing a very similar camera, I'll dig that one up and look for reference.
+
 ### 2020-06-01
 ##### Morning
 This week I'd like to introduce a static collision system, for collisions against the background geometry. This will allow me to handle the avatar bumping against the columns, falling off the outside, gitting hit into the air and falling back to the ground, and sword throwing. Afterwards I think I'll work on a lock-on camera, and bots for testing. A bot should be creatable with some simple actions, such an action to do repeatedly (e.g. horizontal or vertical attack). 
