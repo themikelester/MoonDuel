@@ -36,7 +36,7 @@ export class AvatarController {
         // Attacking
         if (prevState.state !== AvatarState.None) {
             const duration = frame - prevState.stateStartFrame;
-            if (duration >= 69) { // @HACK: Need to set up proper exiting
+            if (duration >= 92) { // @HACK: Need to set up proper exiting
                 nextState.state = AvatarState.None;
                 nextState.stateStartFrame = frame;
             }

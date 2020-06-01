@@ -92,7 +92,7 @@ export class AvatarAnim {
     }
 
     onResourcesLoaded(gltf: GltfResource, debugMenu: DebugMenu) {
-        const idleClip = assertDefined(gltf.animations.find(a => a.name === 'await1'));
+        const idleClip = assertDefined(gltf.animations.find(a => a.name === 'akamae1'));
         const walkClip = assertDefined(gltf.animations.find(a => a.name === 'awalk1'));
         const runClip = assertDefined(gltf.animations.find(a => a.name === 'brun1'));
         const attackSideClip = assertDefined(gltf.animations.find(a => a.name === 'aat_yoko1'));
@@ -150,7 +150,7 @@ export class AvatarAnim {
         if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
             attackWeight = Math.min(
                 saturate(delerp(0.0, 0.2, stateTime)),
-                1.0 - saturate(delerp(0.8, 1.1, stateTime)),
+                1.0 - saturate(delerp(0.9, 1.0, stateTime / data.aAttackSide.getClip().duration)),
             );
         } else {
             attackWeight = 0.0;
