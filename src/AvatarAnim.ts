@@ -53,13 +53,14 @@ class AnimationDebugMenu {
         for (const anim of animations) {
             playAnimMap[anim.name] = () => {
                 this.debugAnimationMixer.stopAllAction();
-                this.debugAnimation = this.debugAnimationMixer.clipAction(anim).reset().play();
+                this.debugAnimation = this.debugAnimationMixer.clipAction(anim, this.targetAvatar).reset().play();
             };
             this.debugMenu.add(playAnimMap, anim.name);
         }
     }
 
-    update(dtSec: number) {
+    update(targetAvatar: Avatar, dtSec: number) {
+        this.targetAvatar = targetAvatar;
         if (this.debugAnimation) this.debugAnimationMixer.update(dtSec);
 
         this.targetAvatar.updateMatrixWorld();
@@ -196,7 +197,7 @@ export class AvatarAnim {
             const avatar = this.avatars[i];
             
             if (avatar.local) {
-                const debugActive = this.debugMenu.update(dtSec);
+                const debugActive = this.debugMenu.update(avatar, dtSec);
                 if (debugActive) { continue; }
             }
 
