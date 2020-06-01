@@ -21,7 +21,7 @@ import { CollisionSystem, StaticCollisionSystem } from "./Collision";
 import { kEmptyCommand, UserCommand } from "./UserCommand";
 import { InputAction } from "./Input";
 import { EnvironmentSystem } from "./Environment";
-import { SideAttackBot } from "./AvatarBot";
+import { SideAttackBot, AvatarBotSystem, VertAttackBot } from "./AvatarBot";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -220,6 +220,7 @@ export class AvatarSystemClient implements GameObjectFactory {
 export class AvatarSystemServer implements GameObjectFactory {
     private avatars: Avatar[] = [];
     private controllers: AvatarController[] = [];
+    private bots: AvatarBotSystem = new AvatarBotSystem(this, this.avatars);
 
     private gltf: GltfResource;
     private animation = new AvatarAnim();
@@ -247,7 +248,8 @@ export class AvatarSystemServer implements GameObjectFactory {
         this.animation.initialize(this.avatars);
 
         // Let's add a bot
-        this.addAvatar(new SideAttackBot());
+        this.bots.addBot(new SideAttackBot(), vec3.set(scratchVec3a, -500, 0, 500));
+        this.bots.addBot(new VertAttackBot(), vec3.set(scratchVec3a, -500, 0, -500));
     }
 
     onResourcesLoaded(game: ServerDependencies) {
@@ -382,6 +384,16 @@ export class AvatarSystemServer implements GameObjectFactory {
             if (avatar.isActive && avatar.skeleton) {
                 const hits = collision.getHitsForTarget(avatar.collisionId);
                 if (hits.length > 0) {
+                    const stateDuration = (clock.simFrame - avatar.state.stateStartFrame) * clock.simDt;
+                    const jumpSafeStart = 0.1 * 1.43 * 1000.0;
+                    const jumpSafeEnd = 0.4 * 1.43 * 1000.0;
+
+                    if (avatar.state.state === AvatarState.AttackVertical) {
+                        if (stateDuration > jumpSafeStart &&  stateDuration < jumpSafeEnd) {
+                            continue;
+                        }
+                    }
+
                     if (avatar.state.state !== AvatarState.Struck) {
                         avatar.state.state = AvatarState.Struck;
                         avatar.state.stateStartFrame = clock.simFrame;
