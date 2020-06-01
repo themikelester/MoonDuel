@@ -227,14 +227,14 @@ export class NetModuleServer {
 
     onClientConnected(client: NetClient) {
         console.log('Client connected:', client);
-        this.context.avatar.addAvatar(client.clientIndex);
+        this.context.avatar.addAvatar(client);
 
         if (this.graph) client.setNetGraphPanel(this.graph.addPanel(`Server: ${client.id}`));
     }
 
     onClientDisconnected(client: NetClient) {
         console.log('Client disconnected:', client);
-        this.context.avatar.removeAvatar(client.clientIndex);
+        this.context.avatar.removeAvatar(client);
         const idx = this.clients.indexOf(client);
         this.clients[idx] = null;
 

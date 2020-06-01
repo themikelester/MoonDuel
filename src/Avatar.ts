@@ -18,7 +18,7 @@ import { SimStream, SimState, EntityState, World, GameObjectType, GameObject, Ga
 import { vec3, mat4 } from "gl-matrix";
 import { DebugRenderUtils } from "./DebugRender";
 import { CollisionSystem, StaticCollisionSystem } from "./Collision";
-import { kEmptyCommand } from "./UserCommand";
+import { kEmptyCommand, UserCommand } from "./UserCommand";
 import { InputAction } from "./Input";
 import { EnvironmentSystem } from "./Environment";
 
@@ -28,7 +28,6 @@ interface ServerDependencies {
     clock: Clock;
     world: World;
 
-    net: NetModuleServer;
     collision: CollisionSystem;
     staticCollision: StaticCollisionSystem;
 }
@@ -45,9 +44,14 @@ interface ClientDependencies {
     environment: EnvironmentSystem;
 }
 
+export interface AvatarClient {
+    getUserCommand(simFrame: number): UserCommand;
+}
+
 export class Avatar extends Object3D implements GameObject {
     state: EntityState;
 
+    client: Nullable<AvatarClient>;
     local: boolean = false;
 
     nodes: GltfNode[];
@@ -306,19 +310,11 @@ export class AvatarSystemServer implements GameObjectFactory {
     updateFixed(game: ServerDependencies) {
         for (let i = 0; i < kAvatarCount; i++) {
             const avatar = this.avatars[i];
-            const client = game.net.clients[i];
             const state = avatar.state;
 
             if (!avatar.isActive) continue;
 
-            // If we're not a bot, read the user input
-            let inputCmd = kEmptyCommand;
-            if (client && client.state === NetClientState.Active) {
-                inputCmd = client.getUserCommand(game.clock.simFrame);
-            } else {
-                // @HACK: Have the bots attack repeatedly
-                inputCmd.actions = InputAction.AttackSide;
-            }
+            const inputCmd = avatar.client!.getUserCommand(game.clock.simFrame);
 
             // Update core state
             const dtSec = game.clock.simDt / 1000.0;
@@ -421,13 +417,16 @@ export class AvatarSystemServer implements GameObjectFactory {
 
     }
 
-    addAvatar(clientIndex: number) {
-        const avatar = this.avatars[clientIndex];
+    addAvatar(client: AvatarClient) {
+        // @TODO: Take over a bot slot?
+        const avatar = assertDefined(this.avatars.find(a => !a.isActive), 'Out of avatars');
         avatar.state.flags |= AvatarFlags.IsActive;
+        avatar.client = client;
     }
 
-    removeAvatar(clientIndex: number) {
-        const avatar = this.avatars[clientIndex];
+    removeAvatar(client: AvatarClient) {
+        const avatar = assertDefined(this.avatars.find(a => a.client === client));
+        avatar.client = null;
         avatar.state.flags &= ~AvatarFlags.IsActive;
     }
 }
