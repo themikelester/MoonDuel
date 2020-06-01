@@ -15,10 +15,18 @@ Change Log
 * Ground check each frame (Translate Y if not on ground, within small range) for Avatar's feet, so they don't penetrate
 * "Report bug" button which takes a screenshot, captures all logs, collects device info, and lets users write a statement.
 
+### 2020-06-01
+##### Morning
+This week I'd like to introduce a static collision system, for collisions against the background geometry. This will allow me to handle the avatar bumping against the columns, falling off the outside, gitting hit into the air and falling back to the ground, and sword throwing. Afterwards I think I'll work on a lock-on camera, and bots for testing. A bot should be creatable with some simple actions, such an action to do repeatedly (e.g. horizontal or vertical attack). 
+
+The static collision system needs to support ground raycasting (e.g. find ground level below position), and movement collision with the outer pillars. I'd like to try doing this analytically rather than using traditional triangle based collision. The stage system can just set the outer radius (and an inner radius if I choose to add a pit), and the angles where the columns are. 
+
 ### 2020-05-30
 ##### Evening
 ![Daily Screenshot](/screenshots//2020-05-30.png?raw=true)
 I spent all day yesterday and today working on the particle system, and it's now in a working form. I've got a flame emitter which just layers about 8 animated sprites on top of each other. I also added vertex colors to the arena model which are used to blend towards the torch color, which lets me essentially paint torchlight into the scene. 
+
+I think environment week was a success!
 
 ### 2020-05-28
 ##### Morning
