@@ -383,23 +383,31 @@ export class AvatarSystemServer implements GameObjectFactory {
             if (avatar.isActive && avatar.skeleton) {
                 const hits = collision.getHitsForTarget(avatar.collisionId);
                 if (hits.length > 0) {
-                    const stateDuration = (clock.simFrame - avatar.state.stateStartFrame) * clock.simDt;
-                    const jumpSafeStart = 0.1 * 1.43 * 1000.0;
-                    const jumpSafeEnd = 0.4 * 1.43 * 1000.0;
-
-                    if (avatar.state.state === AvatarState.AttackVertical) {
-                        if (stateDuration > jumpSafeStart &&  stateDuration < jumpSafeEnd) {
-                            continue;
-                        }
-                    }
-
-                    if (avatar.state.state !== AvatarState.Struck) {
-                        avatar.state.state = AvatarState.Struck;
-                        avatar.state.stateStartFrame = clock.simFrame;
-                    }
-
                     for (const hit of hits) {
                         const weapon = hit.owner;
+                        const attacker = this.avatars[weapon.state.parent];
+
+                        const stateDuration = (clock.simFrame - avatar.state.stateStartFrame) * clock.simDt;
+                        const jumpSafeStart = 0.1 * 1.43 * 1000.0;
+                        const jumpSafeEnd = 0.4 * 1.43 * 1000.0;
+
+                        if (avatar.state.state === AvatarState.AttackVertical && attacker.state.state === AvatarState.AttackSide) {
+                            if (stateDuration > jumpSafeStart && stateDuration < jumpSafeEnd) {
+                                continue;
+                            }
+                        }
+
+                        if (avatar.state.state === AvatarState.AttackPunch && attacker.state.state === AvatarState.AttackVertical) {
+                            if (stateDuration > jumpSafeStart && stateDuration < jumpSafeEnd) {
+                                continue;
+                            }
+                        }
+
+                        if (avatar.state.state === AvatarState.AttackSide && attacker.state.state === AvatarState.AttackPunch) {
+                            if (stateDuration > jumpSafeStart && stateDuration < jumpSafeEnd) {
+                                continue;
+                            }
+                        }
 
                         // Don't allow consecutive hits by the same weapon
                         const alreadyHit = avatar.hitBy.includes(weapon);
@@ -408,6 +416,11 @@ export class AvatarSystemServer implements GameObjectFactory {
 
                             // TODO: Apply damage, etc.
                         }
+                    }
+
+                    if (avatar.hitBy.length > 0 && avatar.state.state !== AvatarState.Struck) {
+                        avatar.state.state = AvatarState.Struck;
+                        avatar.state.stateStartFrame = clock.simFrame;
                     }
                 }
             }
