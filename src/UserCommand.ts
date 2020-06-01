@@ -18,10 +18,10 @@ export class UserCommand {
         let bits = 0;
         bits |= 0b00000011 & ((Math.sign(cmd.verticalAxis) + 1) << 0);
         bits |= 0b00001100 & ((Math.sign(cmd.horizontalAxis) + 1) << 2);
-        bits |= 0b11110000 & (cmd.actions << 4);
         Buf.writeByte(buf, bits);
+        Buf.writeByte(buf, cmd.actions);
 
-        return 3;
+        return 4;
     }
     
     static deserialize(dst: UserCommand, buf: Buf): number {
@@ -32,9 +32,10 @@ export class UserCommand {
         let bits = Buf.readByte(buf);
         dst.verticalAxis   = ((bits & 0b00000011) >> 0) - 1;
         dst.horizontalAxis = ((bits & 0b00001100) >> 2) - 1;
-        dst.actions        = (bits & 0b11110000) >> 4;
 
-        return 3;
+        dst.actions = Buf.readByte(buf);
+
+        return 4;
     }
 }
 

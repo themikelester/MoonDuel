@@ -76,6 +76,7 @@ interface AvatarAnimData {
     aRun: AnimationAction;
     aAttackSide: AnimationAction;
     aAttackVert: AnimationAction;
+    aAttackPunch: AnimationAction;
     aStruck: AnimationAction;
     startingFoot: number;
 }
@@ -98,6 +99,7 @@ export class AvatarAnim {
         const runClip = assertDefined(gltf.animations.find(a => a.name === 'brun1'));
         const attackSideClip = assertDefined(gltf.animations.find(a => a.name === 'aat_yoko1'));
         const attackVertClip = assertDefined(gltf.animations.find(a => a.name === 'bat_jump1'));
+        const attackPunchClip = assertDefined(gltf.animations.find(a => a.name === 'bat_syoutei_l1'));
         const struckClip = assertDefined(gltf.animations.find(a => a.name === 'ahakai1'));
 
         for (let i = 0; i < this.avatars.length; i++) {
@@ -110,6 +112,7 @@ export class AvatarAnim {
                 aRun: avatar.animationMixer.clipAction(runClip),
                 aAttackSide: avatar.animationMixer.clipAction(attackSideClip),
                 aAttackVert: avatar.animationMixer.clipAction(attackVertClip),
+                aAttackPunch: avatar.animationMixer.clipAction(attackPunchClip),
                 aStruck: avatar.animationMixer.clipAction(struckClip),
                 startingFoot: 0,
             };
@@ -120,11 +123,13 @@ export class AvatarAnim {
             data.aRun.play().setEffectiveWeight(0.0);
             data.aAttackSide.play().setEffectiveWeight(0.0);
             data.aAttackVert.play().setEffectiveWeight(0.0);
+            data.aAttackPunch.play().setEffectiveWeight(0.0);
             data.aStruck.play().setEffectiveWeight(0.0);
 
             // Attacks don't loop
             data.aAttackSide.setLoop(LoopOnce, 1);
             data.aAttackVert.setLoop(LoopOnce, 1);
+            data.aAttackPunch.setLoop(LoopOnce, 1);
 
             // Give each avatar a different idle phase, so their animations don't appear to sync
             data.aIdle.time = i * (data.aIdle.getClip().duration / (this.avatars.length + 1));
@@ -148,7 +153,7 @@ export class AvatarAnim {
 
         // Attack 
         let attackWeight = 0.0;
-        if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
+        if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical || state.state === AvatarState.AttackPunch) {
             attackWeight = Math.min(
                 saturate(delerp(0.0, 0.2, stateTime)),
                 1.0 - saturate(delerp(0.9, 1.0, stateTime / data.aAttackSide.getClip().duration)),
@@ -175,12 +180,14 @@ export class AvatarAnim {
         data.aIdle.time = idleTime % data.aIdle.getClip().duration;
         data.aAttackSide.time = stateTime % data.aAttackSide.getClip().duration;
         data.aAttackVert.time = stateTime % data.aAttackVert.getClip().duration;
+        data.aAttackPunch.time = stateTime % data.aAttackPunch.getClip().duration;
         data.aStruck.time = stateTime % data.aStruck.getClip().duration;
         
         data.aRun.weight = locoWeight;
         data.aIdle.weight = idleWeight;
         data.aAttackSide.weight = state.state === AvatarState.AttackSide ? attackWeight : 0;
         data.aAttackVert.weight = state.state === AvatarState.AttackVertical ? attackWeight : 0;
+        data.aAttackPunch.weight = state.state === AvatarState.AttackPunch ? attackWeight : 0;
         data.aStruck.weight = struckWeight;
         
         avatar.animationMixer.update(0);

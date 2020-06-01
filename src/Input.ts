@@ -16,6 +16,7 @@ export enum InputAction {
     Fullscreen = 1 << 1,
     AttackSide = 1 << 2,
     AttackVert = 1 << 3,
+    AttackPunch = 1 << 4,
 }
 
 interface ActionInfo {
@@ -29,6 +30,7 @@ const Keymap: Record<InputAction, ActionInfo> = {
     [InputAction.Fullscreen]: { id: 'fullscreen', name: 'Toggle Fullscreen', desc: 'Toggle fullscreen mode' },
     [InputAction.AttackSide]: { id: 'attackSide', name: 'Horizontal Attack', desc: 'Attack horizontally' },
     [InputAction.AttackVert]: { id: 'attackVert', name: 'Vertical Attack', desc: 'Attack vertically' },
+    [InputAction.AttackPunch]: { id: 'attackPunch', name: 'Punch Attack', desc: 'Attack sidestep' },
 };
 
 export class InputManager {
@@ -65,8 +67,9 @@ export class InputManager {
         this.controller.registerKeys(Keymap[InputAction.Walk].id, ['ShiftLeft', 'ShiftRight']);
         this.controller.registerKeys(Keymap[InputAction.Fullscreen].id, ['Backslash']);
 
-        this.controller.registerKeys(Keymap[InputAction.AttackSide].id, ['KeyQ']);
-        this.controller.registerKeys(Keymap[InputAction.AttackVert].id, ['KeyE']);
+        this.controller.registerKeys(Keymap[InputAction.AttackSide].id, ['ArrowLeft']);
+        this.controller.registerKeys(Keymap[InputAction.AttackVert].id, ['ArrowUp']);
+        this.controller.registerKeys(Keymap[InputAction.AttackPunch].id, ['ArrowRight']);
 
         this.controller.registerMouse(Keymap[InputAction.AttackSide].id, [MouseButtons.Left]);
         this.controller.registerMouse(Keymap[InputAction.AttackVert].id, [MouseButtons.Right]);

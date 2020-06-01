@@ -79,6 +79,7 @@ export enum AvatarState {
     None,
     AttackSide,
     AttackVertical,
+    AttackPunch,
     AttackThrow,
     Struck
 }

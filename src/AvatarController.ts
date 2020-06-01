@@ -51,6 +51,10 @@ export class AvatarController {
                 nextState.stateStartFrame = frame;
                 nextState.state = AvatarState.AttackVertical;
             }
+            if (input.actions & InputAction.AttackPunch) {
+                nextState.stateStartFrame = frame;
+                nextState.state = AvatarState.AttackPunch;
+            }
         }
 
         if (prevState.state === AvatarState.Struck) {
