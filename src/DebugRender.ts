@@ -325,7 +325,7 @@ export class DebugRenderUtils {
     pointsPrim.vertexBuffer = this.renderer.createBuffer('PointsVerts', Gfx.BufferType.Vertex, Gfx.Usage.Dynamic, kMaxPoints * pointsVertLayout.buffers[0].stride);
     pointsPrim.count = 0;
 
-    this.renderer.setVertexBuffer(pointsPrim.resources, 0, { buffer: pointsPrim.vertexBuffer });
+    this.renderer.setVertexBuffer(pointsPrim.vertTable, 0, { buffer: pointsPrim.vertexBuffer });
     this.renderer.setBuffer(pointsPrim.resources, 0, this.globalUniforms.bufferView);
 
     // ----------------------------------------------------------------------------------
@@ -340,7 +340,7 @@ export class DebugRenderUtils {
     quadsPrim.vertexBuffer = this.renderer.createBuffer('QuadVerts', Gfx.BufferType.Vertex, Gfx.Usage.Dynamic, kMaxQuads * 4 * pointsVertLayout.buffers[0].stride);
     quadsPrim.count = 0;
 
-    this.renderer.setVertexBuffer(quadsPrim.resources, 0, { buffer: quadsPrim.vertexBuffer });
+    this.renderer.setVertexBuffer(quadsPrim.vertTable, 0, { buffer: quadsPrim.vertexBuffer });
     this.renderer.setBuffer(quadsPrim.resources, 0, this.globalUniforms.bufferView);
 
     // ----------------------------------------------------------------------------------
