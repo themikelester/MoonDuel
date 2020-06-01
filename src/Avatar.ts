@@ -21,6 +21,7 @@ import { CollisionSystem, StaticCollisionSystem } from "./Collision";
 import { kEmptyCommand, UserCommand } from "./UserCommand";
 import { InputAction } from "./Input";
 import { EnvironmentSystem } from "./Environment";
+import { SideAttackBot } from "./AvatarBot";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -246,7 +247,7 @@ export class AvatarSystemServer implements GameObjectFactory {
         this.animation.initialize(this.avatars);
 
         // Let's add a bot
-        // this.addAvatar(7);
+        this.addAvatar(new SideAttackBot());
     }
 
     onResourcesLoaded(game: ServerDependencies) {
