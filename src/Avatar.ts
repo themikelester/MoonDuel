@@ -319,7 +319,7 @@ export class AvatarSystemServer implements GameObjectFactory {
 
             // Update core state
             const dtSec = game.clock.simDt / 1000.0;
-            this.controllers[i].update(avatar, game.clock.simFrame, dtSec, inputCmd);
+            this.controllers[i].update(avatar, this.avatars, game.clock.simFrame, dtSec, inputCmd);
 
             // Sync state changes with GameObject
             const pos = new Vector3(state.origin);

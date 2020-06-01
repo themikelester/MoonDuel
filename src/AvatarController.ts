@@ -4,6 +4,7 @@ import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
 import { UserCommand } from "./UserCommand";
 import { EntityState, copyEntity, createEntity } from "./World";
+import { assert } from "./util";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -18,8 +19,9 @@ const kRunAcceleration = 3000;
  */
 export class AvatarController {
     orientationTarget: vec3 = vec3.create();
+    hitVelocity: vec3 = vec3.create();
     
-    update(avatar: Avatar, frame: number, dtSec: number, input: UserCommand): EntityState {
+    update(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand): EntityState {
         const state = avatar.state;
 
         // @HACK:
@@ -53,12 +55,40 @@ export class AvatarController {
 
         if (prevState.state === AvatarState.Struck) {
             const duration = frame - prevState.stateStartFrame;
-            if (duration > 34) {
+
+            if (this.hitVelocity[0] === 0 && this.hitVelocity[1] === 0 && this.hitVelocity[2] === 0) {
+                const avatarIdx = avatar.hitBy[0].state.parent;
+                const attacker = avatars[avatarIdx];
+
+                const v = vec3.sub(scratchVec3A, prevState.origin, attacker.state.origin);
+                const l = Math.sqrt(v[0] * v[0] + v[2] * v[2]) || 0.001;
+                const push = vec3.set(scratchVec3B, v[0] / l, 2.0, v[2] / l);
+                vec3.scale(this.hitVelocity, push, 1000);
+                assert(!Number.isNaN(this.hitVelocity[0]));
+                assert(!Number.isNaN(this.hitVelocity[1]));
+                assert(!Number.isNaN(this.hitVelocity[2]));
+            }
+
+            this.hitVelocity[1] += -9800 * dtSec;
+            const pos = vec3.scaleAndAdd(vec3.create(), prevState.origin, this.hitVelocity, dtSec);
+            if (pos[1] < 0.0) this.hitVelocity[1] = 0;
+
+            console.log(this.hitVelocity[1]);
+            
+            if (duration > 34 && pos[1] <= 0.0) {
                 avatar.hitBy.length = 0;
 
                 nextState.state = AvatarState.None; 
                 nextState.stateStartFrame = frame;
+                vec3.zero(this.hitVelocity);
             }
+
+            nextState.origin = pos;
+            nextState.speed = 0;
+            nextState.orientation = orientation;
+            nextState.flags = AvatarFlags.IsActive;
+
+            return nextState;
         }
         
         // Velocity
