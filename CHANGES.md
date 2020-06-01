@@ -22,6 +22,11 @@ This week I'd like to introduce a static collision system, for collisions agains
 
 The static collision system needs to support ground raycasting (e.g. find ground level below position), and movement collision with the outer pillars. I'd like to try doing this analytically rather than using traditional triangle based collision. The stage system can just set the outer radius (and an inner radius if I choose to add a pit), and the angles where the columns are. 
 
+##### Evening
+Alrighty! Ended up spending the half of the day implementing a StaticCollisionSystem, which has groundHeight() and wallCheck() functions that do as described above. The rest of the day I spent upgrading the bots (they can now live in a real game, and have position and orientation), adding throwback velocity when you get hit, and invulnerability periods during attacks. The idea is that each attack can be "parried" by another type, e.g. the horizontal attack can be jumped over by the vertical. The other two would be that you can roll around the vertical attack, and the horizontal attack hits before the roll does. 
+
+Tomorrow I need to add explicit attack periods, because for most of the time spent in an attack state the weapon should not be added to the collision system. Each attack should have attack, and invulnerability periods defined. I also need to start working on lock-on targeting, so that vertical attacks are easier to land.
+
 ### 2020-05-30
 ##### Evening
 ![Daily Screenshot](/screenshots//2020-05-30.png?raw=true)
