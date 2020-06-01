@@ -219,15 +219,15 @@ export class NetModuleServer {
             if (idx < 0) idx = this.clients.length;
             
             this.clients[idx] = client;
-            client.clientIndex = idx;
-
-            client.transmitConnectionInfo(idx);
         });
     }
 
     onClientConnected(client: NetClient) {
         console.log('Client connected:', client);
-        this.context.avatar.addAvatar(client);
+        const avatarIdx = this.context.avatar.addAvatar(client);
+
+        client.clientIndex = avatarIdx;
+        client.transmitConnectionInfo(avatarIdx);
 
         if (this.graph) client.setNetGraphPanel(this.graph.addPanel(`Server: ${client.id}`));
     }

@@ -419,9 +419,10 @@ export class AvatarSystemServer implements GameObjectFactory {
 
     addAvatar(client: AvatarClient) {
         // @TODO: Take over a bot slot?
-        const avatar = assertDefined(this.avatars.find(a => !a.isActive), 'Out of avatars');
-        avatar.state.flags |= AvatarFlags.IsActive;
-        avatar.client = client;
+        const avatarIdx = assertDefined(this.avatars.findIndex(a => !a.isActive), 'Out of avatars');
+        this.avatars[avatarIdx].state.flags |= AvatarFlags.IsActive;
+        this.avatars[avatarIdx].client = client;
+        return avatarIdx;
     }
 
     removeAvatar(client: AvatarClient) {

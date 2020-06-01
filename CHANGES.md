@@ -14,6 +14,8 @@ Change Log
 * Use sword attack edges to add a fake motion blur effect (See 2020-05-22)
 * Ground check each frame (Translate Y if not on ground, within small range) for Avatar's feet, so they don't penetrate
 * "Report bug" button which takes a screenshot, captures all logs, collects device info, and lets users write a statement.
+* Vector textures for particles. Fire quads without pixelation.
+* Drop shadows for avatars
 
 ### 2020-06-01
 ##### Morning
