@@ -1,10 +1,12 @@
-import { AvatarFlags, AvatarState, Avatar } from "./Avatar";
+import { AvatarFlags, Avatar } from "./Avatar";
 import { vec3 } from "gl-matrix";
 import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
 import { UserCommand } from "./UserCommand";
 import { EntityState, copyEntity, createEntity } from "./World";
-import { assert } from "./util";
+import { assert, defined } from "./util";
+import { Attack } from "./Attack";
+import { AvatarState } from "./AvatarState";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -36,24 +38,23 @@ export class AvatarController {
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
 
         // Attacking
-        if (prevState.state !== AvatarState.None) {
+        if (defined(avatar.attack)) {
             const duration = frame - prevState.stateStartFrame;
-            if (duration >= 92) { // @HACK: Need to set up proper exiting
+            if (duration >= avatar.attack.def.duration) { // @HACK: Need to set up proper exiting
                 nextState.state = AvatarState.None;
                 nextState.stateStartFrame = frame;
+                avatar.attack = null;
             }
         } else {
-            if (input.actions & InputAction.AttackSide) {
+            let attackState;
+            if (input.actions & InputAction.AttackSide) { attackState = AvatarState.AttackSide; }
+            if (input.actions & InputAction.AttackVert) { attackState = AvatarState.AttackVertical; }
+            if (input.actions & InputAction.AttackPunch) { attackState = AvatarState.AttackPunch; }
+
+            if (attackState) {
+                nextState.state = attackState;
                 nextState.stateStartFrame = frame;
-                nextState.state = AvatarState.AttackSide;
-            }
-            if (input.actions & InputAction.AttackVert) {
-                nextState.stateStartFrame = frame;
-                nextState.state = AvatarState.AttackVertical;
-            }
-            if (input.actions & InputAction.AttackPunch) {
-                nextState.stateStartFrame = frame;
-                nextState.state = AvatarState.AttackPunch;
+                avatar.attack = new Attack(avatar, attackState);
             }
         }
 

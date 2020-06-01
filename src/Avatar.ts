@@ -22,6 +22,8 @@ import { kEmptyCommand, UserCommand } from "./UserCommand";
 import { InputAction } from "./Input";
 import { EnvironmentSystem } from "./Environment";
 import { SideAttackBot, AvatarBotSystem, VertAttackBot } from "./AvatarBot";
+import { Attack } from "./Attack";
+import { AvatarState } from "./AvatarState";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -63,6 +65,7 @@ export class Avatar extends Object3D implements GameObject {
     collisionId: number;
     weapon: Weapon;
     hitBy: GameObject[] = [];
+    attack: Nullable<Attack>;
 
     get isActive() {
         return this.state && (this.state.flags & AvatarFlags.IsActive) > 0;
@@ -73,15 +76,6 @@ export enum AvatarFlags {
     IsActive = 1 << 0,
     IsWalking = 1 << 1,
     IsUTurning = 1 << 2,
-}
-
-export enum AvatarState {
-    None,
-    AttackSide,
-    AttackVertical,
-    AttackPunch,
-    AttackThrow,
-    Struck
 }
 
 const kGltfFilename = 'data/Tn.glb';

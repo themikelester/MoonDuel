@@ -3,11 +3,12 @@ import { DebugMenu, IDebugMenu } from "./DebugMenu";
 import { delerp, saturate, smoothstep } from "./MathHelpers";
 import { AnimationClip, AnimationMixer, AnimationAction } from "./Animation";
 import { assertDefined, defined } from "./util";
-import { Avatar, AvatarFlags, AvatarState } from "./Avatar";
+import { Avatar, AvatarFlags } from "./Avatar";
 import { GltfResource } from "./resources/Gltf";
 import { Clock } from "./Clock";
 import { kAvatarRunSpeed } from "./AvatarController";
 import { LoopOnce } from "three/src/constants";
+import { AvatarState } from "./AvatarState";
 
 const kWalkStartStopTimes = [0.25, 0.75]; // Normalized times at which one foot is on the ground and the body is centered over its position
 const kRunStartStopTimes = [0.15, 0.65];
