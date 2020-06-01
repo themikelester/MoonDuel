@@ -17,7 +17,7 @@ import { Weapon, WeaponSystem } from "./Weapon";
 import { SimStream, SimState, EntityState, World, GameObjectType, GameObject, GameObjectFactory } from "./World";
 import { vec3, mat4 } from "gl-matrix";
 import { DebugRenderUtils } from "./DebugRender";
-import { CollisionSystem } from "./Collision";
+import { CollisionSystem, StaticCollisionSystem } from "./Collision";
 import { kEmptyCommand } from "./UserCommand";
 import { InputAction } from "./Input";
 import { EnvironmentSystem } from "./Environment";
@@ -30,6 +30,7 @@ interface ServerDependencies {
 
     net: NetModuleServer;
     collision: CollisionSystem;
+    staticCollision: StaticCollisionSystem;
 }
 
 interface ClientDependencies {
@@ -87,6 +88,10 @@ const kBaseObb = mat4.fromValues(
 );
 
 const scratchMat4 = mat4.create();
+const scratchVec3a = vec3.create();
+const scratchVec3b = vec3.create();
+const scratchVector3a = new Vector3(scratchVec3a);
+const scratchVector3b = new Vector3(scratchVec3b);
 
 export class AvatarSystemClient implements GameObjectFactory {
     public localAvatar: Avatar; // @HACK:
@@ -330,25 +335,46 @@ export class AvatarSystemServer implements GameObjectFactory {
 
             avatar.updateMatrix();
             avatar.updateMatrixWorld();
+        }
+
+        // Update skeleton joint positions
+        this.animation.update(game.clock);
+
+        for (let i = 0; i < kAvatarCount; i++) {
+            const avatar = this.avatars[i];
+            const state = avatar.state;
+
+            if (!avatar.isActive || !avatar.skeleton) continue;
+
+            const headBone = assertDefined(avatar.skeleton.getBoneByName('j_tn_atama1'));
+            const rootBone = assertDefined(avatar.skeleton.getBoneByName('j_tn_kosi1'));
+            headBone?.getWorldPosition(scratchVector3a);
+            rootBone?.getWorldPosition(scratchVector3b);
+            const a = scratchVector3a.buffer;
+            const b = scratchVector3b.buffer;
+
+            // Check for wall/ground collisions
+            const wallOut = scratchVec3a;
+            if (game.staticCollision.wallCheck({ a, b, radius: 60 }, wallOut)) {
+                vec3.add(state.origin, state.origin, wallOut);
+            }
 
             // Register bounds with the collision system
             (scratchMat4 as Float32Array).set(avatar.matrixWorld.elements);
             mat4.multiply(avatar.bounds, scratchMat4, kBaseObb);
             avatar.collisionId = game.collision.addTargetObb(avatar.bounds, avatar);
 
-            // And register them with the collision system
+            // And register attacks as well
             if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
                 game.collision.addAttackRegion({ verts: avatar.weapon.attackQuad }, avatar.weapon);
             }
         }
-
-        this.animation.update(game.clock);
     }
 
     updateFixedLate({ collision, clock }: { collision: CollisionSystem, clock: Clock }) {
         // Once all the avatar positions have been fully resolved, check for hits
         for (const avatar of this.avatars) {
-            if (avatar.isActive) {
+            if (avatar.isActive && avatar.skeleton) {
                 const hits = collision.getHitsForTarget(avatar.collisionId);
                 if (hits.length > 0) {
                     if (avatar.state.state !== AvatarState.Struck) {

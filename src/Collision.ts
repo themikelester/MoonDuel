@@ -175,3 +175,54 @@ export class CollisionSystem {
     DebugRenderUtils.renderQuads(quads);
   }
 }
+
+interface Capsule {
+  a: vec3;
+  b: vec3;
+  radius: number;
+}
+
+export class StaticCollisionSystem {
+  private outerRadius: number;
+  private outerRadiusSquared: number;
+
+  setStageRadius(radius: number) {
+    this.outerRadius = radius;
+    this.outerRadiusSquared = this.outerRadius * this.outerRadius;
+  }
+
+  /**
+   * Get the height of the ground at a given position
+   */
+  groundHeight(pos: vec3, maxLength: number): number {
+    return 0;
+  }
+
+  /**
+   * Test a capsule for collision with walls. If inside, output a vector that would move the capsule outside the wall.
+   * @param capsule - The capsule to collide 
+   * @param outVec - If inside a wall, a vector that when added to the capsule position would move it outside the wall
+   * @returns - True if the capsule is intersecting a wall, false otherwise
+   */
+  wallCheck(capsule: Capsule, outVec: vec3): boolean {
+    const distAA = capsule.a[0] * capsule.a[0] + capsule.a[2] * capsule.a[2];
+    const distBB = capsule.b[0] * capsule.b[0] + capsule.b[2] * capsule.b[2];
+    const distSquared = Math.max(distAA, distBB);
+    const dist = Math.sqrt(distSquared) + capsule.radius;
+
+    if (dist > this.outerRadius) {
+      const p = distAA > distBB ? capsule.a : capsule.b;
+      const v = this.outerRadius / dist - 1.0;
+
+      outVec[0] = p[0] * v;
+      outVec[1] = 0;
+      outVec[2] = p[2] * v;
+      return true;
+    }
+      
+    return false;
+  }
+
+  debugRender() {
+  }
+}

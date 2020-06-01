@@ -11,7 +11,7 @@ import { SignalSocket, SignalSocketEvents, ClientId } from './net/SignalSocket';
 import { DebugMenu } from './DebugMenu';
 import { SimStream, World } from './World';
 import { WeaponSystem } from './Weapon';
-import { CollisionSystem } from './Collision';
+import { CollisionSystem, StaticCollisionSystem } from './Collision';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -21,6 +21,7 @@ export class Server {
     public debugMenu: DebugMenu = new DebugMenu();
     public world = new World();
     public collision = new CollisionSystem();
+    public staticCollision = new StaticCollisionSystem();
 
     // Modules
     public avatar = new AvatarSystemServer();
@@ -46,6 +47,9 @@ export class Server {
         this.net.initialize(this);
         this.avatar.initialize(this);
         this.weapon.initialize(this);
+
+        // @HACK:
+        this.staticCollision.setStageRadius(2000);
 
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
@@ -90,7 +94,7 @@ export class Server {
 
     private update() {
         this.resources.update();
-        this.collision.debugRender();
+        // this.collision.debugRender();
     }
 
     private onUnload() {
