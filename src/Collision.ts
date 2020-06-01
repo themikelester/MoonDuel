@@ -195,7 +195,8 @@ export class StaticCollisionSystem {
    * Get the height of the ground at a given position
    */
   groundHeight(pos: vec3, maxLength: number): number {
-    return 0;
+    const distSquared = vec3.dot(pos, pos);
+    return distSquared > this.outerRadiusSquared ? -10000 : 0;
   }
 
   /**

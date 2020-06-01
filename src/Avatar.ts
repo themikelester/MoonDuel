@@ -348,12 +348,20 @@ export class AvatarSystemServer implements GameObjectFactory {
 
             const headBone = assertDefined(avatar.skeleton.getBoneByName('j_tn_atama1'));
             const rootBone = assertDefined(avatar.skeleton.getBoneByName('j_tn_kosi1'));
+            const leftFoot = assertDefined(avatar.skeleton.getBoneByName('j_tn_asi_l3'));
+            const rightFoot = assertDefined(avatar.skeleton.getBoneByName('j_tn_asi_r3'));
+
             headBone?.getWorldPosition(scratchVector3a);
             rootBone?.getWorldPosition(scratchVector3b);
             const a = scratchVector3a.buffer;
             const b = scratchVector3b.buffer;
 
-            // Check for wall/ground collisions
+            // Check for ground collisions
+            const footHeight = Math.min(leftFoot.matrixWorld.elements[13], rightFoot.matrixWorld.elements[13]) - 10.0;
+            const groundHeight = game.staticCollision.groundHeight(b, 1000);
+            if (footHeight < groundHeight) state.origin[1] += groundHeight - footHeight;
+
+            // Check for wall collisions
             const wallOut = scratchVec3a;
             if (game.staticCollision.wallCheck({ a, b, radius: 60 }, wallOut)) {
                 vec3.add(state.origin, state.origin, wallOut);
