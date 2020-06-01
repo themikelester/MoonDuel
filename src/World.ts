@@ -334,7 +334,7 @@ export function createEntity(): EntityState {
     
     flags: 0,
     origin: vec3.create(),
-    orientation: vec3.create(),
+    orientation: vec3.fromValues(0, 0, 1),
     parent: -1,
 
     state: 0,

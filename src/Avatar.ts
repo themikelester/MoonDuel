@@ -228,10 +228,8 @@ export class AvatarSystemServer implements GameObjectFactory {
     initialize(game: ServerDependencies) {
         game.world.registerFactory(GameObjectType.Avatar, this);
 
-        const baseline: Partial<EntityState> = { orientation: vec3.fromValues(0, 0, 1) };
-
         for (let i = 0; i < kAvatarCount; i++) {
-            this.avatars[i] = game.world.createGameObject(GameObjectType.Avatar, baseline) as Avatar;
+            this.avatars[i] = game.world.createGameObject(GameObjectType.Avatar) as Avatar;
         }
 
         for (let i = 0; i < kAvatarCount; i++) {

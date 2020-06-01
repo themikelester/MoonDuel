@@ -47,6 +47,8 @@ export class VertAttackBot extends AvatarBot {
 }
 
 export class AvatarBotSystem {
+  bots: AvatarBot[] = [];
+
   constructor(private avatarSystem: AvatarSystemServer, private avatars: Avatar[]) {}
 
   addBot(bot: AvatarBot, pos?: vec3) {
@@ -54,5 +56,6 @@ export class AvatarBotSystem {
     bot.avatar = this.avatars[avatarIdx];
     if (pos) vec3.copy(bot.avatar.state.origin, pos);
     if (pos) vec3.normalize(bot.avatar.state.orientation, vec3.negate(bot.avatar.state.orientation, pos));
+    this.bots.push(bot);
   }
 }
