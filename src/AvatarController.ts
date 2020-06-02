@@ -62,8 +62,7 @@ export class AvatarController {
             const duration = frame - prevState.stateStartFrame;
 
             if (this.hitVelocity[0] === 0 && this.hitVelocity[1] === 0 && this.hitVelocity[2] === 0) {
-                const avatarIdx = avatar.hitBy[0].state.parent;
-                const attacker = avatars[avatarIdx];
+                const attacker = avatar.hitBy[0].instigator;
 
                 const v = vec3.sub(scratchVec3A, prevState.origin, attacker.state.origin);
                 const l = Math.sqrt(v[0] * v[0] + v[2] * v[2]) || 0.001;

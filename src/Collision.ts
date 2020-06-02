@@ -3,6 +3,7 @@ import { intersectAabbTriangle } from "./Intersection";
 import { GameObject } from "./World";
 import { assert } from "./util";
 import { DebugRenderUtils } from "./DebugRender";
+import { Attack } from "./Attack";
 
 export class Obb {
   center: vec3 = vec3.create();
@@ -75,7 +76,7 @@ export interface Quad {
 }
 
 export interface HitResult {
-  owner: GameObject;
+  owner: Attack;
   pos: vec3;
 }
 
@@ -93,7 +94,7 @@ const scratchAabb: Aabb = {
 
 export class CollisionSystem {
   attacks: Quad[] = [];
-  attackOwners: GameObject[] = [];
+  attackOwners: Attack[] = [];
 
   targets: Obb[] = [];
   targetOwners: GameObject[] = [];
@@ -106,9 +107,9 @@ export class CollisionSystem {
     }
   }
 
-  addAttackRegion(quad: Quad, owner: GameObject) {
+  addAttackRegion(quad: Quad, attack: Attack) {
     this.attacks.push(quad);
-    this.attackOwners.push(owner);
+    this.attackOwners.push(attack);
   }
 
   addTargetObb(obb: Obb | mat4, owner: GameObject) {

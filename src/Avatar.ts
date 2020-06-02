@@ -22,7 +22,7 @@ import { kEmptyCommand, UserCommand } from "./UserCommand";
 import { InputAction } from "./Input";
 import { EnvironmentSystem } from "./Environment";
 import { SideAttackBot, AvatarBotSystem, VertAttackBot } from "./AvatarBot";
-import { Attack } from "./Attack";
+import { Attack, evaluateHit } from "./Attack";
 import { AvatarState } from "./AvatarState";
 
 interface ServerDependencies {
@@ -64,7 +64,7 @@ export class Avatar extends Object3D implements GameObject {
     bounds: mat4 = mat4.create();
     collisionId: number;
     weapon: Weapon;
-    hitBy: GameObject[] = [];
+    hitBy: Attack[] = [];
     attack: Nullable<Attack>;
 
     get isActive() {
@@ -365,8 +365,8 @@ export class AvatarSystemServer implements GameObjectFactory {
             avatar.collisionId = game.collision.addTargetObb(avatar.bounds, avatar);
 
             // And register attacks as well
-            if (state.state === AvatarState.AttackSide || state.state === AvatarState.AttackVertical) {
-                game.collision.addAttackRegion({ verts: avatar.weapon.attackQuad }, avatar.weapon);
+            if (defined(avatar.attack)) {
+                game.collision.addAttackRegion({ verts: avatar.weapon.attackQuad }, avatar.attack);
             }
         }
     }
@@ -378,37 +378,9 @@ export class AvatarSystemServer implements GameObjectFactory {
                 const hits = collision.getHitsForTarget(avatar.collisionId);
                 if (hits.length > 0) {
                     for (const hit of hits) {
-                        const weapon = hit.owner;
-                        const attacker = this.avatars[weapon.state.parent];
-
-                        const stateDuration = (clock.simFrame - avatar.state.stateStartFrame) * clock.simDt;
-                        const jumpSafeStart = 0.1 * 1.43 * 1000.0;
-                        const jumpSafeEnd = 0.4 * 1.43 * 1000.0;
-
-                        if (avatar.state.state === AvatarState.AttackVertical && attacker.state.state === AvatarState.AttackSide) {
-                            if (stateDuration > jumpSafeStart && stateDuration < jumpSafeEnd) {
-                                continue;
-                            }
-                        }
-
-                        if (avatar.state.state === AvatarState.AttackPunch && attacker.state.state === AvatarState.AttackVertical) {
-                            if (stateDuration > jumpSafeStart && stateDuration < jumpSafeEnd) {
-                                continue;
-                            }
-                        }
-
-                        if (avatar.state.state === AvatarState.AttackSide && attacker.state.state === AvatarState.AttackPunch) {
-                            if (stateDuration > jumpSafeStart && stateDuration < jumpSafeEnd) {
-                                continue;
-                            }
-                        }
-
-                        // Don't allow consecutive hits by the same weapon
-                        const alreadyHit = avatar.hitBy.includes(weapon);
-                        if (!alreadyHit) {
-                            avatar.hitBy.push(weapon);
-
-                            // TODO: Apply damage, etc.
+                        const attack = hit.owner;
+                        if (evaluateHit(avatar, attack, clock)) {
+                            avatar.hitBy.push(attack);
                         }
                     }
 
