@@ -56,6 +56,7 @@ export class Avatar extends Object3D implements GameObject {
 
     client: Nullable<AvatarClient>;
     local: boolean = false;
+    isBot: boolean = false;
 
     nodes: GltfNode[];
     animationMixer: AnimationMixer;

@@ -54,6 +54,7 @@ export class AvatarBotSystem {
   addBot(bot: AvatarBot, pos?: vec3) {
     const avatarIdx = this.avatarSystem.addAvatar(bot);
     bot.avatar = this.avatars[avatarIdx];
+    bot.avatar.isBot = true;
     if (pos) vec3.copy(bot.avatar.state.origin, pos);
     if (pos) vec3.normalize(bot.avatar.state.orientation, vec3.negate(bot.avatar.state.orientation, pos));
     this.bots.push(bot);
