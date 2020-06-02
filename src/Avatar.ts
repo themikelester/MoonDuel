@@ -366,7 +366,11 @@ export class AvatarSystemServer implements GameObjectFactory {
 
             // And register attacks as well
             if (defined(avatar.attack)) {
-                game.collision.addAttackRegion({ verts: avatar.weapon.attackQuad }, avatar.attack);
+                const attackFrame = (game.clock.simFrame - avatar.state.stateStartFrame);
+                const attackPeriod = avatar.attack.def.attackPeriod;
+                if (attackFrame >= attackPeriod[0] && attackFrame <= attackPeriod[1]) {
+                    game.collision.addAttackRegion({ verts: avatar.weapon.attackQuad }, avatar.attack);
+                }
             }
         }
     }

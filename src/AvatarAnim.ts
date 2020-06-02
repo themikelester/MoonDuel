@@ -44,11 +44,25 @@ class AnimationDebugMenu {
                     this.that.debugAnimation.time = normalizedTime * this.that.debugAnimation.getClip().duration;
                 }
             },
+            get frame() {
+                if (defined(this.that.debugAnimation)) {
+                    const time = this.that.debugAnimation.time;
+                    const frame = time / 0.016;
+                    return frame;
+                } else return 0.0;
+            },
+            set frame(frame: number) {
+                if (defined(this.that.debugAnimation)) {
+                    this.that.debugAnimation.paused = true;
+                    this.that.debugAnimation.time = (frame * 0.016) % this.that.debugAnimation.getClip().duration;
+                }
+            },
         }
 
         this.debugMenu.add(funcs, 'togglePaused');
         this.debugMenu.add(funcs, 'stop');
         this.debugMenu.add(funcs, 'time', 0.0, 1.0, 0.01);
+        this.debugMenu.add(funcs, 'frame', 0, 100, 1);
 
         const playAnimMap: { [name: string]: () => void } = {};
         for (const anim of animations) {
