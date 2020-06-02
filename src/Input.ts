@@ -67,12 +67,9 @@ export class InputManager {
         this.controller.registerKeys(Keymap[InputAction.Walk].id, ['ShiftLeft', 'ShiftRight']);
         this.controller.registerKeys(Keymap[InputAction.Fullscreen].id, ['Backslash']);
 
-        this.controller.registerKeys(Keymap[InputAction.AttackSide].id, ['ArrowLeft']);
+        this.controller.registerKeys(Keymap[InputAction.AttackSide].id, ['ArrowRight']);
         this.controller.registerKeys(Keymap[InputAction.AttackVert].id, ['ArrowUp']);
-        this.controller.registerKeys(Keymap[InputAction.AttackPunch].id, ['ArrowRight']);
-
-        this.controller.registerMouse(Keymap[InputAction.AttackSide].id, [MouseButtons.Left]);
-        this.controller.registerMouse(Keymap[InputAction.AttackVert].id, [MouseButtons.Right]);
+        this.controller.registerKeys(Keymap[InputAction.AttackPunch].id, ['ArrowLeft']);
 
         this.controller.disableContextMenu();
     }
