@@ -104,20 +104,22 @@ export class AvatarController {
                 nextState.stateStartFrame = frame;
                 avatar.attack = new Attack(avatar, attackState);
             }
+        } else {
+            const duration = frame - prevState.stateStartFrame;
+            if (duration >= avatar!.attack.def.duration) { // @HACK: Need to set up proper exiting
+                nextState.state = AvatarState.None;
+                nextState.stateStartFrame = frame;
+                avatar.attack = null;
+            }
         }
 
         if (defined(avatar.attack)) {
             const duration = frame - prevState.stateStartFrame;
             const attack = avatar.attack!;
-
-            if (duration >= attack.def.duration) { // @HACK: Need to set up proper exiting
-                nextState.state = AvatarState.None;
-                nextState.stateStartFrame = frame;
-                avatar.attack = null;
-            }
             
             let toTarget = scratchVec3B;
-            let velSpeed = 0;
+            let toIdeal = scratchVec3A;
+            let moveSpeed = 0;
             let oriVel = 0;
             if (avatar.target && duration >= attack.def.movePeriod[0] && duration <= attack.def.movePeriod[1]) {
                 const targetPos = avatar.target.state.origin;
@@ -130,10 +132,10 @@ export class AvatarController {
 
                 // Signed distance to travel along v to reach ideal position
                 const d = l - attack.def.idealDistance;
-                vec3.scale(v, v, Math.sign(d));
+                vec3.scale(toIdeal, v, Math.sign(d));
 
                 // Ensure we don't travel past our ideal position this frame
-                velSpeed = Math.min(attack.def.moveSpeed, Math.abs(d) / dtSec);
+                moveSpeed = Math.min(attack.def.moveSpeed, Math.abs(d) / dtSec);
 
                 // Modify orientation to look at target
                 oriVel = Math.PI * 2;
@@ -142,12 +144,12 @@ export class AvatarController {
             // If we have leftover running momentum, apply it
             const kGroundDecel = -1600;
             const contrib = Math.max(0, vec3.dot(prevState.orientation, nextState.orientation));
-            velSpeed += prevState.speed * contrib;
+            const slideSpeed = prevState.speed * contrib;
             nextState.speed = Math.max(0, prevState.speed + kGroundDecel * dtSec);
-            if (!avatar.isBot) console.log(velSpeed);
 
-            const vel = vec3.scale(scratchVec3A, toTarget, velSpeed);
+            const vel = vec3.scale(scratchVec3A, toIdeal, moveSpeed + slideSpeed);
             vec3.scaleAndAdd(nextState.origin, prevState.origin, vel, dtSec);
+
             rotateTowardXZ(nextState.orientation, prevState.orientation, toTarget, oriVel * dtSec);
             assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
 
