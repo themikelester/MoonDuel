@@ -76,8 +76,6 @@ export class AvatarController {
             this.hitVelocity[1] += -9800 * dtSec;
             const pos = vec3.scaleAndAdd(vec3.create(), prevState.origin, this.hitVelocity, dtSec);
             if (pos[1] < 0.0) this.hitVelocity[1] = 0;
-
-            console.log(this.hitVelocity[1]);
             
             if (duration > 34 && pos[1] <= 0.0) {
                 avatar.hitBy.length = 0;
