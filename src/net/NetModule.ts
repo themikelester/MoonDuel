@@ -217,6 +217,10 @@ export class NetModuleServer {
 
             let idx = this.clients.indexOf(null);
             if (idx < 0) idx = this.clients.length;
+
+            const avatarIdx = this.context.avatar.addAvatar(client);
+            client.clientIndex = avatarIdx;
+            client.transmitConnectionInfo(client.clientIndex);
             
             this.clients[idx] = client;
         });
@@ -224,10 +228,6 @@ export class NetModuleServer {
 
     onClientConnected(client: NetClient) {
         console.log('Client connected:', client);
-        const avatarIdx = this.context.avatar.addAvatar(client);
-
-        client.clientIndex = avatarIdx;
-        client.transmitConnectionInfo(avatarIdx);
 
         if (this.graph) client.setNetGraphPanel(this.graph.addPanel(`Server: ${client.id}`));
     }
