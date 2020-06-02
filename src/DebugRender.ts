@@ -7,9 +7,15 @@ import { RenderPrimitive } from './RenderPrimitive';
 import { renderLists } from './RenderList';
 
 // ----------------------------------------------------------------------------------
+// Constants
+// ----------------------------------------------------------------------------------
+const renderFormatBlending: Gfx.RenderFormat = { blendingEnabled: true, srcBlendFactor: Gfx.BlendFactor.Source, dstBlendFactor: Gfx.BlendFactor.OneMinusSource };
+const renderFormatNoBlending: Gfx.RenderFormat = { blendingEnabled: false };
+
+// ----------------------------------------------------------------------------------
 // Types
 // ----------------------------------------------------------------------------------
-interface Primitive {
+class Primitive {
   shader: Gfx.Id;
   pipeline: Gfx.Id;
   resources: Gfx.Id;
@@ -19,7 +25,14 @@ interface Primitive {
   depthState: Gfx.Id;
   uniforms: UniformBuffer;
 
-  count: number;
+  indexCount: number;
+
+  count: number = 0;
+}
+
+interface PrimitiveDescriptor extends Gfx.ShaderDescriptor {
+    vertexLayout: Gfx.VertexLayout;
+    resourceLayout: Gfx.ShaderResourceLayout;
 }
 
 // ----------------------------------------------------------------------------------
@@ -165,9 +178,39 @@ export class DebugRenderUtils {
   static renderer: Gfx.Renderer;
   static globalUniforms: GlobalUniforms;
 
+  static shapes: Record<string, Primitive> = {};
+  static depthDisabled: Gfx.Id;
+
   static setContext(renderer: Gfx.Renderer, globalUniforms: GlobalUniforms) {
     this.renderer = renderer;
     this.globalUniforms = globalUniforms;
+  }
+
+  static createShape(shader: PrimitiveDescriptor, maxCount: number, vertices: number[], indices: number[], depthTest: boolean) {
+    const prim = {} as Primitive;
+    prim.shader = this.renderer.createShader(shader);
+    prim.pipeline = this.renderer.createRenderPipeline(prim.shader, renderFormatBlending, shader.vertexLayout, shader.resourceLayout);
+    prim.resources = this.renderer.createResourceTable(shader.resourceLayout);
+    prim.vertTable = this.renderer.createVertexTable(prim.pipeline);
+    prim.depthState = this.depthDisabled;
+    prim.indexBuffer = this.renderer.createBuffer('ShapeIndices', Gfx.BufferType.Index, Gfx.Usage.Static, new Uint16Array(indices));
+    prim.indexCount = indices.length;
+    prim.count = 0;
+
+    // Instance data
+    if (shader.vertexLayout.buffers[1]) {
+      prim.vertexBuffer = this.renderer.createBuffer('ShapeInstances', Gfx.BufferType.Vertex, Gfx.Usage.Dynamic, 
+        maxCount * shader.vertexLayout.buffers[1].stride);
+    }
+
+    // Static vertices
+    const vertBuffer = this.renderer.createBuffer('QuadVerts', Gfx.BufferType.Vertex, Gfx.Usage.Static, new Float32Array(vertices));
+    this.renderer.setVertexBuffer(prim.vertTable, 0, { buffer: vertBuffer });
+    this.renderer.setVertexBuffer(prim.vertTable, 1, { buffer: prim.vertexBuffer });
+
+    this.renderer.setBuffer(prim.resources, 0, this.globalUniforms.bufferView);
+
+    return prim;
   }
 
   /** Lazy initialization so that we don't waste time compiling shaders during production (unless we need to) */
@@ -219,11 +262,7 @@ export class DebugRenderUtils {
     const unitCubeVertLayout: Gfx.BufferLayout = { a_pos: { type: Gfx.Type.Float3, offset: 0 } };
     const unitCubeVertBufLayout: Gfx.VertexLayout = { buffers: [{ stride: 4 * 3, layout: unitCubeVertLayout }] };
 
-    const renderFormatBlending: Gfx.RenderFormat = { blendingEnabled: true, srcBlendFactor: Gfx.BlendFactor.Source, dstBlendFactor: Gfx.BlendFactor.OneMinusSource };
-    const renderFormatNoBlending: Gfx.RenderFormat = { blendingEnabled: false };
-
     const depthTestWrite = this.renderer.createDepthStencilState({ depthTestEnabled: true, depthWriteEnabled: true });
-    const depthTest = this.renderer.createDepthStencilState({ depthTestEnabled: true, depthWriteEnabled: false });
     const depthDisabled = this.renderer.createDepthStencilState({ depthTestEnabled: false, depthWriteEnabled: false });
 
     // ----------------------------------------------------------------------------------
@@ -342,6 +381,87 @@ export class DebugRenderUtils {
 
     this.renderer.setVertexBuffer(quadsPrim.vertTable, 0, { buffer: quadsPrim.vertexBuffer });
     this.renderer.setBuffer(quadsPrim.resources, 0, this.globalUniforms.bufferView);
+
+    // ----------------------------------------------------------------------------------
+    // Arrow2D
+    // ----------------------------------------------------------------------------------
+    const arrowVs = `
+      attribute vec2 a_pos;
+
+      // Instanced
+      attribute vec3 a_origin;
+      attribute vec3 a_dir;
+      attribute float a_scale;
+      attribute vec4 a_color;
+
+      uniform mat4 g_viewProj;
+
+      varying lowp vec4 v_color;
+
+      void main()
+      {
+        v_color = a_color;
+
+        vec3 forward = normalize(a_dir);
+        vec3 up = vec3(0, 1, 0);
+        vec3 right = cross(forward, up);
+        up = cross(right, forward);
+
+        mat3 world = mat3(right, up, forward);
+        vec3 worldPos = a_origin + world * vec3(a_pos.x, 0, a_pos.y) * a_scale;
+        
+        gl_Position = g_viewProj * vec4(worldPos, 1.0);
+      }
+    `;
+
+    const arrowVertLayout: Gfx.VertexLayout = {
+      buffers: [
+        {
+          stride: 8,
+          layout: {
+            a_pos: { offset: 0, type: Gfx.Type.Float2 }
+          }
+        }, 
+        {
+          stride: 48,
+          layout: {
+            a_origin: { offset: 0, type: Gfx.Type.Float3 },
+            a_dir:    { offset: 12, type: Gfx.Type.Float3 },
+            a_scale:  { offset: 24, type: Gfx.Type.Float },
+            a_color:  { offset: 32, type: Gfx.Type.Float4 },
+          },
+          stepMode: Gfx.StepMode.Instance
+        },
+      ]
+    };
+
+    const arrowShader: PrimitiveDescriptor = {
+      name: 'Arrow',
+      vertSource: arrowVs,
+      fragSource: vertColorFs,
+      vertexLayout: arrowVertLayout,
+      resourceLayout: {
+        globalUniforms: { index: 0, type: Gfx.BindingType.UniformBuffer, layout: GlobalUniforms.bufferLayout },
+      }
+    };
+
+    const arrowVerts = [
+      -1, 0,
+      -1, 4,
+      -2, 4,
+       0, 7,
+       2, 4,
+       1, 4,
+       1, 0,
+    ];
+
+    const arrowIndices = [
+      0, 6, 1,
+      1, 6, 5,
+      2, 4, 3
+    ];
+
+    this.shapes['Arrow'] = this.createShape(arrowShader, 16, arrowVerts, arrowIndices, false);
 
     // ----------------------------------------------------------------------------------
     // Sphere
@@ -528,6 +648,31 @@ export class DebugRenderUtils {
     spherePrim.count += spheres.length;
   }
 
+  static renderArrows(pos: vec3[], dir: vec3[], scale: number, color: vec4 = defaultSphereColor) {
+    if (!defined(obbPrim.pipeline)) {
+      this.initialize();
+      return; 
+    }
+
+    const shape = this.shapes['Arrow'];
+    const arrowCount = pos.length;
+    const floatStride = 12;
+
+    // Encode positions and write to vertex buffer
+    const scaleArr = [scale];
+    for (let i = 0; i < arrowCount; i++) {
+      floatScratch.set(pos[i],   i * floatStride + 0);
+      floatScratch.set(dir[i],   i * floatStride + 3);
+      floatScratch.set(scaleArr, i * floatStride + 6);
+      floatScratch.set(color,    i * floatStride + 8);
+    }
+
+    this.renderer.writeBufferData(shape.vertexBuffer, shape.count * floatStride * 4, 
+      floatScratch.subarray(0, arrowCount * floatStride));
+
+    shape.count += arrowCount;
+  }
+
   static flush() {
     if (pointsPrim.count > 0) {
       const prim: RenderPrimitive = {
@@ -579,6 +724,28 @@ export class DebugRenderUtils {
       renderLists.debug.push(prim);
       
       quadsPrim.count = 0;
+    }
+
+    for (const key in this.shapes) {
+      const shape = this.shapes[key];
+      if (shape.count > 0) {
+        const prim: RenderPrimitive = {
+          renderPipeline: shape.pipeline,
+          depthMode: shape.depthState,
+          resourceTable: shape.resources,
+          vertexTable: shape.vertTable,
+          type: Gfx.PrimitiveType.Triangles,
+          elementCount: shape.indexCount,
+          instanceCount: shape.count,
+  
+          indexBuffer: { buffer: shape.indexBuffer },
+          indexType: Gfx.Type.Ushort,
+        }
+        
+        renderLists.debug.push(prim);
+        
+        shape.count = 0;
+      }
     }
   }
 }
