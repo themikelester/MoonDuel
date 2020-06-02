@@ -118,7 +118,7 @@ export class AvatarController {
             const attack = avatar.attack!;
             
             let toTarget = scratchVec3B;
-            let toIdeal = scratchVec3A;
+            let dir = vec3.copy(scratchVec3A, prevState.orientation);
             let moveSpeed = 0;
             let oriVel = 0;
             if (avatar.target && duration >= attack.def.movePeriod[0] && duration <= attack.def.movePeriod[1]) {
@@ -132,7 +132,7 @@ export class AvatarController {
 
                 // Signed distance to travel along v to reach ideal position
                 const d = l - attack.def.idealDistance;
-                vec3.scale(toIdeal, v, Math.sign(d));
+                vec3.scale(dir, v, Math.sign(d));
 
                 // Ensure we don't travel past our ideal position this frame
                 moveSpeed = Math.min(attack.def.moveSpeed, Math.abs(d) / dtSec);
@@ -147,7 +147,7 @@ export class AvatarController {
             const slideSpeed = prevState.speed * contrib;
             nextState.speed = Math.max(0, prevState.speed + kGroundDecel * dtSec);
 
-            const vel = vec3.scale(scratchVec3A, toIdeal, moveSpeed + slideSpeed);
+            const vel = vec3.scale(scratchVec3A, dir, moveSpeed + slideSpeed);
             vec3.scaleAndAdd(nextState.origin, prevState.origin, vel, dtSec);
 
             rotateTowardXZ(nextState.orientation, prevState.orientation, toTarget, oriVel * dtSec);
