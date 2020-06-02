@@ -116,8 +116,8 @@ export class AvatarController {
                 avatar.attack = null;
             }
             
-            let vel = vec3.zero(scratchVec3A);
             let toTarget = scratchVec3B;
+            let velSpeed = 0;
             let oriVel = 0;
             if (avatar.target && duration >= attack.def.movePeriod[0] && duration <= attack.def.movePeriod[1]) {
                 const targetPos = avatar.target.state.origin;
@@ -130,24 +130,28 @@ export class AvatarController {
 
                 // Signed distance to travel along v to reach ideal position
                 const d = l - attack.def.idealDistance;
+                vec3.scale(v, v, Math.sign(d));
 
                 // Ensure we don't travel past our ideal position this frame
-                const speed = Math.min(attack.def.moveSpeed, Math.abs(d) / dtSec);
-                vec3.scale(vel, v, speed * Math.sign(d));
+                velSpeed = Math.min(attack.def.moveSpeed, Math.abs(d) / dtSec);
 
                 // Modify orientation to look at target
                 oriVel = Math.PI * 2;
-
-                if (!avatar.isBot) console.log(nextState.orientation, v);
             }
 
+            // If we have leftover running momentum, apply it
+            const kGroundDecel = -1600;
+            const contrib = Math.max(0, vec3.dot(prevState.orientation, nextState.orientation));
+            velSpeed += prevState.speed * contrib;
+            nextState.speed = Math.max(0, prevState.speed + kGroundDecel * dtSec);
+            if (!avatar.isBot) console.log(velSpeed);
+
+            const vel = vec3.scale(scratchVec3A, toTarget, velSpeed);
             vec3.scaleAndAdd(nextState.origin, prevState.origin, vel, dtSec);
             rotateTowardXZ(nextState.orientation, prevState.orientation, toTarget, oriVel * dtSec);
             assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
 
-            nextState.speed = 0;
             nextState.flags = AvatarFlags.IsActive;
-            
             return nextState;
         } 
         
