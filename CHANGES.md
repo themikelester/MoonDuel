@@ -27,6 +27,8 @@ Well I didn't start on camera work, but I'm happy with the progress I made with 
 
 There is currently a bug where if you are hit while attacking, you will stay stunned for too long. I believe that this is because you are still in the attacking state (avatar.attack is non-null). Should be an easy fix, but this is probably the right time to switch to a proper state machine. I.e. each state has specific controller logic that is not shared with any others. The only data shared between states is what is in the official avatar state (yuck, overloaded word). I'll do that tomorrow, and then hopefully work on camera.
 
+I also need to add a visual indication for targeting. I'd like to do something like Wind Waker which uses the bouncing jiggling arrow. I think that works well.
+
 ### 2020-06-01
 ##### Morning
 This week I'd like to introduce a static collision system, for collisions against the background geometry. This will allow me to handle the avatar bumping against the columns, falling off the outside, gitting hit into the air and falling back to the ground, and sword throwing. Afterwards I think I'll work on a lock-on camera, and bots for testing. A bot should be creatable with some simple actions, such an action to do repeatedly (e.g. horizontal or vertical attack). 
