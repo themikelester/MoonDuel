@@ -21,7 +21,7 @@ import { CollisionSystem, StaticCollisionSystem } from "./Collision";
 import { kEmptyCommand, UserCommand } from "./UserCommand";
 import { InputAction } from "./Input";
 import { EnvironmentSystem } from "./Environment";
-import { SideAttackBot, AvatarBotSystem, VertAttackBot } from "./AvatarBot";
+import { SideAttackBot, AvatarBotSystem, VertAttackBot, AvatarBot } from "./AvatarBot";
 import { Attack, evaluateHit } from "./Attack";
 import { AvatarState } from "./AvatarState";
 
@@ -67,6 +67,7 @@ export class Avatar extends Object3D implements GameObject {
     weapon: Weapon;
     hitBy: Attack[] = [];
     attack: Nullable<Attack>;
+    target: Avatar;
 
     get isActive() {
         return this.state && (this.state.flags & AvatarFlags.IsActive) > 0;
@@ -244,6 +245,7 @@ export class AvatarSystemServer implements GameObjectFactory {
         // Let's add a bot
         this.bots.addBot(new SideAttackBot(), vec3.set(scratchVec3a, -500, 0, 500));
         this.bots.addBot(new VertAttackBot(), vec3.set(scratchVec3a, -500, 0, -500));
+        this.bots.addBot(new AvatarBot(), vec3.set(scratchVec3a, 500, 0, 0));
     }
 
     onResourcesLoaded(game: ServerDependencies) {

@@ -172,3 +172,37 @@ export function computeModelMatrixSRT(dst: mat4, scaleX: number, scaleY: number,
 
   return dst;
 }
+
+/**
+ * Rotate a vector towards another vector around the Y axis. The maximum amount of rotation can be limited with maxRad.
+ * If the rotation is within maxRad, the projection of both vectors onto the XZ plane will be equal.
+ * @param dst - Destination vector
+ * @param a - The vector to rotate
+ * @param b - The target vector that vector a will be rotated towards
+ * @param maxRad - If present, limit the amount of rotation to this value (in radians)
+ */
+export function rotateTowardXZ(dst: vec3, a: vec3, b: vec3, maxRad: number = Math.PI): vec3 {
+  const ax = a[0],
+        az = a[2],
+        bx = b[0],
+        bz = b[2];
+
+  // Find the "winding" by using the cross product of A and B assuming Y = 0 for both
+  const sign = Math.sign(az * bx - ax * bz);
+
+  // Find the unsigned angle between the two vectors
+  const mag1 = Math.sqrt(ax * ax + az * az);
+  const mag2 = Math.sqrt(bx * bx + bz * bz);
+  const mag = mag1 * mag2;
+  const cosSrc = mag && (ax * bx + az * bz) / mag;
+  const absAngle = Math.acos(clamp(cosSrc, -1, 1));
+
+  // Rotate along the Y axis
+  const cos = absAngle < maxRad ? cosSrc : Math.cos(maxRad);
+  const sin = Math.sin(sign * Math.min(maxRad, absAngle));
+  dst[0] = az * sin + ax * cos;
+  dst[1] = a[1];
+  dst[2] = az * cos - ax * sin;
+
+  return dst;
+}

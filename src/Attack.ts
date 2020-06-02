@@ -9,6 +9,10 @@ class VerticalAttack implements StateDefinition {
   attackPeriod = [36, 44];
   safePeriod = [9, 36];
   safeFrom = AvatarState.AttackSide;
+
+  movePeriod = [7, 43];
+  idealDistance = 200;
+  moveSpeed = 250;
 }
 
 class SideAttack implements StateDefinition {
@@ -16,6 +20,10 @@ class SideAttack implements StateDefinition {
   safePeriod = [9, 36];
   duration = 90;
   safeFrom = AvatarState.AttackPunch;
+  
+  movePeriod = [20, 38];
+  idealDistance = 150;
+  moveSpeed = 50;
 }
 
 class PunchAttack implements StateDefinition {
@@ -23,6 +31,10 @@ class PunchAttack implements StateDefinition {
   safePeriod = [9, 36];
   duration = 90;
   safeFrom = AvatarState.AttackVertical;
+
+  movePeriod = [20, 38];
+  idealDistance = 150;
+  moveSpeed = 50;
 }
 
 const kDefinitions: Partial<Record<AvatarState, StateDefinition>> = {

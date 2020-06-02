@@ -1,7 +1,7 @@
 import { AvatarFlags, Avatar } from "./Avatar";
-import { vec3 } from "gl-matrix";
+import { vec3, quat } from "gl-matrix";
 import { InputAction } from "./Input";
-import { clamp, angularDistance, ZeroVec3 } from "./MathHelpers";
+import { clamp, angularDistance, ZeroVec3, normToLength, rotateTowardXZ } from "./MathHelpers";
 import { UserCommand } from "./UserCommand";
 import { EntityState, copyEntity, createEntity } from "./World";
 import { assert, defined } from "./util";
@@ -37,26 +37,69 @@ export class AvatarController {
         let orientation = vec3.clone(prevState.orientation);
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
 
+        // Targeting
+        if (input.actions & InputAction.TargetLeft || input.actions & InputAction.TargetRight) {
+            const newTarget = avatars[2];//.find(a => a.isActive && a !== avatar && a !== avatar.target);
+            if (newTarget) avatar.target = newTarget;
+        }
+
         // Attacking
-        if (defined(avatar.attack)) {
-            const duration = frame - prevState.stateStartFrame;
-            if (duration >= avatar.attack.def.duration) { // @HACK: Need to set up proper exiting
-                nextState.state = AvatarState.None;
-                nextState.stateStartFrame = frame;
-                avatar.attack = null;
-            }
-        } else {
+        if (!defined(avatar.attack)) {
             let attackState;
             if (input.actions & InputAction.AttackSide) { attackState = AvatarState.AttackSide; }
             if (input.actions & InputAction.AttackVert) { attackState = AvatarState.AttackVertical; }
             if (input.actions & InputAction.AttackPunch) { attackState = AvatarState.AttackPunch; }
-
+            
             if (attackState) {
                 nextState.state = attackState;
                 nextState.stateStartFrame = frame;
                 avatar.attack = new Attack(avatar, attackState);
             }
         }
+        if (defined(avatar.attack)) {
+            const duration = frame - prevState.stateStartFrame;
+            const attack = avatar.attack!;
+
+            if (duration >= attack.def.duration) { // @HACK: Need to set up proper exiting
+                nextState.state = AvatarState.None;
+                nextState.stateStartFrame = frame;
+                avatar.attack = null;
+            }
+            
+            let vel = vec3.zero(scratchVec3A);
+            let toTarget = scratchVec3B;
+            let oriVel = 0;
+            if (avatar.target && duration >= attack.def.movePeriod[0] && duration <= attack.def.movePeriod[1]) {
+                const targetPos = avatar.target.state.origin;
+                
+                // Normalized XZ direction from avatar to target
+                const v = vec3.subtract(toTarget, targetPos, prevState.origin);
+                v[1] = 0;
+                const l = Math.sqrt(v[0]*v[0] + v[2]*v[2]);
+                vec3.scale(v, v, 1.0 / l);
+
+                // Signed distance to travel along v to reach ideal position
+                const d = l - attack.def.idealDistance;
+
+                // Ensure we don't travel past our ideal position this frame
+                const speed = Math.min(attack.def.moveSpeed, Math.abs(d) / dtSec);
+                vec3.scale(vel, v, speed * Math.sign(d));
+
+                // Modify orientation to look at target
+                oriVel = Math.PI * 2;
+
+                if (!avatar.isBot) console.log(nextState.orientation, v);
+            }
+
+            vec3.scaleAndAdd(nextState.origin, prevState.origin, vel, dtSec);
+            rotateTowardXZ(nextState.orientation, prevState.orientation, toTarget, oriVel * dtSec);
+            assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
+
+            nextState.speed = 0;
+            nextState.flags = AvatarFlags.IsActive;
+            
+            return nextState;
+        } 
 
         if (prevState.state === AvatarState.Struck) {
             const duration = frame - prevState.stateStartFrame;
