@@ -1,4 +1,4 @@
-import { AvatarFlags, Avatar } from "./Avatar";
+import { AvatarFlags, Avatar, kAvatarCount } from "./Avatar";
 import { vec3, quat } from "gl-matrix";
 import { InputAction } from "./Input";
 import { clamp, angularDistance, ZeroVec3, normToLength, rotateTowardXZ } from "./MathHelpers";
@@ -22,6 +22,7 @@ const kRunAcceleration = 3000;
 export class AvatarController {
     orientationTarget: vec3 = vec3.create();
     hitVelocity: vec3 = vec3.create();
+    lastNonTargetingFrame = 0;
     
     update(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand): EntityState {
         const state = avatar.state;
@@ -39,8 +40,21 @@ export class AvatarController {
 
         // Targeting
         if (input.actions & InputAction.TargetLeft || input.actions & InputAction.TargetRight) {
-            const newTarget = avatars[2];//.find(a => a.isActive && a !== avatar && a !== avatar.target);
-            if (newTarget) avatar.target = newTarget;
+            const valid = this.lastNonTargetingFrame === frame-1;
+            if (valid) {
+                // Find the next target
+                // @TODO: This needs to be based on who's in view
+                const initialIdx = (avatar.target?.state.id || 0) + 1;
+                let target = avatars[initialIdx];
+                while (!target.isActive || target.state.id === avatar.state.id) { 
+                    target = avatars[(target.state.id  + 1) % kAvatarCount];
+                    if (target.state.id === initialIdx) break;
+                }
+
+                if (target.state.id !== avatar.target?.state.id) avatar.target = target;
+            }
+        } else {
+            this.lastNonTargetingFrame = frame;
         }
 
         // Attacking

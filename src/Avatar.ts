@@ -67,7 +67,7 @@ export class Avatar extends Object3D implements GameObject {
     weapon: Weapon;
     hitBy: Attack[] = [];
     attack: Nullable<Attack>;
-    target: Avatar;
+    target?: Avatar;
 
     get isActive() {
         return this.state && (this.state.flags & AvatarFlags.IsActive) > 0;
@@ -81,7 +81,7 @@ export enum AvatarFlags {
 }
 
 const kGltfFilename = 'data/Tn.glb';
-const kAvatarCount = 8;
+export const kAvatarCount = 8;
 const kBaseObb = mat4.fromValues(
     40, 0, 0, 0,
     0, 110, 0, 0,
