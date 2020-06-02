@@ -394,7 +394,10 @@ export class DebugRenderUtils {
   }
 
   static renderObbs(obbs: mat4[], drawFaces: boolean = false, color: vec4 = defaultObbColor) {
-    if (!defined(obbPrim.pipeline)) this.initialize();
+    if (!defined(obbPrim.pipeline)) {
+      this.initialize();
+      return; 
+    }
 
     // @HACK:
     assert(obbs.length <= 1, 'Drawing multiple OBBs not yet supported. (Need to use multiple uniform buffers)');
@@ -468,7 +471,10 @@ export class DebugRenderUtils {
   // }
 
   static renderLines(pointPairs: vec3[], color: vec4 = defaultLineColor) {
-    if (!defined(pointsPrim.pipeline)) this.initialize();
+    if (!defined(obbPrim.pipeline)) {
+      this.initialize();
+      return; 
+    }
 
     console.assert(pointPairs.length < kMaxPoints);
 
@@ -484,7 +490,10 @@ export class DebugRenderUtils {
   }
 
   static renderQuads(quads: vec3[], color: vec4 = defaultLineColor) {
-    if (!defined(quadsPrim.pipeline)) this.initialize();
+    if (!defined(obbPrim.pipeline)) {
+      this.initialize();
+      return; 
+    }
 
     console.assert((quads.length * 4) < kMaxPoints);
 
@@ -500,7 +509,10 @@ export class DebugRenderUtils {
   }
 
   static renderSpheres(spheres: vec4[], color: vec4 = defaultSphereColor) {
-    if (!defined(spherePrim.pipeline)) this.initialize();
+    if (!defined(obbPrim.pipeline)) {
+      this.initialize();
+      return; 
+    }
     
     console.assert(spheres.length < kMaxSpheres);
 
