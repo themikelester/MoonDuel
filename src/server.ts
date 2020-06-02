@@ -89,7 +89,7 @@ export class Server {
             this.net.transmitToClients(this.clock.simFrame);
         }
 
-        if (tickCount !== 1) { console.warn('[Server] Uneven fixed frame tick:', tickCount); }
+        // if (tickCount !== 1) { console.warn('[Server] Uneven fixed frame tick:', tickCount); }
     }
 
     private update() {
