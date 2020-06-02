@@ -112,7 +112,7 @@ export class AvatarAnim {
         const idleClip = assertDefined(gltf.animations.find(a => a.name === 'akamae1'));
         const walkClip = assertDefined(gltf.animations.find(a => a.name === 'awalk1'));
         const runClip = assertDefined(gltf.animations.find(a => a.name === 'brun1'));
-        const attackSideClip = assertDefined(gltf.animations.find(a => a.name === 'aat_yoko1'));
+        const attackSideClip = assertDefined(gltf.animations.find(a => a.name === 'bat_yoko1'));
         const attackVertClip = assertDefined(gltf.animations.find(a => a.name === 'bat_jump1'));
         const attackPunchClip = assertDefined(gltf.animations.find(a => a.name === 'bat_syoutei_l1'));
         const struckClip = assertDefined(gltf.animations.find(a => a.name === 'ahakai1'));

@@ -6,13 +6,13 @@ import { Clock } from "./Clock";
 
 class VerticalAttack implements StateDefinition {
   duration = 90;
-  attackPeriod = [36, 46];
+  attackPeriod = [36, 44];
   safePeriod = [9, 36];
   safeFrom = AvatarState.AttackSide;
 }
 
 class SideAttack implements StateDefinition {
-  attackPeriod = [36, 46];
+  attackPeriod = [29, 46];
   safePeriod = [9, 36];
   duration = 90;
   safeFrom = AvatarState.AttackPunch;
