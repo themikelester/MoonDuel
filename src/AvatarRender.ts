@@ -12,6 +12,7 @@ import { Camera } from "./Camera";
 import { Avatar } from "./Avatar";
 import { DebugMenu } from "./DebugMenu";
 import { Environment } from "./Environment";
+import { DebugRenderUtils } from "./DebugRender";
 
 const scratchVec4a = vec4.create();
 const scratchVec4b = vec4.create();
@@ -30,6 +31,7 @@ export class AvatarRender {
     data: AvatarRenderData[] = [];
 
     drawSkeleton: boolean = false;
+    drawOrigin: boolean = false;
 
     initialize(avatars: Avatar[], debugMenu: DebugMenu) {
         this.avatars = avatars;
@@ -42,6 +44,7 @@ export class AvatarRender {
         
         const debug = debugMenu.addFolder('Avatar');
         debug.add(this, 'drawSkeleton');
+        debug.add(this, 'drawOrigin');
     }
 
     onResourcesLoaded(gltf: GltfResource, gfxDevice: Gfx.Renderer) {
@@ -202,6 +205,13 @@ export class AvatarRender {
                     drawSkeleton(serverSkeleton, vec4.fromValues(1, 1, 0, 1));
                 }
             }
+        }
+
+        // Debug
+        if (this.drawOrigin) {
+            const origins = this.avatars.filter(a => a.isActive).map(a => a.state.origin);
+            const dirs = this.avatars.filter(a => a.isActive).map(a => a.state.orientation);
+            DebugRenderUtils.renderArrows(origins, dirs, 10, vec4.fromValues(1, 0, 0, 1));
         }
     }
 }
