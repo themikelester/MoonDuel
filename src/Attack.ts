@@ -6,34 +6,40 @@ import { Clock } from "./Clock";
 
 class VerticalAttack implements StateDefinition {
   duration = 90;
+  
   attackPeriod = [36, 44];
+  idealDistance = 250;
+  
   safePeriod = [9, 36];
   safeFrom = AvatarState.AttackSide;
 
   movePeriod = [7, 43];
-  idealDistance = 250;
   moveSpeed = 250;
 }
 
 class SideAttack implements StateDefinition {
-  attackPeriod = [29, 46];
-  safePeriod = [9, 36];
   duration = 90;
+  
+  attackPeriod = [29, 46];
+  idealDistance = 150;
+  
+  safePeriod = [9, 36];
   safeFrom = AvatarState.AttackPunch;
   
   movePeriod = [20, 38];
-  idealDistance = 150;
   moveSpeed = 150;
 }
 
 class PunchAttack implements StateDefinition {
-  attackPeriod = [36, 46];
-  safePeriod = [9, 36];
   duration = 90;
+  
+  attackPeriod = [36, 46];
+  idealDistance = 150;
+  
+  safePeriod = [9, 36];
   safeFrom = AvatarState.AttackVertical;
 
   movePeriod = [20, 38];
-  idealDistance = 150;
   moveSpeed = 50;
 }
 
