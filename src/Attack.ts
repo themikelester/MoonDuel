@@ -11,7 +11,7 @@ class VerticalAttack implements StateDefinition {
   safeFrom = AvatarState.AttackSide;
 
   movePeriod = [7, 43];
-  idealDistance = 200;
+  idealDistance = 250;
   moveSpeed = 250;
 }
 
@@ -23,7 +23,7 @@ class SideAttack implements StateDefinition {
   
   movePeriod = [20, 38];
   idealDistance = 150;
-  moveSpeed = 50;
+  moveSpeed = 150;
 }
 
 class PunchAttack implements StateDefinition {
