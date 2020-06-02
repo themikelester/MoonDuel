@@ -22,6 +22,11 @@ Today I'd like to explicitly define attacks, such that they have "active" and "i
 
 Afterwards I plan to start working on the lock-on camera. It'll need to be able to focus on at least two avatars and keep them in frame. There's an old GDC talk from the God of War team that I seem to remember describing a very similar camera, I'll dig that one up and look for reference.
 
+##### Evening
+Well I didn't start on camera work, but I'm happy with the progress I made with attacks. I now explicitly define periods for when the attacker is: safe against another attack (and which attack type that is), when the avatar may move (and how fast), and when the attack is active and collision should be registered. "Dodging" (when an attack against you lands in your invulnerable period) is now handled for all attack types. Avatars can target each other (currently bound to 'Q' and 'E'). This doesn't currently make any changes to the camera, but if you attack the avatar will move and orient towards the target. I also added momentum so that when you attack while moving, you slide for a bit before stopping. Overall combat feels much better.
+
+There is currently a bug where if you are hit while attacking, you will stay stunned for too long. I believe that this is because you are still in the attacking state (avatar.attack is non-null). Should be an easy fix, but this is probably the right time to switch to a proper state machine. I.e. each state has specific controller logic that is not shared with any others. The only data shared between states is what is in the official avatar state (yuck, overloaded word). I'll do that tomorrow, and then hopefully work on camera.
+
 ### 2020-06-01
 ##### Morning
 This week I'd like to introduce a static collision system, for collisions against the background geometry. This will allow me to handle the avatar bumping against the columns, falling off the outside, gitting hit into the air and falling back to the ground, and sword throwing. Afterwards I think I'll work on a lock-on camera, and bots for testing. A bot should be creatable with some simple actions, such an action to do repeatedly (e.g. horizontal or vertical attack). 
