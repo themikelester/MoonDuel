@@ -57,6 +57,41 @@ export class AvatarController {
             this.lastNonTargetingFrame = frame;
         }
 
+        if (prevState.state === AvatarState.Struck) {
+            const duration = frame - prevState.stateStartFrame;
+
+            if (this.hitVelocity[0] === 0 && this.hitVelocity[1] === 0 && this.hitVelocity[2] === 0) {
+                const attacker = avatar.hitBy[0].instigator;
+
+                const v = vec3.sub(scratchVec3A, prevState.origin, attacker.state.origin);
+                const l = Math.sqrt(v[0] * v[0] + v[2] * v[2]) || 0.001;
+                const push = vec3.set(scratchVec3B, v[0] / l, 2.0, v[2] / l);
+                vec3.scale(this.hitVelocity, push, 1000);
+                assert(!Number.isNaN(this.hitVelocity[0]));
+                assert(!Number.isNaN(this.hitVelocity[1]));
+                assert(!Number.isNaN(this.hitVelocity[2]));
+            }
+
+            this.hitVelocity[1] += -9800 * dtSec;
+            const pos = vec3.scaleAndAdd(vec3.create(), prevState.origin, this.hitVelocity, dtSec);
+            if (pos[1] < 0.0) this.hitVelocity[1] = 0;
+            
+            if (duration > 34 && pos[1] <= 0.0) {
+                avatar.hitBy.length = 0;
+
+                nextState.state = AvatarState.None; 
+                nextState.stateStartFrame = frame;
+                vec3.zero(this.hitVelocity);
+            }
+
+            nextState.origin = pos;
+            nextState.speed = 0;
+            nextState.orientation = orientation;
+            nextState.flags = AvatarFlags.IsActive;
+
+            return nextState;
+        }
+
         // Attacking
         if (!defined(avatar.attack)) {
             let attackState;
@@ -70,6 +105,7 @@ export class AvatarController {
                 avatar.attack = new Attack(avatar, attackState);
             }
         }
+
         if (defined(avatar.attack)) {
             const duration = frame - prevState.stateStartFrame;
             const attack = avatar.attack!;
@@ -114,41 +150,6 @@ export class AvatarController {
             
             return nextState;
         } 
-
-        if (prevState.state === AvatarState.Struck) {
-            const duration = frame - prevState.stateStartFrame;
-
-            if (this.hitVelocity[0] === 0 && this.hitVelocity[1] === 0 && this.hitVelocity[2] === 0) {
-                const attacker = avatar.hitBy[0].instigator;
-
-                const v = vec3.sub(scratchVec3A, prevState.origin, attacker.state.origin);
-                const l = Math.sqrt(v[0] * v[0] + v[2] * v[2]) || 0.001;
-                const push = vec3.set(scratchVec3B, v[0] / l, 2.0, v[2] / l);
-                vec3.scale(this.hitVelocity, push, 1000);
-                assert(!Number.isNaN(this.hitVelocity[0]));
-                assert(!Number.isNaN(this.hitVelocity[1]));
-                assert(!Number.isNaN(this.hitVelocity[2]));
-            }
-
-            this.hitVelocity[1] += -9800 * dtSec;
-            const pos = vec3.scaleAndAdd(vec3.create(), prevState.origin, this.hitVelocity, dtSec);
-            if (pos[1] < 0.0) this.hitVelocity[1] = 0;
-            
-            if (duration > 34 && pos[1] <= 0.0) {
-                avatar.hitBy.length = 0;
-
-                nextState.state = AvatarState.None; 
-                nextState.stateStartFrame = frame;
-                vec3.zero(this.hitVelocity);
-            }
-
-            nextState.origin = pos;
-            nextState.speed = 0;
-            nextState.orientation = orientation;
-            nextState.flags = AvatarFlags.IsActive;
-
-            return nextState;
-        }
         
         // Velocity
         let speed = prevState.speed;
