@@ -15,6 +15,11 @@ Change Log
 * "Report bug" button which takes a screenshot, captures all logs, collects device info, and lets users write a statement.
 * Vector textures for particles. Fire quads without pixelation.
 * Drop shadows for avatars
+* Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
+
+### 2020-06-04
+##### Morning
+Today is camera day. I started the morning by looking through a great camera talk: !['Iterating on a Dynamic Camera System'](https://www.gdcvault.com/play/1014606/Iterating-on-a-Dynamic-Camera) from Phil Wilkins about the God of War series. It discusses targeting multiple objects at once. I'll spend the day trying to write a new camera that can target multiple avatars.
 
 ### 2020-06-02
 ##### Morning
