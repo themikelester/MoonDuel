@@ -22,6 +22,7 @@ interface Dependencies {
     avatar: AvatarSystemClient;
     debugMenu: DebugMenu;
     globalUniforms: GlobalUniforms;
+    clock: Clock;
 }
 
 
@@ -172,6 +173,8 @@ export class CombatCameraController implements CameraController {
     offset: vec3 = vec3.create();
     ori: vec3 = vec3.create();
 
+    enPos: vec3 = vec3.create();
+
     private minDistance = 500; 
     private maxDistance = 800;
 
@@ -192,14 +195,21 @@ export class CombatCameraController implements CameraController {
     public update(deps: Dependencies, targets: CameraTarget[]): boolean {
         let avPos: vec3 = vec3.zero(scratchVec3A);
         let enPos: vec3 = vec3.zero(scratchVec3B);
+        const dtSec = deps.clock.renderDt * 0.001;
 
         for (const target of targets) {
             if (target.pri === 1) { enPos = target.pos; }
             if (target.pri === 0) { avPos = target.pos; }
         }
 
+        // Fade in the enemy position
+        const kBlendSpeed = 5000;
+        const blendVec = vec3.subtract(scratchVec3A, enPos, this.enPos);
+        const blendSpeed = Math.min(1.0, kBlendSpeed * dtSec / vec3.length(blendVec));
+        vec3.scaleAndAdd(this.enPos, this.enPos, blendVec, blendSpeed);
+
         // Vector from the avatar towards the targeted enemy
-        const attackVec = vec3.subtract(scratchVec3A, enPos, avPos);
+        const attackVec = vec3.subtract(scratchVec3A, this.enPos, avPos);
         const attackDist = vec3.length(attackVec);
         const attackDir = vec3.scale(scratchVec3B, attackVec, 1.0 / attackDist);
 
