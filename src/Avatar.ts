@@ -24,6 +24,7 @@ import { EnvironmentSystem } from "./Environment";
 import { SideAttackBot, AvatarBotSystem, VertAttackBot, AvatarBot } from "./AvatarBot";
 import { Attack, evaluateHit } from "./Attack";
 import { AvatarState } from "./AvatarState";
+import { CameraSystem, CameraTarget } from "./CameraSystem";
 
 interface ServerDependencies {
     debugMenu: DebugMenu;
@@ -44,6 +45,7 @@ interface ClientDependencies {
 
     gfxDevice: Renderer;
     camera: Camera;
+    cameraSystem: CameraSystem;
     environment: EnvironmentSystem;
 }
 
@@ -68,6 +70,8 @@ export class Avatar extends Object3D implements GameObject {
     hitBy: Attack[] = [];
     attack: Nullable<Attack>;
     target?: Avatar;
+
+    cameraTarget: CameraTarget;
 
     get isActive() {
         return this.state && (this.state.flags & AvatarFlags.IsActive) > 0;
@@ -108,6 +112,7 @@ export class AvatarSystemClient implements GameObjectFactory {
     private gltf: GltfResource;
     private animation = new AvatarAnim();
     private renderer: AvatarRender = new AvatarRender();
+    private cameraSystem: CameraSystem;
 
     constructor() {
         for (let i = 0; i < kAvatarCount; i++) {
@@ -117,6 +122,8 @@ export class AvatarSystemClient implements GameObjectFactory {
     }
 
     initialize(game: ClientDependencies) {
+        this.cameraSystem = game.cameraSystem;
+
         game.world.registerFactory(GameObjectType.Avatar, this);
 
         // Start loading all necessary resources
@@ -200,6 +207,12 @@ export class AvatarSystemClient implements GameObjectFactory {
 
             avatar.updateMatrix();
             avatar.updateMatrixWorld();
+
+            avatar.cameraTarget.size = 1;
+            vec3.copy(avatar.cameraTarget.pos, avatar.state.origin);
+            avatar.cameraTarget.pos[1] += 250;
+            if (avatar.local) avatar.cameraTarget.pri = 0;
+            else avatar.cameraTarget.pri = this.localAvatar.target === avatar ? 1 : 2;
         }
 
         this.animation.update(game.clock);
@@ -219,6 +232,9 @@ export class AvatarSystemClient implements GameObjectFactory {
 
         const avatar = this.avatars[avatarIdx];
         avatar.state = initialState;
+
+        avatar.cameraTarget = this.cameraSystem.createCameraTarget();
+        avatar.cameraTarget.size = 0; 
 
         return avatar;
     }
@@ -434,6 +450,7 @@ export class AvatarSystemServer implements GameObjectFactory {
         const avatarIdx = assertDefined(this.avatars.findIndex(a => !a.isActive), 'Out of avatars');
         this.avatars[avatarIdx].state.flags |= AvatarFlags.IsActive;
         this.avatars[avatarIdx].client = client;
+
         return avatarIdx;
     }
 

@@ -22,9 +22,18 @@ interface Dependencies {
     globalUniforms: GlobalUniforms;
 }
 
+
+export class CameraTarget {
+    readonly pos: vec3 = vec3.create();
+    size: number = 1.0;
+    pri: number = 1;
+}
+
 export class CameraSystem {
     private camPos = vec3.create();
     private controller: CameraController; 
+
+    private targets: CameraTarget[] = [];
 
     constructor(private camera: Camera) {
     }
@@ -33,7 +42,7 @@ export class CameraSystem {
         const aspect = window.innerWidth / window.innerHeight;
         this.resize(aspect);
 
-        this.controller = new FollowCameraController();
+        this.controller = new CombatCameraController();
         this.controller.camera = this.camera;
         this.controller.initialize(deps);
     }
@@ -42,8 +51,14 @@ export class CameraSystem {
         this.camera.setPerspective(this.camera.fov, aspect, this.camera.near, this.camera.far);
     }
 
+    createCameraTarget() {
+        const target = new CameraTarget();
+        this.targets.push(target);
+        return target;
+    }
+
     update(deps: Dependencies) {
-        this.controller.update(deps);
+        this.controller.update(deps, this.targets);
 
         const camPos = this.camera.getPos(this.camPos);
         deps.globalUniforms.buffer.setVec3('g_camPos', camPos);
@@ -64,7 +79,7 @@ export interface CameraController {
     camera: Camera;
 
     initialize(deps: Dependencies): void;
-    update(deps: Dependencies): boolean;
+    update(deps: Dependencies, targets: CameraTarget[]): boolean;
     
     toJSON(): string;
     fromJSON(data: any): void;
@@ -125,6 +140,79 @@ export class FollowCameraController implements CameraController {
         const eyePos = vec3.add(scratchVec3A, followPos, eyeOffset);
 
         mat4.lookAt(this.camera.viewMatrix, eyePos, followPos, vec3Up);
+        this.camera.viewMatrixUpdated();
+
+        return false;
+    }
+
+    toJSON() {
+        return '';
+    }
+
+    fromJSON(data: string) {
+    }
+}
+
+export class CombatCameraController implements CameraController {
+    public camera: Camera;
+
+    targetPos: vec3 = vec3.create();
+    offset: vec3 = vec3.create();
+    ori: vec3 = vec3.create();
+
+    private heading: number;
+    private pitch: number;
+    private distance: number;
+    private minDistance = 500; 
+    private maxDistance = 800;
+
+    initialize(deps: Dependencies) {
+        // Set up a valid initial state
+        const followPos = scratchVector3A.buffer;
+        const eyePos = vec3.add(scratchVec3A, followPos, vec3.set(scratchVec3A, 1000, 700, 0));
+        
+        mat4.lookAt(this.camera.viewMatrix, eyePos, followPos, vec3Up);
+        this.camera.viewMatrixUpdated();
+
+        this.heading = Math.atan2(this.camera.forward[0], this.camera.forward[2]);
+        this.pitch = Math.PI * 0.5;
+        this.distance = 1000;
+
+        const folder = deps.debugMenu.addFolder('FollowCam');
+        folder.add(this, 'pitch', 0.0, Math.PI * 0.5, Math.PI * 0.01);
+        folder.add(this, 'minDistance', 500, 2000, 100);
+        folder.add(this, 'maxDistance', 500, 3000, 100);
+    }
+
+    public update(deps: Dependencies, targets: CameraTarget[]): boolean {
+        const targetPos = vec3.zero(this.targetPos);
+        let targetCount = 0;
+
+        for (const target of targets) {
+            if (target.pri <= 1) {
+                vec3.add(targetPos, targetPos, target.pos);
+                ++targetCount;
+            }
+        }
+        if (targetCount > 0) vec3.scale(targetPos, targetPos, 1.0 / targetCount);
+
+        const camPos = this.camera.getPos(scratchVec3A);
+        const camToTarget = vec3.subtract(scratchVec3A, targetPos, camPos);
+        const camDist = vec3.length(camToTarget);
+        
+        // Rotate to keep the follow target centered
+        const camToTargetHeading = Math.atan2(camToTarget[2], camToTarget[0]);
+        let angleDelta = angularDistance(this.heading, camToTargetHeading);
+        this.heading = (this.heading + angleDelta) % MathConstants.TAU;
+
+        // Keep the camera distance between min and max
+        this.distance = clamp(camDist, this.minDistance, this.maxDistance);
+
+        const eyeOffsetUnit = computeUnitSphericalCoordinates(scratchVec3A, this.heading + Math.PI, this.pitch);
+        const eyeOffset = vec3.scale(scratchVec3A, eyeOffsetUnit, this.distance);
+        const eyePos = vec3.add(scratchVec3A, targetPos, eyeOffset);
+
+        mat4.lookAt(this.camera.viewMatrix, eyePos, targetPos, vec3Up);
         this.camera.viewMatrixUpdated();
 
         return false;
