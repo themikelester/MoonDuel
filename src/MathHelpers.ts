@@ -206,3 +206,27 @@ export function rotateTowardXZ(dst: vec3, a: vec3, b: vec3, maxRad: number = Mat
 
   return dst;
 }
+
+/**
+ * Find the signed angular difference around the Y axis from vector a to b
+ * @see: rotateTowardXZ()
+ * @returns - The signed angular difference in radians
+ */
+export function angleXZ(a: vec3, b: vec3): number {
+  const ax = a[0],
+        az = a[2],
+        bx = b[0],
+        bz = b[2];
+
+  // Find the "winding" by using the cross product of A and B assuming Y = 0 for both
+  const sign = Math.sign(az * bx - ax * bz);
+
+  // Find the unsigned angle between the two vectors
+  const mag1 = Math.sqrt(ax * ax + az * az);
+  const mag2 = Math.sqrt(bx * bx + bz * bz);
+  const mag = mag1 * mag2;
+  const cosSrc = mag && (ax * bx + az * bz) / mag;
+  const absAngle = Math.acos(clamp(cosSrc, -1, 1));
+
+  return absAngle * sign;
+}
