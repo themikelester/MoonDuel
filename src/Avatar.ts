@@ -182,7 +182,6 @@ export class AvatarSystemClient implements GameObjectFactory {
             if (state.flags & AvatarFlags.HasTarget) {
                 const targetIdx = state.flags >> 5;
                 avatar.target = this.avatars[targetIdx];
-                console.log('Target', targetIdx);
             } else {
                 avatar.target = undefined;
             }
