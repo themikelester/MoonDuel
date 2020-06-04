@@ -24,7 +24,9 @@ Today is camera day. I started the morning by looking through a great camera tal
 ### Evening
 That talk had some good content, but I don't think it's going to be as applicable as I thought. I also studied Wind Waker's combat camera and discovered that they seem to limit the heading difference between the camera and hero->enemy vectors. I call this a shoulder vector. The camera always tries to stay between about 15 and 90 degrees to one side of the hero. It's max rotational velocity is less that the characters, so the camera can "switch sides" if you move quickly to the other side of the enemy. I emulated this constraint in the new camera, along with an orientation offset so that the camera looks at the half-way point between the avatar and enemy. When you switch to a target the new camera takes over, and switching targets will smoothly blend all the parameters derived from the target position.
 
-This new camera really needs another constraint to be viable, which is keeping both characters on screen. That will need to consider horizontal field of view. The constraint can be fullfilled by changing camera distance, offset heading from avatar, or the yaw. Currently the camera yaws to look at the halfway point in world space, but this needs to be the half point in screen space (or at least view space projected to the camera plane)
+This new camera really needs another constraint to be viable, which is keeping both characters on screen. That will need to consider horizontal field of view. The constraint can be fullfilled by changing camera distance, offset heading from avatar, or the yaw. Currently the camera yaws to look at the halfway point in world space, but this needs to be the half point in screen space (or at least view space projected to the camera plane).
+
+I also want to start working on having the avatar orientation locked to the target, which means different animations for moving.
 
 ### 2020-06-02
 ##### Morning
