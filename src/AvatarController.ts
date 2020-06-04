@@ -7,6 +7,7 @@ import { EntityState, copyEntity, createEntity } from "./World";
 import { assert, defined } from "./util";
 import { Attack } from "./Attack";
 import { AvatarState } from "./AvatarState";
+import { setFlag, setField, clearFlags } from "./Flags";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -33,7 +34,7 @@ export class AvatarController {
         
         const inputDir = this.getCameraRelativeMovementDirection(input, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
-        const inputShouldWalk = input.actions & InputAction.Walk;
+        const inputShouldWalk = !!(input.actions & InputAction.Walk);
 
         let orientation = vec3.clone(prevState.orientation);
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
@@ -51,7 +52,11 @@ export class AvatarController {
                     if (target.state.id === initialIdx) break;
                 }
 
-                if (target.state.id !== avatar.target?.state.id) avatar.target = target;
+                if (target.state.id !== avatar.target?.state.id) {
+                    avatar.target = target;
+                    nextState.flags = setFlag(nextState.flags, AvatarFlags.HasTarget);
+                    nextState.flags = setField(nextState.flags, 0b11100000, target.state.id);
+                }
             }
         } else {
             this.lastNonTargetingFrame = frame;
@@ -87,7 +92,7 @@ export class AvatarController {
             nextState.origin = pos;
             nextState.speed = 0;
             nextState.orientation = orientation;
-            nextState.flags = AvatarFlags.IsActive;
+            nextState.flags = clearFlags(nextState.flags, AvatarFlags.IsUTurning);
 
             return nextState;
         }
@@ -153,7 +158,7 @@ export class AvatarController {
             rotateTowardXZ(nextState.orientation, prevState.orientation, toTarget, oriVel * dtSec);
             assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
 
-            nextState.flags = AvatarFlags.IsActive;
+            nextState.flags = clearFlags(nextState.flags, AvatarFlags.IsUTurning);
             return nextState;
         } 
         
@@ -223,14 +228,13 @@ export class AvatarController {
             vec3.rotateY(orientation, prevState.orientation, ZeroVec3, rotation);
         }
 
-        let flags = prevState.flags & ~(AvatarFlags.IsWalking | AvatarFlags.IsUTurning);
-        if (inputShouldWalk) flags |= AvatarFlags.IsWalking;
-        if (uTurning) flags |= AvatarFlags.IsUTurning;
+        nextState.flags = setFlag(nextState.flags, AvatarFlags.IsWalking, inputShouldWalk); 
+        nextState.flags = setFlag(nextState.flags, AvatarFlags.IsUTurning, uTurning); 
+        nextState.flags = setFlag(nextState.flags, AvatarFlags.IsActive); 
 
         nextState.origin = pos;
         nextState.speed = speed;
         nextState.orientation = orientation;
-        nextState.flags = flags;
 
         return nextState;
     }

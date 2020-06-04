@@ -78,6 +78,11 @@ export enum AvatarFlags {
     IsActive = 1 << 0,
     IsWalking = 1 << 1,
     IsUTurning = 1 << 2,
+
+    HasTarget = 1 << 4,
+    _Target0 = 1 << 5,
+    _Target1 = 1 << 6,
+    _Target2 = 1 << 7,
 }
 
 const kGltfFilename = 'data/Tn.glb';
@@ -165,6 +170,15 @@ export class AvatarSystemClient implements GameObjectFactory {
         for (const avatar of this.avatars) {
             const state = avatar.state;
             if (!state || !avatar.nodes) continue;
+
+            // Sync target
+            if (state.flags & AvatarFlags.HasTarget) {
+                const targetIdx = state.flags >> 5;
+                avatar.target = this.avatars[targetIdx];
+                console.log('Target', targetIdx);
+            } else {
+                avatar.target = undefined;
+            }
 
             // Attach the weapon
             if (!avatar.weapon) {
