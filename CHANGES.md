@@ -17,6 +17,12 @@ Change Log
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
 
+### 2020-06-05
+##### Morning
+I'm going to add another camera constraints that tries to keep both the avatar and target on screen. I'll also modify the "look at the halfway point" constraint so that it operates in screen space. The angle, A, between the camera's forward vector and the camera->object vector, divided by FovX/2, is a value from 0 to 1 (or more) where 0 is the center of the screen's X axis, and 1.0 is the edge. This makes it easy to compute the yaw necessary to rotate the camera from the avatar to the screen half point, it's just half of the difference between the two A values. 
+
+The onscreen constraint it a bit tougher. I'll need to change a camera parameter so that all necessary objects fall within the horizontal FOV. The obvious choices are camera distance and heading. Distance seems easier to compute, so I'll start with that. We need to find the distance where the A value is first equal to FovX/2. Aha! Turns out this is pretty simple, using the law of sines (which I definitely had to look up). It boils down to: We need to find one side of a triangle where one angle is A, the other FovX/2, and one side is d, the distance from object to camera. Using the law of sines we can find the length x of the other side, which is the distance along the camera's view vector to move to make the object visible.
+
 ### 2020-06-04
 ##### Morning
 Today is camera day. I started the morning by looking through a great camera talk: !['Iterating on a Dynamic Camera System'](https://www.gdcvault.com/play/1014606/Iterating-on-a-Dynamic-Camera) from Phil Wilkins about the God of War series. It discusses targeting multiple objects at once. I'll spend the day trying to write a new camera that can target multiple avatars.
