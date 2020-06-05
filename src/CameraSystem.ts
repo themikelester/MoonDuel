@@ -7,7 +7,7 @@ import { vec3, mat4, vec4 } from 'gl-matrix';
 import { InputManager } from './Input';
 import { DebugMenu } from './DebugMenu';
 import { Clock } from './Clock';
-import { clamp, angularDistance, MathConstants, angleXZ } from './MathHelpers';
+import { clamp, angularDistance, MathConstants, angleXZ, smoothstep } from './MathHelpers';
 import { Object3D, Vector3 } from './Object3D';
 import { AvatarSystemClient } from './Avatar';
 import { DebugRenderUtils } from './DebugRender';
@@ -179,6 +179,8 @@ export class CombatCameraController implements CameraController {
 
     private eyePos: vec3 = vec3.create();
 
+    private headingGoal: number = 0;
+
     private minDistance = 500; 
     private maxDistance = 800;
 
@@ -239,7 +241,12 @@ export class CombatCameraController implements CameraController {
         const attackHeading = Math.atan2(attackDir[2], attackDir[0]);
         const shoulderAngle = angularDistance(attackHeading, this.offset[0] - Math.PI);
         const angleDiff = clamp(Math.abs(shoulderAngle), kMinShoulderAngle, kMaxShoulderAngle) - Math.abs(shoulderAngle);
-        this.offset[0] += angleDiff * Math.sign(shoulderAngle);
+        const headingDiff = angleDiff * Math.sign(shoulderAngle);
+
+        // ... Blending smoothly
+        const kHeadingVelMax = Math.PI * 0.5;
+        const headingVel = kHeadingVelMax * smoothstep(0, Math.PI * 0.15, Math.abs(headingDiff)); 
+        this.offset[0] += Math.sign(headingDiff) * headingVel * dtSec; 
 
         // Rotate to put the enemy within framing FOV
         let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
