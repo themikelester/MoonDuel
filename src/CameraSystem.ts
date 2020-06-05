@@ -183,7 +183,7 @@ export class CombatCameraController implements CameraController {
 
     private headingBlend = 0.5;
     private dollyWeight = 1.0;
-    private framingWidth = 0.75; // Camera will keep avatar and target within this width of center, in NDC 
+    private framingWidth = 0.5; // Camera will keep avatar and target within this width of center, in NDC 
 
     initialize(deps: Dependencies) {
         // Set up a valid initial state
