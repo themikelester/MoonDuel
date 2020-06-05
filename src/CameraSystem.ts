@@ -242,13 +242,15 @@ export class CombatCameraController implements CameraController {
         let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
         let eyePos = vec3.scaleAndAdd(this.eyePos, avPos, avView, -this.offset[2]); 
         const enView = vec3.subtract(scratchVec3A, this.enPos, eyePos);
-        let enAngle = angleXZ(avView, enView); 
-        this.ori[0] = this.headingBlend * enAngle;
+        let enAngle = angleXZ(avView, enView);
 
-        // Dolly along enemy view vector until avatar is within framing FOV
-        const dollyDist = this.offset[2] * Math.tan(Math.abs(enAngle) - fovX * 2.0);
-        eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -dollyDist / vec3.length(enView) * this.dollyWeight);
-        
+        if (Math.abs(enAngle) > fovX * 2.0) {
+            // Dolly along enemy view vector until avatar is within framing FOV
+            const avTheta = Math.abs(enAngle) - fovX * 2.0;
+            const dollyDist = this.offset[2] * Math.tan(avTheta);
+            eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -dollyDist / vec3.length(enView) * this.dollyWeight);
+        }
+
         // Recompute yaw now that camera has moved
         avView = vec3.subtract(scratchVec3B, avPos, eyePos);
         enAngle = angleXZ(avView, enView); 
