@@ -42,6 +42,11 @@ export class Camera {
     this.setPerspective(fovY, aspectRatio, near, far);
   }
 
+  getFovX() {
+    const fovx = Math.atan(Math.tan(this.fov * 0.5) * this.aspect) * 2;
+    return fovx;
+  }
+
   copy(src: Camera) {
     this.fov = src.fov;
     this.near = src.near;
