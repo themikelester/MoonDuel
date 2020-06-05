@@ -15,7 +15,7 @@ import { NetModuleServer } from "./net/NetModule";
 import { NetClientState } from "./net/NetClient";
 import { Weapon, WeaponSystem } from "./Weapon";
 import { SimStream, SimState, EntityState, World, GameObjectType, GameObject, GameObjectFactory } from "./World";
-import { vec3, mat4 } from "gl-matrix";
+import { vec3, mat4, vec4 } from "gl-matrix";
 import { DebugRenderUtils } from "./DebugRender";
 import { CollisionSystem, StaticCollisionSystem } from "./Collision";
 import { kEmptyCommand, UserCommand } from "./UserCommand";
@@ -103,6 +103,8 @@ const scratchVec3a = vec3.create();
 const scratchVec3b = vec3.create();
 const scratchVector3a = new Vector3(scratchVec3a);
 const scratchVector3b = new Vector3(scratchVec3b);
+
+const kActiveTargetColor = vec4.fromValues(1, 0, 0, 0.7);
 
 export class AvatarSystemClient implements GameObjectFactory {
     public localAvatar: Avatar; // @HACK:
@@ -222,6 +224,13 @@ export class AvatarSystemClient implements GameObjectFactory {
     }
 
     render(game: ClientDependencies) {
+        if (this.localAvatar.target) {
+            const target = this.localAvatar.target;
+            const pos = vec3.copy(scratchVec3a, target.state.origin);
+            pos[1] += 300;
+            DebugRenderUtils.renderArrows([pos], [vec3.set(scratchVec3b, 0, -1, 0)], 10, false, kActiveTargetColor);
+        }
+
         this.renderer.render(game.gfxDevice, game.camera, game.environment.getCurrentEnvironment());
     }
 
