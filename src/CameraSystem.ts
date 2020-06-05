@@ -183,6 +183,7 @@ export class CombatCameraController implements CameraController {
 
     private headingBlend = 0.5;
     private dollyWeight = 1.0;
+    private framingWidth = 0.75; // Camera will keep avatar and target within this width of center, in NDC 
 
     initialize(deps: Dependencies) {
         // Set up a valid initial state
@@ -195,13 +196,14 @@ export class CombatCameraController implements CameraController {
         const folder = deps.debugMenu.addFolder('CombatCam');
         folder.add(this, 'headingBlend', 0.0, 1.0);
         folder.add(this, 'dollyWeight', 0.0, 1.0);
+        folder.add(this, 'framingWidth', 0.0, 1.0);
         folder.add(this, 'minDistance', 500, 2000, 100);
         folder.add(this, 'maxDistance', 500, 3000, 100);
     }
 
     public update(deps: Dependencies, targets: CameraTarget[]): boolean {
         const dtSec = deps.clock.renderDt * 0.001;
-        const fovX = this.camera.getFovX() * 0.5;
+        const fovX = this.camera.getFovX() * 0.5 * this.framingWidth;
         let avPos: vec3 = vec3.zero(scratchVec3A);
         let enPos: vec3 = vec3.zero(scratchVec3B);
 
@@ -242,12 +244,12 @@ export class CombatCameraController implements CameraController {
         let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
         let eyePos = vec3.scaleAndAdd(this.eyePos, avPos, avView, -this.offset[2]); 
         const enView = vec3.subtract(scratchVec3A, this.enPos, eyePos);
-        let enAngle = angleXZ(avView, enView);
+        let enAngle = Math.abs(angleXZ(avView, enView));
 
-        if (Math.abs(enAngle) > fovX * 2.0) {
-            // Dolly along enemy view vector until avatar is within framing FOV
-            const avTheta = Math.abs(enAngle) - fovX * 2.0;
-            const dollyDist = this.offset[2] * Math.tan(avTheta);
+        // Dolly along enemy view vector until avatar is within framing FOV
+        if (enAngle > fovX * 2.0) {
+            const avTheta = enAngle - fovX * 2.0;
+            const dollyDist = Math.sin(avTheta) / Math.sin(fovX * 2.0) * this.offset[2];
             eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -dollyDist / vec3.length(enView) * this.dollyWeight);
         }
 
