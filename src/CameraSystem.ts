@@ -176,6 +176,8 @@ export class CombatCameraController implements CameraController {
 
     enPos: vec3 = vec3.create();
 
+    private eyePos: vec3 = vec3.create();
+
     private minDistance = 500; 
     private maxDistance = 800;
 
@@ -199,6 +201,7 @@ export class CombatCameraController implements CameraController {
 
     public update(deps: Dependencies, targets: CameraTarget[]): boolean {
         const dtSec = deps.clock.renderDt * 0.001;
+        const fovX = this.camera.getFovX() * 0.5;
         let avPos: vec3 = vec3.zero(scratchVec3A);
         let enPos: vec3 = vec3.zero(scratchVec3B);
 
@@ -235,36 +238,22 @@ export class CombatCameraController implements CameraController {
         const angleDiff = clamp(Math.abs(shoulderAngle), kMinShoulderAngle, kMaxShoulderAngle) - Math.abs(shoulderAngle);
         this.offset[0] += angleDiff * Math.sign(shoulderAngle);
 
-        // Compute eye position
-        const eyeOffsetUnit = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
-        const eyeOffset = vec3.scale(scratchVec3A, eyeOffsetUnit, this.offset[2]);
-        let eyePos = vec3.subtract(scratchVec3A, this.targetPos, eyeOffset);
-
-        // Orient the camera to look at the halfway point along the attack vector
-        let enViewVec = vec3.sub(scratchVec3C, enPos, eyePos);
-        const enViewDist = vec3.length(enViewVec);
-        let enAngle = angleXZ(eyeOffsetUnit, enViewVec);
+        // Rotate to put the enemy within framing FOV
+        let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
+        let eyePos = vec3.scaleAndAdd(this.eyePos, avPos, avView, -this.offset[2]); 
+        const enView = vec3.subtract(scratchVec3A, this.enPos, eyePos);
+        let enAngle = angleXZ(avView, enView); 
         this.ori[0] = this.headingBlend * enAngle;
 
-        // Ensure that both the target and avatar are within the framing FOV
-        enAngle -= this.ori[0];
-        const avAngle = -this.ori[0];
-        const fovX = this.camera.getFovX() * 0.5;
-        const enSin = Math.sin(Math.abs(enAngle) - fovX);
-        const avSin = Math.sin(Math.abs(avAngle) - fovX);
-        const fovSin = Math.sin(fovX);
-        const dollyDist = Math.max(0, Math.max(enSin / fovSin, avSin / fovSin) * enViewDist);
-
-        // Recompute heading and distance with new dolly distance
-        const viewVec = vec3.rotateY(scratchVec3D, eyeOffsetUnit, vec3.zero(scratchVec3D), this.ori[0]);
-        eyePos = vec3.scaleAndAdd(scratchVec3D, eyePos, viewVec, -dollyDist * this.dollyWeight);
-
-        // Reorient the camera to look at the halfway point along the attack vector
-        enViewVec = vec3.sub(scratchVec3C, enPos, eyePos);
-        const avViewVec = vec3.sub(scratchVec3B, avPos, eyePos);
-        enAngle = angleXZ(avViewVec, enViewVec);
+        // Dolly along enemy view vector until avatar is within framing FOV
+        const dollyDist = this.offset[2] * Math.tan(Math.abs(enAngle) - fovX * 2.0);
+        eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -dollyDist / vec3.length(enView) * this.dollyWeight);
+        
+        // Recompute yaw now that camera has moved
+        avView = vec3.subtract(scratchVec3B, avPos, eyePos);
+        enAngle = angleXZ(avView, enView); 
         this.ori[0] = this.headingBlend * enAngle;
-
+        
         // Convert to camera
         mat4.lookAt(this.camera.viewMatrix, eyePos, this.targetPos, vec3Up);
         this.camera.viewMatrixUpdated();
