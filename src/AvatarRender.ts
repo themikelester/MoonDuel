@@ -211,7 +211,7 @@ export class AvatarRender {
         if (this.drawOrigin) {
             const origins = this.avatars.filter(a => a.isActive).map(a => a.state.origin);
             const dirs = this.avatars.filter(a => a.isActive).map(a => a.state.orientation);
-            DebugRenderUtils.renderArrows(origins, dirs, 10, vec4.fromValues(1, 0, 0, 1));
+            DebugRenderUtils.renderArrows(origins, dirs, 10, true, vec4.fromValues(1, 0, 0, 1));
         }
     }
 }

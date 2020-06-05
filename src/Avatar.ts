@@ -224,6 +224,7 @@ export class AvatarSystemClient implements GameObjectFactory {
     }
 
     render(game: ClientDependencies) {
+        // @HACK:
         if (this.localAvatar.target) {
             const target = this.localAvatar.target;
             const pos = vec3.copy(scratchVec3a, target.state.origin);
