@@ -40,7 +40,7 @@ export class AvatarController {
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
 
         // Targeting
-        if (input.actions & InputAction.TargetLeft || input.actions & InputAction.TargetRight) {
+        if (input.actions & InputAction.TargetLeft) {
             const valid = this.lastNonTargetingFrame === frame-1;
             if (valid) {
                 // Find the next target
@@ -60,6 +60,11 @@ export class AvatarController {
             }
         } else {
             this.lastNonTargetingFrame = frame;
+        }
+
+        if (input.actions & InputAction.TargetRight) {
+            avatar.target = undefined;
+            nextState.flags = clearFlags(nextState.flags, AvatarFlags.HasTarget);
         }
 
         if (prevState.state === AvatarState.Struck) {
