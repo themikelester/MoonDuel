@@ -23,6 +23,11 @@ I'm going to add another camera constraints that tries to keep both the avatar a
 
 The onscreen constraint it a bit tougher. I'll need to change a camera parameter so that all necessary objects fall within the horizontal FOV. The obvious choices are camera distance and heading. Distance seems easier to compute, so I'll start with that. We need to find the distance where the A value is first equal to FovX/2. Aha! Turns out this is pretty simple, using the law of sines (which I definitely had to look up). It boils down to: We need to find one side of a triangle where one angle is A, the other FovX/2, and one side is d, the distance from object to camera. Using the law of sines we can find the length x of the other side, which is the distance along the camera's view vector to move to make the object visible.
 
+### Evening
+Woohoo! I fixed both of those constraints, and it actually feels pretty nice. I first implemented what I described above, then found a much simpler and intuitive way of ensuring that two (or more) targets are within a specified FOV (it can be smaller than the camera FOV to keep the action away from the edges). First we compute the angle between the camera, enemy, and avatar, A, for the selected camera position. If this is greater than the FOV, we dolly away from the enemy until both objects fit within the FOV. To find this distance, we use a clever law of sines trick. The distance to dolly, x, is sin(A - FOV)/sin(FOV) * d where d is the distance from the camera to the avatar.
+
+I believe that this can be generalized to keep any number of objects on screen pretty easily. Replace the idea of enemy and avatar with leftmost and rightmost objects. The dolly vector can also change without making the math too much harder (I hope). The only constraint for the dolly vector is that it should lie within the should angle ranges. I'll probably work on this on the next camera pass.
+
 ### 2020-06-04
 ##### Morning
 Today is camera day. I started the morning by looking through a great camera talk: !['Iterating on a Dynamic Camera System'](https://www.gdcvault.com/play/1014606/Iterating-on-a-Dynamic-Camera) from Phil Wilkins about the God of War series. It discusses targeting multiple objects at once. I'll spend the day trying to write a new camera that can target multiple avatars.
