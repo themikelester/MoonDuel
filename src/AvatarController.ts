@@ -152,7 +152,7 @@ export class AvatarController {
             }
 
             // If we have leftover running momentum, apply it
-            const kGroundDecel = -1600;
+            const kGroundDecel = -1000;
             const contrib = Math.max(0, vec3.dot(prevState.orientation, nextState.orientation));
             const slideSpeed = prevState.speed * contrib;
             nextState.speed = Math.max(0, prevState.speed + kGroundDecel * dtSec);
