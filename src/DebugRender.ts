@@ -392,9 +392,11 @@ export class DebugRenderUtils {
       attribute vec3 a_origin;
       attribute vec3 a_dir;
       attribute float a_scale;
+      attribute float a_groundAlign;
       attribute vec4 a_color;
 
       uniform mat4 g_viewProj;
+      uniform vec3 g_viewVec;
 
       varying lowp vec4 v_color;
 
@@ -402,13 +404,14 @@ export class DebugRenderUtils {
       {
         v_color = a_color;
 
-        vec3 forward = normalize(a_dir);
-        vec3 up = vec3(0, 1, 0);
-        vec3 right = cross(forward, up);
-        up = cross(right, forward);
+        vec3 normal = a_groundAlign > 0.0 ? vec3(0, 1, 0) : g_viewVec;
+
+        vec3 up = normalize(a_dir);
+        vec3 right = normalize(cross(normal, up));
+        vec3 forward = cross(up, right);
 
         mat3 world = mat3(right, up, forward);
-        vec3 worldPos = a_origin + world * vec3(a_pos.x, 0, a_pos.y) * a_scale;
+        vec3 worldPos = a_origin + world * vec3(a_pos.x, a_pos.y, 0) * a_scale;
         
         gl_Position = g_viewProj * vec4(worldPos, 1.0);
       }
@@ -423,12 +426,13 @@ export class DebugRenderUtils {
           }
         }, 
         {
-          stride: 48,
+          stride: 52,
           layout: {
             a_origin: { offset: 0, type: Gfx.Type.Float3 },
-            a_dir:    { offset: 12, type: Gfx.Type.Float3 },
-            a_scale:  { offset: 24, type: Gfx.Type.Float },
-            a_color:  { offset: 32, type: Gfx.Type.Float4 },
+            a_groundAlign: { offset: 12, type: Gfx.Type.Float },
+            a_dir:    { offset: 16, type: Gfx.Type.Float3 },
+            a_scale:  { offset: 28, type: Gfx.Type.Float },
+            a_color:  { offset: 36, type: Gfx.Type.Float4 },
           },
           stepMode: Gfx.StepMode.Instance
         },
@@ -648,7 +652,7 @@ export class DebugRenderUtils {
     spherePrim.count += spheres.length;
   }
 
-  static renderArrows(pos: vec3[], dir: vec3[], scale: number, color: vec4 = defaultSphereColor) {
+  static renderArrows(pos: vec3[], dir: vec3[], scale: number, groundAlign = true, color: vec4 = defaultSphereColor) {
     if (!defined(obbPrim.pipeline)) {
       this.initialize();
       return; 
@@ -656,15 +660,17 @@ export class DebugRenderUtils {
 
     const shape = this.shapes['Arrow'];
     const arrowCount = pos.length;
-    const floatStride = 12;
+    const floatStride = 13;
 
     // Encode positions and write to vertex buffer
     const scaleArr = [scale];
+    const groundArr = [groundAlign ? 1.0 : 0.0];
     for (let i = 0; i < arrowCount; i++) {
       floatScratch.set(pos[i],   i * floatStride + 0);
-      floatScratch.set(dir[i],   i * floatStride + 3);
-      floatScratch.set(scaleArr, i * floatStride + 6);
-      floatScratch.set(color,    i * floatStride + 8);
+      floatScratch.set(groundArr, i * floatStride + 3);
+      floatScratch.set(dir[i],   i * floatStride + 4);
+      floatScratch.set(scaleArr, i * floatStride + 7);
+      floatScratch.set(color,    i * floatStride + 9);
     }
 
     this.renderer.writeBufferData(shape.vertexBuffer, shape.count * floatStride * 4, 

@@ -10,9 +10,10 @@ import { computePackedBufferLayout, UniformBuffer } from './UniformBuffer';
 
 export class GlobalUniforms {
     public static bufferLayout: Gfx.BufferLayout = computePackedBufferLayout({
-        g_camPos: { type: Gfx.Type.Float3 },
         g_proj: { type: Gfx.Type.Float4x4 },
         g_viewProj: { type: Gfx.Type.Float4x4 },
+        g_camPos: { type: Gfx.Type.Float3 },
+        g_viewVec: { type: Gfx.Type.Float3 },
     });
     
     public buffer: UniformBuffer;

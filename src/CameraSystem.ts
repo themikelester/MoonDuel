@@ -76,6 +76,7 @@ export class CameraSystem {
 
         const camPos = this.camera.getPos(this.camPos);
         deps.globalUniforms.buffer.setVec3('g_camPos', camPos);
+        deps.globalUniforms.buffer.setVec3('g_viewVec', this.camera.forward);
         deps.globalUniforms.buffer.setMat4('g_proj', this.camera.projectionMatrix);
         deps.globalUniforms.buffer.setMat4('g_viewProj', this.camera.viewProjMatrix);
     }
