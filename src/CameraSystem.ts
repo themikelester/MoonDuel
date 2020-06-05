@@ -178,7 +178,7 @@ export class CombatCameraController implements CameraController {
     private minDistance = 500; 
     private maxDistance = 800;
 
-    private headingBlend = 1.0;
+    private headingBlend = 0.5;
 
     initialize(deps: Dependencies) {
         // Set up a valid initial state
@@ -193,9 +193,9 @@ export class CombatCameraController implements CameraController {
     }
 
     public update(deps: Dependencies, targets: CameraTarget[]): boolean {
+        const dtSec = deps.clock.renderDt * 0.001;
         let avPos: vec3 = vec3.zero(scratchVec3A);
         let enPos: vec3 = vec3.zero(scratchVec3B);
-        const dtSec = deps.clock.renderDt * 0.001;
 
         for (const target of targets) {
             if (target.pri === 1) { enPos = target.pos; }
@@ -230,18 +230,15 @@ export class CombatCameraController implements CameraController {
         const angleDiff = clamp(Math.abs(shoulderAngle), kMinShoulderAngle, kMaxShoulderAngle) - Math.abs(shoulderAngle);
         this.offset[0] += angleDiff * Math.sign(shoulderAngle);
 
-        // Orient the camera to look at the halfway point along the attack vector
-        const lookPos = vec3.scaleAndAdd(scratchVec3C, avPos, attackVec, 0.5);
-        DebugRenderUtils.renderSpheres(
-            [vec4.fromValues(avPos[0], avPos[1], avPos[2], 10),
-            vec4.fromValues(enPos[0], enPos[1], enPos[2], 10),
-            vec4.fromValues(lookPos[0], lookPos[1], lookPos[2], 10)]
-        );
+        // Compute eye position
         const eyeOffsetUnit = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
         const eyeOffset = vec3.scale(scratchVec3A, eyeOffsetUnit, this.offset[2]);
         const eyePos = vec3.subtract(scratchVec3A, this.targetPos, eyeOffset);
-        const eyeToLookPos = vec3.subtract(scratchVec3C, lookPos, eyePos);
-        this.ori[0] = this.headingBlend * angleXZ(eyeOffsetUnit, eyeToLookPos);
+
+        // Orient the camera to look at the halfway point along the attack vector
+        const enViewVec = vec3.sub(scratchVec3C, enPos, eyePos);
+        const enAngle = angleXZ(eyeOffsetUnit, enViewVec);
+        this.ori[0] = this.headingBlend * enAngle;
 
         // Convert to camera
         mat4.lookAt(this.camera.viewMatrix, eyePos, this.targetPos, vec3Up);
