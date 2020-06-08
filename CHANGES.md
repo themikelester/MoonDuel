@@ -17,6 +17,10 @@ Change Log
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
 
+### 2020-06-09
+##### Morning
+Character week! The goal for this week is to add a new animation for the sidestep/roll attack (which parries the vertical attack), and to clean up the exported character so that it's not nearly 3MB to load. I may also modify his design a bit, but no solid ideas yet. I'll spend today learning studying rigging and animating in Blender, and then see get the new animation started. The interesting part about this attack is that the character won't return to his initial origin position. He'll either roll or sidestep around the target position. I'll need to figure out how much root motion I'm going to include in the animation, so this could get tricky.
+
 ### 2020-06-05
 ##### Morning
 I'm going to add another camera constraints that tries to keep both the avatar and target on screen. I'll also modify the "look at the halfway point" constraint so that it operates in screen space. The angle, A, between the camera's forward vector and the camera->object vector, divided by FovX/2, is a value from 0 to 1 (or more) where 0 is the center of the screen's X axis, and 1.0 is the edge. This makes it easy to compute the yaw necessary to rotate the camera from the avatar to the screen half point, it's just half of the difference between the two A values. 
