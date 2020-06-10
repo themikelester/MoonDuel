@@ -18,6 +18,8 @@ import { DebugMenu } from "./DebugMenu";
 import { Environment } from "./Environment";
 import { DebugRenderUtils } from "./DebugRender";
 import { GlobalUniforms } from './GlobalUniforms';
+import { ResourceManager } from './resources/ResourceLoading';
+import { TextureResource } from './resources/Texture';
 
 const scratchVec4a = vec4.create();
 const scratchVec4b = vec4.create();
@@ -82,8 +84,9 @@ export class AvatarRender {
 
     shaderBasic: Gfx.Id;
     shaderBlend: Gfx.Id;
+    toonTex: TextureResource;
 
-    initialize(avatars: Avatar[], debugMenu: DebugMenu, gfxDevice: Gfx.Renderer) {
+    initialize(avatars: Avatar[], debugMenu: DebugMenu, gfxDevice: Gfx.Renderer, resources: ResourceManager) {
         this.avatars = avatars;
         for (let i = 0; i < avatars.length; i++) {
             this.data[i] = {
@@ -94,6 +97,11 @@ export class AvatarRender {
         
         this.shaderBasic = gfxDevice.createShader(AvatarShader.createBasic());
         this.shaderBlend = gfxDevice.createShader(AvatarShader.createBlend());
+      
+        resources.load('data/toon.png', 'texture', (error?: string, res?: TextureResource) => {
+            if (error) console.error(`Failed to load: ${error}`);
+            if (res) this.toonTex = res;
+        });
 
         const debug = debugMenu.addFolder('Avatar');
         debug.add(this, 'drawSkeleton');
@@ -194,8 +202,8 @@ export class AvatarRender {
         const ubo = new UniformBuffer(primMaterial.name, gfxDevice, uniformLayout);
         material.setUniformBuffer(gfxDevice, 'uniforms', ubo);
 
-        material.setTexture(gfxDevice, 'u_Texture0', 0);
-        material.setTexture(gfxDevice, 'u_Texture1', 0);
+        material.setTexture(gfxDevice, 'u_Texture0', gltf.textures[primMaterial.values?.baseColorTexture].id);
+        material.setTexture(gfxDevice, 'u_Texture1', gltf.textures[0].id);
         
         ubo.setVec4('u_Color0', [1, 1, 1, 1]);
         ubo.setVec4('u_Color1', [1, 1, 1, 1]);
@@ -203,7 +211,7 @@ export class AvatarRender {
         ubo.setVec4('u_ColorMatReg0', [1, 1, 1, 1]);
         ubo.setVec4('u_KonstColor0', [1, 1, 1, 1]);
         ubo.setVec4('u_KonstColor1', [0.6274509803921569, 0.35294117647058826, 0, 1]);
-        ubo.setVec4('u_KonstColor2', [1, 1, 1, 1]);
+        ubo.setVec4('u_KonstColor2', [0, 0, 0, 1]);
         ubo.setVec4('u_KonstColor3', [1, 1, 1, 1]);
         ubo.setFloat('u_jointCount', gltf.skins[0].joints.length);
 
@@ -216,7 +224,7 @@ export class AvatarRender {
         const shaders: Record<string, Gfx.Id> = {
             'm_basic': this.shaderBasic,
             'm_colorMix': this.shaderBlend,
-            'm_metal': this.shaderBasic,
+            'm_metal': this.shaderBlend,
         }
 
         for (let prim of gltfMesh.primitives) {
@@ -265,6 +273,10 @@ export class AvatarRender {
 
                 setLighting(uniforms, env, pos);
                 uniforms.write(gfxDevice);
+
+                if (this.toonTex) {
+                    model.material.setTexture(gfxDevice, 'u_Texture1', this.toonTex.texture!);
+                }
 
                 model.renderList.push(model.primitive);
             }

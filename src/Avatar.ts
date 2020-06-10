@@ -136,7 +136,7 @@ export class AvatarSystemClient implements GameObjectFactory {
         });
 
         this.animation.initialize(this.avatars);
-        this.renderer.initialize(this.avatars, game.debugMenu, game.gfxDevice);
+        this.renderer.initialize(this.avatars, game.debugMenu, game.gfxDevice, game.resources);
     }
 
     onJoined(clientIndex: number) {
