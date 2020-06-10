@@ -194,7 +194,7 @@ export class AvatarSystemClient implements GameObjectFactory {
                 const weapon = game.world.objects[weaponId] as Weapon;
 
                 avatar.weapon = weapon;
-                const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+                const joint = assertDefined(avatar.nodes.find(n => n.name === 'item.r'));
                 joint.add(avatar.weapon.transform);
             }
 
@@ -312,7 +312,7 @@ export class AvatarSystemServer implements GameObjectFactory {
             avatar.skeleton = new Skeleton(bones as Object3D[] as Bone[], ibms);
 
             // Attach the weapon
-            const joint = assertDefined(avatar.nodes.find(n => n.name === 'j_tn_item_r1'));
+            const joint = assertDefined(avatar.nodes.find(n => n.name === 'item.r'));
             joint.add(avatar.weapon.transform);
 
             avatar.animationMixer = new AnimationMixer(avatar);
@@ -380,10 +380,10 @@ export class AvatarSystemServer implements GameObjectFactory {
 
             if (!avatar.isActive || !avatar.skeleton) continue;
 
-            const headBone = assertDefined(avatar.skeleton.getBoneByName('j_tn_atama1'));
-            const rootBone = assertDefined(avatar.skeleton.getBoneByName('j_tn_kosi1'));
-            const leftFoot = assertDefined(avatar.skeleton.getBoneByName('j_tn_asi_l3'));
-            const rightFoot = assertDefined(avatar.skeleton.getBoneByName('j_tn_asi_r3'));
+            const headBone = assertDefined(avatar.skeleton.getBoneByName('head'));
+            const rootBone = assertDefined(avatar.skeleton.getBoneByName('pelvis'));
+            const leftFoot = assertDefined(avatar.skeleton.getBoneByName('foot.l'));
+            const rightFoot = assertDefined(avatar.skeleton.getBoneByName('foot.r'));
 
             headBone?.getWorldPosition(scratchVector3a);
             rootBone?.getWorldPosition(scratchVector3b);
