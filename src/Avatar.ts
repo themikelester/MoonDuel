@@ -89,7 +89,7 @@ export enum AvatarFlags {
     _Target2 = 1 << 7,
 }
 
-const kGltfFilename = 'data/Tn.glb';
+const kGltfFilename = 'data/Avatar.glb';
 export const kAvatarCount = 8;
 const kBaseObb = mat4.fromValues(
     40, 0, 0, 0,
@@ -136,7 +136,7 @@ export class AvatarSystemClient implements GameObjectFactory {
         });
 
         this.animation.initialize(this.avatars);
-        this.renderer.initialize(this.avatars, game.debugMenu);
+        this.renderer.initialize(this.avatars, game.debugMenu, game.gfxDevice);
     }
 
     onJoined(clientIndex: number) {
