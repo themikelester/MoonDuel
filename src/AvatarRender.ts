@@ -1,6 +1,8 @@
 import avatarShaderVert from './shaders/avatar.vert';
+import avatarShaderRigidVert from './shaders/avatarRigid.vert';
 import avatarShaderAlbedo from './shaders/avatar.frag';
 import avatarShaderColorBlend from './shaders/colorBlend.frag';
+import avatarShaderUnlit from './shaders/unlit.frag';
 
 import { GltfResource, GltfTechnique, GltfPrimitive } from "./resources/Gltf";
 import { Model, Material, SkinnedModel } from "./Mesh";
@@ -17,7 +19,6 @@ import { Avatar } from "./Avatar";
 import { DebugMenu } from "./DebugMenu";
 import { Environment } from "./Environment";
 import { DebugRenderUtils } from "./DebugRender";
-import { GlobalUniforms } from './GlobalUniforms';
 import { ResourceManager } from './resources/ResourceLoading';
 import { TextureResource } from './resources/Texture';
 
@@ -40,6 +41,10 @@ class AvatarShader {
 
     static createBlend(): Gfx.ShaderDescriptor { 
         return { name: AvatarShader.name, vertSource: AvatarShader.vertSource, fragSource: avatarShaderColorBlend.sourceCode };
+    }
+
+    static createRigid(): Gfx.ShaderDescriptor { 
+        return { name: AvatarShader.name, vertSource: avatarShaderRigidVert.sourceCode, fragSource: avatarShaderUnlit.sourceCode };
     }
 
     static uniformLayout: Gfx.BufferLayout = computePackedBufferLayout({
@@ -84,7 +89,10 @@ export class AvatarRender {
 
     shaderBasic: Gfx.Id;
     shaderBlend: Gfx.Id;
+    shaderRigid: Gfx.Id;
     toonTex: TextureResource;
+
+    materialShaderMap: Record<string, Gfx.Id>;
 
     initialize(avatars: Avatar[], debugMenu: DebugMenu, gfxDevice: Gfx.Renderer, resources: ResourceManager) {
         this.avatars = avatars;
@@ -97,6 +105,13 @@ export class AvatarRender {
         
         this.shaderBasic = gfxDevice.createShader(AvatarShader.createBasic());
         this.shaderBlend = gfxDevice.createShader(AvatarShader.createBlend());
+        this.shaderRigid = gfxDevice.createShader(AvatarShader.createRigid());
+        this.materialShaderMap = {
+            'm_basic': this.shaderBasic,
+            'm_colorMix': this.shaderBlend,
+            'm_metal': this.shaderBlend,
+            'm_eyes': this.shaderRigid,
+        }
       
         resources.load('data/toon.png', 'texture', (error?: string, res?: TextureResource) => {
             if (error) console.error(`Failed to load: ${error}`);
@@ -120,8 +135,7 @@ export class AvatarRender {
                     assert(node.skinId === 0);
                     this.loadSkinnedModel(gfxDevice, gltf, node, meshId, avatar.skeleton, avatarIdx);
                 } else if (defined(node.meshId)) {
-                    // @HACK
-                    // this.loadModel(gfxDevice, gltf, node, node.meshId, avatarIdx);
+                    this.loadModel(gfxDevice, gltf, node, node.meshId, avatarIdx);
                 }
             }
         }
@@ -223,16 +237,10 @@ export class AvatarRender {
     loadSkinnedModel(gfxDevice: Gfx.Renderer, gltf: GltfResource, parent: Object3D, meshId: number, skeleton: Skeleton, avatarIdx: number) {
         const gltfMesh = gltf.meshes[meshId];
 
-        const shaders: Record<string, Gfx.Id> = {
-            'm_basic': this.shaderBasic,
-            'm_colorMix': this.shaderBlend,
-            'm_metal': this.shaderBlend,
-        }
-
         for (let prim of gltfMesh.primitives) {
             // @HACK
             const primMaterial = gltf.materials[prim.materialIndex!];
-            const shader = shaders[primMaterial.name];
+            const shader = this.materialShaderMap[primMaterial.name];
             const material = defined(shader) 
                 ? this.createMaterialNew(gfxDevice, prim, shader, gltf) 
                 : this.createMaterial(gfxDevice, prim, gltf);
@@ -249,7 +257,13 @@ export class AvatarRender {
         const gltfMesh = gltf.meshes[meshId];
 
         for (let prim of gltfMesh.primitives) {
-            const material = this.createMaterial(gfxDevice, prim, gltf);
+            // @HACK
+            const primMaterial = gltf.materials[prim.materialIndex!];
+            const shader = this.materialShaderMap[primMaterial.name];
+            const material = defined(shader) 
+                ? this.createMaterialNew(gfxDevice, prim, shader, gltf) 
+                : this.createMaterial(gfxDevice, prim, gltf);
+
             const model = new Model(gfxDevice, renderLists.opaque, prim.mesh, material);
             this.data[avatarIdx].models.push(model);
             parent.add(model);
@@ -290,9 +304,15 @@ export class AvatarRender {
                 const pos = vec3.set(scratchVec3a, matrixWorld[12], matrixWorld[13], matrixWorld[14]);
 
                 const uniforms = model.material.getUniformBuffer('uniforms');
-                uniforms.setMat4('u_modelViewProjection', mat4.multiply(mat4.create(), camera.viewProjMatrix, matrixWorld));
+                
+                uniforms.setMat4('u_viewProj', camera.viewProjMatrix);
+                uniforms.setMat4('u_model', matrixWorld);
+
                 setLighting(uniforms, env, pos);
                 uniforms.write(gfxDevice);
+
+                // @HACK
+                model.material.setTexture(gfxDevice, 'u_jointTex', 0);
 
                 model.renderList.push(model.primitive);
             }
