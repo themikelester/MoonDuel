@@ -70,17 +70,13 @@ vec3 calcLightDiffuseSpecular(vec3 pos, vec3 norm, vec3 ambientColor) {
 //--------------------------------------------------------------------------------
 void main(void) {
     // Skinning
-    mat4 t_PoseMtx = computeSkinningMatrix();
-    mat4 t_ModelMtx = u_model * t_PoseMtx;
-    vec4 t_ModelPos = t_PoseMtx * vec4(a_pos, 1.0);
+    mat4 t_ModelMtx = computeSkinningMatrix();
+    vec4 t_WorldPos = t_ModelMtx * vec4(a_pos, 1.0);
     
     // Position transform
-    // @TODO: GLTF doesn't support VIEWPROJECTION ??
-    vec4 t_WorldPos = (u_model * t_ModelPos);
     gl_Position = u_viewProj * t_WorldPos;
     
     // Normal transform
-    
     mat3 normalWorld = mat3(t_ModelMtx);
     vec3 t_WorldNorm = normalize(normalWorld * a_normal);
     
