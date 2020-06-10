@@ -213,6 +213,8 @@ export class AvatarRender {
         ubo.setVec4('u_KonstColor1', [0.6274509803921569, 0.35294117647058826, 0, 1]);
         ubo.setVec4('u_KonstColor2', [0, 0, 0, 1]);
         ubo.setVec4('u_KonstColor3', [1, 1, 1, 1]);
+        ubo.setVec3('u_LightDistAttens', [1, 0, 0, 1, 0, 0]);
+        ubo.setVec3('u_LightCosAttens', [1, 0, 0, 1, 0, 0]);
         ubo.setFloat('u_jointCount', gltf.skins[0].joints.length);
 
         return material;
