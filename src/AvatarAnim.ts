@@ -114,7 +114,7 @@ export class AvatarAnim {
         const runClip = assertDefined(gltf.animations.find(a => a.name === 'brun1'));
         const attackSideClip = assertDefined(gltf.animations.find(a => a.name === 'bat_yoko1'));
         const attackVertClip = assertDefined(gltf.animations.find(a => a.name === 'bat_jump1'));
-        const attackPunchClip = assertDefined(gltf.animations.find(a => a.name === 'at_roll1'));
+        const attackPunchClip = assertDefined(gltf.animations.find(a => a.name === 'at_roll2'));
         const struckClip = assertDefined(gltf.animations.find(a => a.name === 'ahakai1'));
 
         for (let i = 0; i < this.avatars.length; i++) {
