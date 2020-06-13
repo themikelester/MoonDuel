@@ -96,8 +96,8 @@ class SwordBlueprint extends WeaponBlueprint {
         );
 
         this.attackLine = [
-            vec3.fromValues(22, 0, 20),  // Start
-            vec3.fromValues(18, 0, 200), // End
+            vec3.fromValues(-22, 0, 20),  // Start
+            vec3.fromValues(-18, 0, 200), // End
         ];
     }
 
