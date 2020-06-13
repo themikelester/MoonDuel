@@ -33,7 +33,7 @@ class SideAttack implements StateDefinition {
 class PunchAttack implements StateDefinition {
   duration = 90;
   
-  attackPeriod = [36, 46];
+  attackPeriod = [44, 50];
   idealDistance = 150;
   
   safePeriod = [9, 36];
