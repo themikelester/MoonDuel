@@ -39,8 +39,8 @@ class PunchAttack implements StateDefinition {
   safePeriod = [9, 36];
   safeFrom = AvatarState.AttackVertical;
 
-  movePeriod = [20, 38];
-  moveSpeed = 50;
+  movePeriod = [5, 40];
+  moveSpeed = 400;
 }
 
 const kDefinitions: Partial<Record<AvatarState, StateDefinition>> = {
