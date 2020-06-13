@@ -17,6 +17,14 @@ Change Log
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
 
+### 2020-06-13
+##### Morning
+Phew, what a few days. That nearly drove me insane. I spent 5 days basically learning Blender and animation. A lot of it was just trying to figure out how to "mix rigs", because the existing animations are on the bones only, whereas a traditional rig has controls and constraints (things like IK) that make posing easier. So I ended up making a proper rig on top of the existing bones, and ended up with a goofy pipeline to "bake" the rigged animation (sample the location of each bone each frame while applying the constraints) to the bones and then export to GLTF. 
+
+Next week I need to continue working on combat and adding in the missing "game" pieces, such as dying and winning. First up, I need to add a roll around mechanic to the roll attack. The avatar needs to roll to the left of the target, so that it can dodge the vertical attack. Given a maximum roll radius from the avatar (which includes the curve of the roll), and an ideal attack radius around the target, I should end up with two possible roll end points. Since this is the "left" attack ("right" is the side attack), I'll choose the target to the left of the avatar, and initiate the roll. Hopefully the existing orientation logic (orient with a max radial speed towards the target) should work, but it may need some tweaking.
+
+After the roll is implemented I should have a nice rock-paper-scissors style trio of attacks. Then I'll add dying, where after the second hit you get knocked back and disappear. And winning, if you're the last man standing. I also need better knock down mechanics. Instead of just being knocked back and up in an arc, you'll transition to lying straight on your back (or sliding on your stomach if hit from behind, eventually). This is extra gameplay because if you hit an attack key right as you land, you can "tech" up and recover faster. Otherwise you'll have to do a slow recover and the opponent will have time to approach you. 
+
 ### 2020-06-09
 ##### Morning
 Character week! The goal for this week is to add a new animation for the sidestep/roll attack (which parries the vertical attack), and to clean up the exported character so that it's not nearly 3MB to load. I may also modify his design a bit, but no solid ideas yet. I'll spend today learning studying rigging and animating in Blender, and then see get the new animation started. The interesting part about this attack is that the character won't return to his initial origin position. He'll either roll or sidestep around the target position. I'll need to figure out how much root motion I'm going to include in the animation, so this could get tricky.
