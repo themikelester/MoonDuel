@@ -38,6 +38,8 @@ export class TextureLoader implements ResourceLoader {
         type: Gfx.TextureType.Texture2D,
         format: Gfx.TexelFormat.U8x4,
         maxAnistropy: 16,
+        defaultWrapS: Gfx.TextureWrap.Clamp,
+        defaultWrapT: Gfx.TextureWrap.Clamp,
       }, resource.imageBitmap);
 
       resource.imageBitmap.close();

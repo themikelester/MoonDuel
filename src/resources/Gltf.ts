@@ -646,7 +646,13 @@ function loadMaterialsAsync(res: GltfResource, asset: GltfAsset) {
     const materials = defaultValue(asset.gltf.materials, []).map((src, i) => {
         const ext = src.extensions?.KHR_techniques_webgl;
         const techniqueIndex = ext ? ext.technique : undefined;
-        const values = ext ? ext.values : undefined;
+        const values = ext ? ext.values : {};
+
+        if (!ext) {
+            if (src.pbrMetallicRoughness?.baseColorTexture) {
+                values['baseColorTexture'] = src.pbrMetallicRoughness.baseColorTexture.index;
+            }
+        }
 
         const material = {
             name: defaultValue(src.name, `Material${i}`),
