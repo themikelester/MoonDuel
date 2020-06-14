@@ -17,6 +17,12 @@ Change Log
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
 
+### 2020-06-14
+##### Morning
+For the roll attack, there are two forms. Targeted and non-targeted. Non-targeted rolls straight, targeted is curved. If not moving when a non-targeted attack starts, the character still needs to move forward some amount during the roll. Actually no, this needs to always happen. I could add this to the attack definition as something like "mandatory move" or "move distance". 
+
+Oo, I just figured out how I could solve the "how to block throwing attacks" problem. Either you auto-block if you're not pressing any attack keys, or you hold the throw key and face into the throw to block. I'd have to have the start pose for the animation put the sword in front of the body, and you'd have to be able to cancel the throw once you've made the block.
+
 ### 2020-06-13
 ##### Evening
 ![Daily Screenshot](/screenshots//2020-06-13.png?raw=true)
