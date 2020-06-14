@@ -21,7 +21,7 @@ import { CollisionSystem, StaticCollisionSystem } from "./Collision";
 import { kEmptyCommand, UserCommand } from "./UserCommand";
 import { InputAction } from "./Input";
 import { EnvironmentSystem } from "./Environment";
-import { SideAttackBot, AvatarBotSystem, VertAttackBot, AvatarBot } from "./AvatarBot";
+import { SideAttackBot, AvatarBotSystem, VertAttackBot, AvatarBot, BotFlags } from "./AvatarBot";
 import { Attack, evaluateHit } from "./Attack";
 import { AvatarState } from "./AvatarState";
 import { CameraSystem, CameraTarget } from "./CameraSystem";
@@ -282,9 +282,8 @@ export class AvatarSystemServer implements GameObjectFactory {
         this.animation.initialize(this.avatars);
 
         // Let's add a bot
-        this.bots.addBot(new SideAttackBot(), vec3.set(scratchVec3a, -500, 0, 500));
-        this.bots.addBot(new VertAttackBot(), vec3.set(scratchVec3a, -500, 0, -500));
-        this.bots.addBot(new AvatarBot(), vec3.set(scratchVec3a, 500, 0, 0));
+        this.bots.addBot(new SideAttackBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, 500));
+        this.bots.addBot(new VertAttackBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, -500));
     }
 
     onResourcesLoaded(game: ServerDependencies) {

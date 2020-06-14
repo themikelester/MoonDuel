@@ -23,6 +23,8 @@ For the roll attack, there are two forms. Targeted and non-targeted. Non-targete
 
 Oo, I just figured out how I could solve the "how to block throwing attacks" problem. Either you auto-block if you're not pressing any attack keys, or you hold the throw key and face into the throw to block. I'd have to have the start pose for the animation put the sword in front of the body, and you'd have to be able to cancel the throw once you've made the block.
 
+If two avatars do the same attack around the same time, the swords should clash and fly off. Each player's sword should land the same distance away (to be fair) but in a random direction. I could tweak how far apart the swords land to affect the gameplay afterwards. Far away would mean you're likely going to fight a different player, or close to resume the fight. I'd also have to guarantee that they don't land off the map. 
+
 ### 2020-06-13
 ##### Evening
 ![Daily Screenshot](/screenshots//2020-06-13.png?raw=true)
