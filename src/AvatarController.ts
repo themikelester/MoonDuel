@@ -46,6 +46,30 @@ abstract class AvatarStateController {
 
     abstract evaluate(context: SimContext): AvatarState;
 
+    evaluateLate(context: SimContext): AvatarState {
+        const prevState = context.avatar.state;
+        let avState: AvatarState = prevState.state;
+
+        // Check for hits (and transition to the Struck state) only after all Avatar positions have been resolved
+        if (context.avatar.skeleton) {
+            const hits = context.collision.getHitsForTarget(context.avatar.collisionId);
+            if (hits.length > 0) {
+                for (const hit of hits) {
+                    const attack = hit.owner;
+                    if (evaluateHit(context.avatar, attack, context.frame)) {
+                        context.avatar.hitBy.push(attack);
+                    }
+                }
+
+                if (context.avatar.hitBy.length > 0 && context.avatar.state.state !== AvatarState.Struck) {
+                    avState = AvatarState.Struck;
+                }
+            }
+        }
+
+        return avState;
+    }
+
     simulate(context: SimContext): EntityState {
         const nextState = copyEntity(createEntity(), context.state);
 
@@ -472,40 +496,18 @@ export class AvatarController {
 
     updateLate(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand, collision: CollisionSystem) {
         const context: SimContext = { avatar, avatars, frame, dtSec, input, collision, state: avatar.state };
-        const nextState = this.legacyEvaluateLate(avatar, avatars, frame, dtSec, input, collision);
+        
+        let stateCtrl = assertDefined(this.stateControllers[context.state.state as AvatarState]);
+        const nextState = stateCtrl.evaluateLate(context);
 
         // Switch states if necessary
         if (nextState !== context.state.state) { 
-            let prevStateCtrl = assertDefined(this.stateControllers[context.state.state as AvatarState]);
             let nextStateCtrl = assertDefined(this.stateControllers[nextState]);
 
-            prevStateCtrl.exit(context); 
+            stateCtrl.exit(context); 
             nextStateCtrl.enter(context, nextState);
 
             avatar.state.state = nextState;
         } 
-    }
-
-    private legacyEvaluateLate(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand, collision: CollisionSystem): AvatarState {
-        const prevState = avatar.state;
-        let avState: AvatarState = prevState.state;
-
-        if (avatar.skeleton) {
-            const hits = collision.getHitsForTarget(avatar.collisionId);
-            if (hits.length > 0) {
-                for (const hit of hits) {
-                    const attack = hit.owner;
-                    if (evaluateHit(avatar, attack, frame)) {
-                        avatar.hitBy.push(attack);
-                    }
-                }
-
-                if (avatar.hitBy.length > 0 && avatar.state.state !== AvatarState.Struck) {
-                    avState = AvatarState.Struck;
-                }
-            }
-        }
-
-        return avState;
     }
 }
