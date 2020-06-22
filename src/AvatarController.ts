@@ -5,10 +5,11 @@ import { clamp, angularDistance, ZeroVec3, normToLength, rotateTowardXZ, rotateX
 import { UserCommand } from "./UserCommand";
 import { EntityState, copyEntity, createEntity } from "./World";
 import { assert, defined } from "./util";
-import { Attack } from "./Attack";
+import { Attack, evaluateHit } from "./Attack";
 import { AvatarState } from "./AvatarState";
 import { setFlag, setField, clearFlags } from "./Flags";
 import { DebugRenderUtils } from "./DebugRender";
+import { CollisionSystem } from "./Collision";
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -124,6 +125,7 @@ class AttackRoll implements AvatarStateController {
  */
 export class AvatarController {
     lastNonTargetingFrame = 0;
+    stateStartFrame = 0;
     
     // @NOTE: These will break the simulation if we try to rewind
     orientationTarget: vec3 = vec3.create();
@@ -144,6 +146,7 @@ export class AvatarController {
         };
 
         const avState = this.legacyEvaluate(avatar, avatars, frame, dtSec, input);
+        this.handleStateSwitch(avState, avatar, avatars, frame, dtSec, input);
         const state = this.legacySimulate(avState, avatar, avatars, frame, dtSec, input);
 
         avatar.state = state;
@@ -169,32 +172,79 @@ export class AvatarController {
         // }
     }
 
+    updateLate(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand, collision: CollisionSystem) {
+        const avState = this.legacyEvaluateLate(avatar, avatars, frame, dtSec, input, collision);
+        this.handleStateSwitch(avState, avatar, avatars, frame, dtSec, input);
+        avatar.state.state = avState;
+    }
+
+    private handleStateSwitch(avState: AvatarState, avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand) {
+        if (avState !== avatar.state.state) {
+            this.stateStartFrame = frame;
+
+            if (avState === AvatarState.AttackSide || avState === AvatarState.AttackPunch || avState === AvatarState.AttackVertical) {
+                avatar.attack = new Attack(avatar, avState);
+                if (avState === AvatarState.AttackPunch) {
+                    this.rollOrigin = avatar.state.origin;
+                }
+            } else {
+                avatar.attack = null;
+            }
+
+            if (avatar.state.state === AvatarState.Struck) {
+                avatar.hitBy.length = 0;
+                vec3.zero(this.hitVelocity);
+            }
+        }
+    }
+
+    private legacyEvaluateLate(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand, collision: CollisionSystem): AvatarState {
+        const prevState = avatar.state;
+        let avState: AvatarState = prevState.state;
+
+        if (avatar.skeleton) {
+            const hits = collision.getHitsForTarget(avatar.collisionId);
+            if (hits.length > 0) {
+                for (const hit of hits) {
+                    const attack = hit.owner;
+                    if (evaluateHit(avatar, attack, frame)) {
+                        avatar.hitBy.push(attack);
+                    }
+                }
+
+                if (avatar.hitBy.length > 0 && avatar.state.state !== AvatarState.Struck) {
+                    avState = AvatarState.Struck;
+                }
+            }
+        }
+
+        return avState;
+    }
+
     private legacyEvaluate(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand): AvatarState {
         const prevState = avatar.state;
         let avState: AvatarState = prevState.state;
         const duration = frame - prevState.stateStartFrame;
 
-        // @TODO: Hit detection here
-
-        // Attacking
-        if (!defined(avatar.attack)) {
-            let attackState;
-            if (input.actions & InputAction.AttackSide) { attackState = AvatarState.AttackSide; }
-            if (input.actions & InputAction.AttackVert) { attackState = AvatarState.AttackVertical; }
-            if (input.actions & InputAction.AttackPunch) { attackState = AvatarState.AttackPunch; }
-
-            if (attackState) {
-                avState = attackState;
-            }
-        } else {
-            if (duration >= avatar!.attack.def.duration) { // @HACK: Need to set up proper exiting
-                avState = AvatarState.None;
-            }
-        }
-
         if (avState === AvatarState.Struck) {
             if (duration > 34 && prevState.origin[1] <= 0.0) {
                 avState = AvatarState.None;
+            }
+        } else {
+            // Attacking
+            if (!defined(avatar.attack)) {
+                let attackState;
+                if (input.actions & InputAction.AttackSide) { attackState = AvatarState.AttackSide; }
+                if (input.actions & InputAction.AttackVert) { attackState = AvatarState.AttackVertical; }
+                if (input.actions & InputAction.AttackPunch) { attackState = AvatarState.AttackPunch; }
+
+                if (attackState) {
+                    avState = attackState;
+                }
+            } else {
+                if (duration >= avatar!.attack.def.duration) { // @HACK: Need to set up proper exiting
+                    avState = AvatarState.None;
+                }
             }
         }
 
@@ -212,25 +262,8 @@ export class AvatarController {
 
         let orientation = vec3.clone(prevState.orientation);
         
-        // State switching
-        if (avState !== prevState.state) {
-            nextState.stateStartFrame = frame;
-
-            if (avState === AvatarState.AttackSide || avState === AvatarState.AttackPunch || avState === AvatarState.AttackVertical) {
-                avatar.attack = new Attack(avatar, avState);
-                if (avState === AvatarState.AttackPunch) {
-                    this.rollOrigin = prevState.origin;
-                }
-            } else {
-                avatar.attack = null;
-            }
-
-            if (prevState.state === AvatarState.Struck) {
-                avatar.hitBy.length = 0;
-                vec3.zero(this.hitVelocity);
-            }
-        }
         nextState.state = avState;
+        nextState.stateStartFrame = this.stateStartFrame;
         
         // Targeting
         if (input.actions & InputAction.TargetLeft) {

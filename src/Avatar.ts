@@ -419,22 +419,12 @@ export class AvatarSystemServer implements GameObjectFactory {
 
     updateFixedLate({ collision, clock }: { collision: CollisionSystem, clock: Clock }) {
         // Once all the avatar positions have been fully resolved, check for hits
-        for (const avatar of this.avatars) {
-            if (avatar.isActive && avatar.skeleton) {
-                const hits = collision.getHitsForTarget(avatar.collisionId);
-                if (hits.length > 0) {
-                    for (const hit of hits) {
-                        const attack = hit.owner;
-                        if (evaluateHit(avatar, attack, clock)) {
-                            avatar.hitBy.push(attack);
-                        }
-                    }
-
-                    if (avatar.hitBy.length > 0 && avatar.state.state !== AvatarState.Struck) {
-                        avatar.state.state = AvatarState.Struck;
-                        avatar.state.stateStartFrame = clock.simFrame;
-                    }
-                }
+        for (let i = 0; i < this.avatars.length; i++) {
+            const avatar = this.avatars[i];
+            if (avatar.isActive) {
+                const dtSec = clock.simDt / 1000.0;
+                const inputCmd = avatar.client!.getUserCommand(clock.simFrame);
+                this.controllers[i].updateLate(avatar, this.avatars, clock.simFrame, dtSec, inputCmd, collision);
             }
         }
     }

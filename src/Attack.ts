@@ -64,8 +64,8 @@ export class Attack {
   }
 }
 
-export function evaluateHit(avatar: Avatar, attack: Attack, clock: Clock): boolean {
-  const dodgeFrame = (clock.simFrame - avatar.state.stateStartFrame);
+export function evaluateHit(avatar: Avatar, attack: Attack, simFrame: number): boolean {
+  const dodgeFrame = (simFrame - avatar.state.stateStartFrame);
   const dodgeType = avatar.attack ? avatar.attack.def.safeFrom : AvatarState.None;
   
   // Check to see if we are temporarily invulnerable to this attack type (dodging)
