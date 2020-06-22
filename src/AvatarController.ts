@@ -37,15 +37,23 @@ abstract class AvatarStateController {
     
     private lastNonTargetingFrame = 0;
 
+    // Called when the avatar transitions to this state from another
+    // @NOTE: Both entry and exit are called before simulate, and may modify the context.state
     enter(context: SimContext, state: AvatarState): void {
         this.startFrame = context.frame;
         this.state = state;
     };
 
+    // Called when the avatar transitions out of this state
+    // @NOTE: Both entry and exit are called before simulate, and may modify the context.state
     abstract exit(context: SimContext): void;
 
+    // Determines the state of the avatar for this frame. If it differs from last frame, a state transition occurs.
+    // exit() and enter() will then be called, before the new state controller's simulate() is called.
     abstract evaluate(context: SimContext): AvatarState;
 
+    // Called after evaluate/simulate has completed for all Avatars. Useful for things like collision detection. 
+    // If this triggers a state change, exit()/enter() will be called immediately before the frame ends.
     evaluateLate(context: SimContext): AvatarState {
         const prevState = context.avatar.state;
         let avState: AvatarState = prevState.state;
@@ -70,6 +78,7 @@ abstract class AvatarStateController {
         return avState;
     }
 
+    // Create a new EntityState for the Avatar for this simulation frame
     simulate(context: SimContext): EntityState {
         const nextState = copyEntity(createEntity(), context.state);
 
