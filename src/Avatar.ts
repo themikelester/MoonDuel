@@ -273,7 +273,7 @@ export class AvatarSystemServer implements GameObjectFactory {
         }
 
         for (let i = 0; i < kAvatarCount; i++) {
-            this.controllers[i].initialize();
+            this.controllers[i].initialize(this.avatars[i], this.avatars, game.collision);
         }
 
         // Start loading all necessary resources
