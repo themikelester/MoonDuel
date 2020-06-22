@@ -282,8 +282,9 @@ export class AvatarSystemServer implements GameObjectFactory {
         this.animation.initialize(this.avatars);
 
         // Let's add a bot
-        this.bots.addBot(new SideAttackBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, 500));
+        // this.bots.addBot(new SideAttackBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, 500));
         this.bots.addBot(new VertAttackBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, -500));
+        // this.bots.addBot(new AvatarBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, -500));
     }
 
     onResourcesLoaded(game: ServerDependencies) {

@@ -20,6 +20,105 @@ export const kAvatarRunSpeed = 600; // Units per second
 const kWalkAcceleration = 600;
 const kRunAcceleration = 3000;
 
+interface SimContext {
+    avatar: Avatar;
+    avatars: Avatar[];
+    readonly state: EntityState;
+    readonly frame: number, 
+    readonly dtSec: number, 
+    readonly input: UserCommand
+
+    // @NOTE: These will break the simulation if we try to rewind
+    rollOrigin: vec3;
+}
+
+interface AvatarStateController {
+    enter(context: SimContext): void;
+    exit(context: SimContext): void;
+
+    evaluate(context: SimContext): AvatarState;
+    simulate(context: SimContext): EntityState;
+}
+
+class AttackRoll implements AvatarStateController {
+    tag = AvatarState.AttackPunch;
+
+    enter(context: SimContext) {
+        vec3.copy(context.rollOrigin, context.state.origin);
+    }
+
+    exit(context: SimContext) {
+        context.avatar.attack = null;
+    }
+
+    evaluate(context: SimContext): AvatarState {
+        const duration = context.frame - context.state.stateStartFrame;
+        if (duration >= context.avatar.attack!.def.duration) { // @HACK: Need to set up proper exiting
+            return AvatarState.None;
+        }
+        return this.tag;
+    }
+
+    simulate(context: SimContext) {
+        const prevState = context.state;
+        const nextState = copyEntity(createEntity(), prevState);
+
+        const duration = context.frame - prevState.stateStartFrame;
+        const attack = context.avatar.attack!;
+
+        if (context.avatar.target && duration >= attack.def.movePeriod[0] && duration <= attack.def.movePeriod[1]) {
+            const targetPos = context.avatar.target.state.origin;
+            const targetOri = context.avatar.target.state.orientation;
+
+            // Rolls are handled a bit differently
+            const frameRange = attack.def.movePeriod[1] - attack.def.movePeriod[0];
+            const range = attack.def.moveSpeed * 0.016 * frameRange;
+            const t = Math.min(1.0, duration / frameRange);
+            
+            const attackVec = vec3.subtract(scratchVec3D, targetPos, context.rollOrigin);
+            const targetDist = vec3.length(attackVec);
+            
+            const idealOffset = vec3.normalize(scratchVec3B, rotateXZ(scratchVec3B, attackVec, - Math.PI * 0.7));
+            const idealPos = vec3.scaleAndAdd(scratchVec3A, targetPos, idealOffset, -attack.def.idealDistance);
+
+            // Interpolate position along the curve
+            const normEnd = normToLength(idealOffset, 2 * targetDist);
+            const normStart = normToLength(rotateXZ(scratchVec3C, attackVec, Math.PI * 0.4), 3 * targetDist);
+            const posStart = context.rollOrigin;
+            const posEnd = idealPos;
+            nextState.origin[0] = getPointHermite(posStart[0], posEnd[0], normStart[0], normEnd[0], t);
+            nextState.origin[2] = getPointHermite(posStart[2], posEnd[2], normStart[2], normEnd[2], t);
+
+            // Modify orientation to look at target
+            const oriVel = Math.PI * 2;
+            const toTarget = vec3.subtract(scratchVec3D, targetPos, prevState.origin);
+            rotateTowardXZ(nextState.orientation, prevState.orientation, toTarget, oriVel * context.dtSec);
+            assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
+
+            // @DEBUG
+            const debugPos: vec3[] = [];
+            const debugNorm: vec3[] = [];
+            const kSampleCount = 8;
+            for (let i = 0; i < kSampleCount; i++) {
+                const pos = vec3.create();
+                const x = i / (kSampleCount-1);
+
+                pos[0] = getPointHermite(posStart[0], posEnd[0], normStart[0], normEnd[0], x);
+                pos[2] = getPointHermite(posStart[2], posEnd[2], normStart[2], normEnd[2], x);
+
+                debugPos[i] = pos;
+                if (i > 0) debugNorm[i-1] = vec3.subtract(vec3.create(), pos, debugPos[i-1]);
+            }
+            debugNorm[kSampleCount-1] = vec3.create();
+            DebugRenderUtils.renderArrows(debugPos, debugNorm, 10, true, vec4.fromValues(0, 1, 0, 1));
+        }
+
+        nextState.flags = clearFlags(nextState.flags, AvatarFlags.IsUTurning);
+        nextState.speed = 0;
+        return nextState;
+    }
+}
+
 /**
  * Drive each Avatar's skeleton, position, oriention, and animation
  */
@@ -31,20 +130,108 @@ export class AvatarController {
     hitVelocity: vec3 = vec3.create();
     rollOrigin: vec3 = vec3.create();
 
-    update(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand): EntityState {
-        const state = avatar.state;
+    stateControllers: Partial<Record<AvatarState, AvatarStateController>>;
 
-        // @HACK:
-        const prevState = copyEntity(createEntity(), state);
-        const nextState = state;
+    initialize() {
+        this.stateControllers = {
+            [AvatarState.AttackPunch]: new AttackRoll(),
+        }
+    }
+
+    update(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand): EntityState {
+        const context: SimContext = { avatar, avatars, frame, dtSec, input, state: avatar.state, 
+            rollOrigin: this.rollOrigin 
+        };
+
+        const avState = this.legacyEvaluate(avatar, avatars, frame, dtSec, input);
+        const state = this.legacySimulate(avState, avatar, avatars, frame, dtSec, input);
+
+        avatar.state = state;
+        return state;
+
+        // let nextState: AvatarState;
+        // let stateCtrl = this.stateControllers[context.state.state as AvatarState];
+        // if (defined(stateCtrl)) {
+        //     nextState = stateCtrl.evaluate(context);
+
+        //     // Switch states if necessary
+        //     if (nextState !== context.state.state) { 
+        //         stateCtrl.exit(context); 
+        //         stateCtrl = this.stateControllers[nextState];
+        //         stateCtrl?.enter(context);
+        //     }
+
+        //    // Run the simulation
+        //    return stateCtrl?.simulate(context); 
+
+        // } else {
+            
+        // }
+    }
+
+    private legacyEvaluate(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand): AvatarState {
+        const prevState = avatar.state;
+        let avState: AvatarState = prevState.state;
+        const duration = frame - prevState.stateStartFrame;
+
+        // @TODO: Hit detection here
+
+        // Attacking
+        if (!defined(avatar.attack)) {
+            let attackState;
+            if (input.actions & InputAction.AttackSide) { attackState = AvatarState.AttackSide; }
+            if (input.actions & InputAction.AttackVert) { attackState = AvatarState.AttackVertical; }
+            if (input.actions & InputAction.AttackPunch) { attackState = AvatarState.AttackPunch; }
+
+            if (attackState) {
+                avState = attackState;
+            }
+        } else {
+            if (duration >= avatar!.attack.def.duration) { // @HACK: Need to set up proper exiting
+                avState = AvatarState.None;
+            }
+        }
+
+        if (avState === AvatarState.Struck) {
+            if (duration > 34 && prevState.origin[1] <= 0.0) {
+                avState = AvatarState.None;
+            }
+        }
+
+        return avState;
+    }
+
+    private legacySimulate(avState: AvatarState, avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand) {
+        const prevState = avatar.state;
+        const nextState = copyEntity(createEntity(), prevState);
 
         const inputDir = this.getCameraRelativeMovementDirection(input, scratchVec3B);
         const inputActive = vec3.length(inputDir) > 0.1;
         const inputShouldWalk = !!(input.actions & InputAction.Walk);
-
-        let orientation = vec3.clone(prevState.orientation);
         let uTurning = !!(prevState.flags & AvatarFlags.IsUTurning);
 
+        let orientation = vec3.clone(prevState.orientation);
+        
+        // State switching
+        if (avState !== prevState.state) {
+            nextState.stateStartFrame = frame;
+
+            if (avState === AvatarState.AttackSide || avState === AvatarState.AttackPunch || avState === AvatarState.AttackVertical) {
+                avatar.attack = new Attack(avatar, avState);
+                if (avState === AvatarState.AttackPunch) {
+                    this.rollOrigin = prevState.origin;
+                }
+            } else {
+                avatar.attack = null;
+            }
+
+            if (prevState.state === AvatarState.Struck) {
+                avatar.hitBy.length = 0;
+                vec3.zero(this.hitVelocity);
+            }
+        }
+        nextState.state = avState;
+        
         // Targeting
         if (input.actions & InputAction.TargetLeft) {
             const valid = this.lastNonTargetingFrame === frame - 1;
@@ -73,7 +260,7 @@ export class AvatarController {
             nextState.flags = clearFlags(nextState.flags, AvatarFlags.HasTarget);
         }
 
-        if (prevState.state === AvatarState.Struck) {
+        if (avState === AvatarState.Struck) {
             const duration = frame - prevState.stateStartFrame;
 
             if (this.hitVelocity[0] === 0 && this.hitVelocity[1] === 0 && this.hitVelocity[2] === 0) {
@@ -92,45 +279,12 @@ export class AvatarController {
             const pos = vec3.scaleAndAdd(vec3.create(), prevState.origin, this.hitVelocity, dtSec);
             if (pos[1] < 0.0) this.hitVelocity[1] = 0;
 
-            if (duration > 34 && pos[1] <= 0.0) {
-                avatar.hitBy.length = 0;
-
-                nextState.state = AvatarState.None;
-                nextState.stateStartFrame = frame;
-                vec3.zero(this.hitVelocity);
-            }
-
             nextState.origin = pos;
             nextState.speed = 0;
             nextState.orientation = orientation;
             nextState.flags = clearFlags(nextState.flags, AvatarFlags.IsUTurning);
 
             return nextState;
-        }
-
-        // Attacking
-        if (!defined(avatar.attack)) {
-            let attackState;
-            if (input.actions & InputAction.AttackSide) { attackState = AvatarState.AttackSide; }
-            if (input.actions & InputAction.AttackVert) { attackState = AvatarState.AttackVertical; }
-            if (input.actions & InputAction.AttackPunch) { attackState = AvatarState.AttackPunch; }
-
-            if (attackState) {
-                nextState.state = attackState;
-                nextState.stateStartFrame = frame;
-                avatar.attack = new Attack(avatar, attackState);
-
-                if (attackState === AvatarState.AttackPunch) {
-                    this.rollOrigin = prevState.origin;
-                }
-            }
-        } else {
-            const duration = frame - prevState.stateStartFrame;
-            if (duration >= avatar!.attack.def.duration) { // @HACK: Need to set up proper exiting
-                nextState.state = AvatarState.None;
-                nextState.stateStartFrame = frame;
-                avatar.attack = null;
-            }
         }
 
         if (defined(avatar.attack)) {
