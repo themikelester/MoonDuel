@@ -28,6 +28,7 @@ interface SimContext {
     readonly frame: number, 
     readonly dtSec: number, 
     readonly input: UserCommand
+    readonly collision: CollisionSystem;
 
     // @NOTE: These will break the simulation if we try to rewind
     rollOrigin: vec3;
@@ -140,36 +141,35 @@ export class AvatarController {
         }
     }
 
-    update(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand): EntityState {
-        const context: SimContext = { avatar, avatars, frame, dtSec, input, state: avatar.state, 
+    update(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand, collision: CollisionSystem): EntityState {
+        const context: SimContext = { avatar, avatars, frame, dtSec, input, collision, state: avatar.state, 
             rollOrigin: this.rollOrigin 
         };
 
-        const avState = this.legacyEvaluate(avatar, avatars, frame, dtSec, input);
-        this.handleStateSwitch(avState, avatar, avatars, frame, dtSec, input);
-        const state = this.legacySimulate(avState, avatar, avatars, frame, dtSec, input);
+        let nextState: AvatarState;
+        let stateCtrl = this.stateControllers[context.state.state as AvatarState];
 
+        if (defined(stateCtrl)) {
+            nextState = stateCtrl.evaluate(context);
+
+            // Switch states if necessary
+            if (nextState !== context.state.state) { 
+                stateCtrl.exit(context); 
+                stateCtrl = this.stateControllers[nextState];
+                stateCtrl?.enter(context);
+            }
+        } else {
+            nextState = this.legacyEvaluate(avatar, avatars, frame, dtSec, input);
+            this.handleStateSwitch(nextState, avatar, avatars, frame, dtSec, input);
+        }
+
+        // Run the simulation
+        let state;
+        if (stateCtrl) { state = stateCtrl.simulate(context); }
+        else { state = this.legacySimulate(nextState, avatar, avatars, frame, dtSec, input); }
+        
         avatar.state = state;
         return state;
-
-        // let nextState: AvatarState;
-        // let stateCtrl = this.stateControllers[context.state.state as AvatarState];
-        // if (defined(stateCtrl)) {
-        //     nextState = stateCtrl.evaluate(context);
-
-        //     // Switch states if necessary
-        //     if (nextState !== context.state.state) { 
-        //         stateCtrl.exit(context); 
-        //         stateCtrl = this.stateControllers[nextState];
-        //         stateCtrl?.enter(context);
-        //     }
-
-        //    // Run the simulation
-        //    return stateCtrl?.simulate(context); 
-
-        // } else {
-            
-        // }
     }
 
     updateLate(avatar: Avatar, avatars: Avatar[], frame: number, dtSec: number, input: UserCommand, collision: CollisionSystem) {

@@ -272,6 +272,10 @@ export class AvatarSystemServer implements GameObjectFactory {
             this.avatars[i].weapon = game.world.createGameObject(GameObjectType.Weapon, { parent: i }) as Weapon;
         }
 
+        for (let i = 0; i < kAvatarCount; i++) {
+            this.controllers[i].initialize();
+        }
+
         // Start loading all necessary resources
         game.resources.load(kGltfFilename, 'gltf', (error, resource) => {
             if (error) { return console.error(`Failed to load resource`, error); }
@@ -356,7 +360,7 @@ export class AvatarSystemServer implements GameObjectFactory {
 
             // Update core state
             const dtSec = game.clock.simDt / 1000.0;
-            this.controllers[i].update(avatar, this.avatars, game.clock.simFrame, dtSec, inputCmd);
+            this.controllers[i].update(avatar, this.avatars, game.clock.simFrame, dtSec, inputCmd, game.collision);
 
             // Sync state changes with GameObject
             const pos = new Vector3(state.origin);
