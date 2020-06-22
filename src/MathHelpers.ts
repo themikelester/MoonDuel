@@ -230,3 +230,43 @@ export function angleXZ(a: vec3, b: vec3): number {
 
   return absAngle * sign;
 }
+
+/**
+ * Rotate a vector around the Y axis by a specific number of radians
+ * @see: rotateTowardXZ()
+ */
+export function rotateXZ(result: vec3, a: vec3, rad: number) { 
+  const sinRad = Math.sin(rad);
+  const cosRad = Math.cos(rad)
+  result[0] = a[2] * sinRad + a[0] * cosRad;
+  result[1] = a[1];
+  result[2] = a[2] * cosRad - a[0] * sinRad; //translate to correct position
+  return result;
+}
+
+/**
+ * Get the interpolant for a Cubic Bezier (four control points) curve for a given curve parameter t.
+ * @NOTE: This function is one dimensional, but can generalize to 2 or 3 dimensions by executing on all dimensions.
+ * @param cf0-cf4 The control points of the curve
+ * @param t The curve parameter
+ * @returns the interpolant for the given t
+ */
+export function getPointCubic(cf0: number, cf1: number, cf2: number, cf3: number, t: number): number {
+  return (((cf0 * t + cf1) * t + cf2) * t + cf3);
+}
+
+/**
+ * Get the interpolant for a Cubic Hermite (two vertices and two tangents) spline for a given curve parameter t.
+ * @NOTE: This function is one dimensional, but can generalize to 2 or 3 dimensions by executing on all dimensions.
+ * @param p0-p1 The vertices of the curve
+ * @param s0-s1 The tangents of the curve at the two vertices
+ * @param t The curve parameter
+ * @returns the interpolant for the given t
+ */
+export function getPointHermite(p0: number, p1: number, s0: number, s1: number, t: number): number {
+  const cf0 = (p0 *  2) + (p1 * -2) + (s0 *  1) +  (s1 *  1);
+  const cf1 = (p0 * -3) + (p1 *  3) + (s0 * -2) +  (s1 * -1);
+  const cf2 = (p0 *  0) + (p1 *  0) + (s0 *  1) +  (s1 *  0);
+  const cf3 = (p0 *  1) + (p1 *  0) + (s0 *  0) +  (s1 *  0);
+  return getPointCubic(cf0, cf1, cf2, cf3, t);
+}

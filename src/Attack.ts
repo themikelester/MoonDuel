@@ -34,7 +34,7 @@ class PunchAttack implements StateDefinition {
   duration = 90;
   
   attackPeriod = [44, 50];
-  idealDistance = 150;
+  idealDistance = 200;
   
   safePeriod = [9, 50];
   safeFrom = AvatarState.AttackVertical;
