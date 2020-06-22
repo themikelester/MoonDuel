@@ -46,6 +46,8 @@ class AttackRoll implements AvatarStateController {
     tag = AvatarState.AttackPunch;
 
     enter(context: SimContext) {
+        context.avatar.attack = new Attack(context.avatar, context.state.state);
+
         vec3.copy(context.rollOrigin, context.state.origin);
     }
 
@@ -58,7 +60,7 @@ class AttackRoll implements AvatarStateController {
         if (duration >= context.avatar.attack!.def.duration) { // @HACK: Need to set up proper exiting
             return AvatarState.None;
         }
-        return this.tag;
+        return context.state.state;
     }
 
     simulate(context: SimContext) {
@@ -121,6 +123,73 @@ class AttackRoll implements AvatarStateController {
     }
 }
 
+class AttackBase implements AvatarStateController {
+    enter(context: SimContext) {
+        context.avatar.attack = new Attack(context.avatar, context.state.state);
+
+        vec3.copy(context.rollOrigin, context.state.origin);
+    }
+
+    exit(context: SimContext) {
+        context.avatar.attack = null;
+    }
+
+    evaluate(context: SimContext): AvatarState {
+        const duration = context.frame - context.state.stateStartFrame;
+        if (duration >= context.avatar.attack!.def.duration) { // @HACK: Need to set up proper exiting
+            return AvatarState.None;
+        }
+        return context.state.state;
+    }
+
+    simulate(context: SimContext) {
+        const nextState = copyEntity(createEntity(), context.state);
+
+        const duration = context.frame - context.state.stateStartFrame;
+        const attack = context.avatar.attack!;
+
+        let toTarget = scratchVec3D;
+        let dir = vec3.copy(scratchVec3A, context.state.orientation);
+        let moveSpeed = 0;
+        let oriVel = 0;
+        if (context.avatar.target && duration >= attack.def.movePeriod[0] && duration <= attack.def.movePeriod[1]) {
+            const targetPos = context.avatar.target.state.origin;
+            const targetOri = context.avatar.target.state.orientation;
+                        
+            // Normalized XZ direction from avatar to target
+            const v = vec3.subtract(toTarget, targetPos, context.state.origin);
+            v[1] = 0;
+            const l = Math.sqrt(v[0] * v[0] + v[2] * v[2]);
+            vec3.scale(v, v, 1.0 / l);
+
+            // Signed distance to travel along v to reach ideal position
+            const d = l - attack.def.idealDistance;
+            vec3.scale(dir, v, Math.sign(d));
+
+            // Ensure we don't travel past our ideal position this frame
+            moveSpeed = Math.min(attack.def.moveSpeed, Math.abs(d) / context.dtSec);
+
+            // Modify orientation to look at target
+            oriVel = Math.PI * 2;
+        }
+
+        // If we have leftover running momentum, apply it
+        const kGroundDecel = -1000;
+        const contrib = Math.max(0, vec3.dot(context.state.orientation, nextState.orientation));
+        const slideSpeed = context.state.speed * contrib;
+        nextState.speed = Math.max(0, context.state.speed + kGroundDecel * context.dtSec);
+
+        const vel = vec3.scale(scratchVec3A, dir, moveSpeed + slideSpeed);
+        vec3.scaleAndAdd(nextState.origin, context.state.origin, vel, context.dtSec);
+
+        rotateTowardXZ(nextState.orientation, context.state.orientation, toTarget, oriVel * context.dtSec);
+        assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
+
+        nextState.flags = clearFlags(nextState.flags, AvatarFlags.IsUTurning);
+        return nextState;
+    }
+}
+
 /**
  * Drive each Avatar's skeleton, position, oriention, and animation
  */
@@ -138,6 +207,8 @@ export class AvatarController {
     initialize() {
         this.stateControllers = {
             [AvatarState.AttackPunch]: new AttackRoll(),
+            [AvatarState.AttackSide]: new AttackBase(),
+            [AvatarState.AttackVertical]: new AttackBase(),
         }
     }
 
