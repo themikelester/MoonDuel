@@ -17,6 +17,10 @@ Change Log
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
 
+### 2020-06-22
+##### Morning
+Didn't work last week, back on the saddle today. Implemented the curve for the roll attack, and then (finally) implemented a finite state machine to handle the simulation of each state individually. This fixed the "still in attack state after being struck" bug. Tomorrow I need to improve the combat camera. The roll moves quickly and makes the camera do crazy things. I also need to tweak a few things with the combat system to balance out the introduction of roll. Biggest ones are probably: Vertical attack needs a slower rotational velocity to limit its orientation change so that the blade doesn't land right on the avatar that is rolling, roll needs to take range into account, and have a maximum velocity. If you can't reach the ideal spot, I should probably do a fixed curve that puts you on a point straight ahead after curving to the left. You always need to start with a left dive in order to avoid any vertical attacks, even if you're not targeting. 
+
 ### 2020-06-14
 ##### Morning
 For the roll attack, there are two forms. Targeted and non-targeted. Non-targeted rolls straight, targeted is curved. If not moving when a non-targeted attack starts, the character still needs to move forward some amount during the roll. Actually no, this needs to always happen. I could add this to the attack definition as something like "mandatory move" or "move distance". 
