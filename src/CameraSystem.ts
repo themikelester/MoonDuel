@@ -179,12 +179,8 @@ export class CombatCameraController implements CameraController {
 
     private eyePos: vec3 = vec3.create();
 
-    private dollySpring = {
-        pos: 0,
-        vel: 0,
-        target: 0,
-        time: 0.6,
-    };
+    private dollySpring = { pos: 0, vel: 0, target: 0, time: 0.6 };
+    private yawSpring = { pos: 0, vel: 0, target: 0, time: 0.05 };
 
     private minDistance = 500; 
     private maxDistance = 800;
@@ -257,7 +253,7 @@ export class CombatCameraController implements CameraController {
         let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
         let eyePos = vec3.scaleAndAdd(this.eyePos, avPos, avView, -this.offset[2]); 
         const enView = vec3.subtract(scratchVec3A, this.enPos, eyePos);
-        let enAngle = Math.abs(angleXZ(avView, enView));
+        const enAngle = Math.abs(angleXZ(avView, enView));
 
         // Dolly along enemy view vector until avatar is within framing FOV
         if (enAngle > fovX * 2.0) {
@@ -269,8 +265,9 @@ export class CombatCameraController implements CameraController {
 
         // Recompute yaw now that camera has moved
         avView = vec3.subtract(scratchVec3B, avPos, eyePos);
-        enAngle = angleXZ(avView, enView); 
-        this.ori[0] = this.headingBlend * enAngle;
+        this.yawSpring.target = angleXZ(avView, enView); 
+        criticallyDampedSmoothing(this.yawSpring, this.yawSpring.target, this.yawSpring.time, dtSec);
+        this.ori[0] = this.headingBlend * this.yawSpring.pos;
         
         // Convert to cameras
         mat4.lookAt(this.camera.viewMatrix, eyePos, this.targetPos, vec3Up);
