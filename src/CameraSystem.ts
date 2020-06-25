@@ -10,7 +10,7 @@ import { Clock } from './Clock';
 import { clamp, angularDistance, MathConstants, angleXZ, smoothstep } from './MathHelpers';
 import { Object3D, Vector3 } from './Object3D';
 import { AvatarSystemClient } from './Avatar';
-import { DebugRenderUtils } from './DebugRender';
+import { criticallyDampedSmoothing } from './Spring';
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -179,7 +179,12 @@ export class CombatCameraController implements CameraController {
 
     private eyePos: vec3 = vec3.create();
 
-    private headingGoal: number = 0;
+    private dollySpring = {
+        pos: 0,
+        vel: 0,
+        target: 0,
+        time: 0.6,
+    };
 
     private minDistance = 500; 
     private maxDistance = 800;
@@ -257,16 +262,17 @@ export class CombatCameraController implements CameraController {
         // Dolly along enemy view vector until avatar is within framing FOV
         if (enAngle > fovX * 2.0) {
             const avTheta = enAngle - fovX * 2.0;
-            const dollyDist = Math.sin(avTheta) / Math.sin(fovX * 2.0) * this.offset[2];
-            eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -dollyDist / vec3.length(enView) * this.dollyWeight);
+            this.dollySpring.target = Math.sin(avTheta) / Math.sin(fovX * 2.0) * this.offset[2];
         }
+        criticallyDampedSmoothing(this.dollySpring, this.dollySpring.target, this.dollySpring.time, dtSec);
+        eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -this.dollySpring.pos / vec3.length(enView) * this.dollyWeight);
 
         // Recompute yaw now that camera has moved
         avView = vec3.subtract(scratchVec3B, avPos, eyePos);
         enAngle = angleXZ(avView, enView); 
         this.ori[0] = this.headingBlend * enAngle;
         
-        // Convert to camera
+        // Convert to cameras
         mat4.lookAt(this.camera.viewMatrix, eyePos, this.targetPos, vec3Up);
         this.camera.viewMatrixUpdated();
         mat4.rotateY(this.camera.cameraMatrix, this.camera.cameraMatrix, this.ori[0]);
