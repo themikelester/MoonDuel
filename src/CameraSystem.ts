@@ -3,14 +3,14 @@
 // --------------------------------------------------------------------------------
 import { Camera } from './Camera';
 import { GlobalUniforms } from './GlobalUniforms';
-import { vec3, mat4, vec4 } from 'gl-matrix';
+import { vec3, mat4, vec4, vec2 } from 'gl-matrix';
 import { InputManager } from './Input';
 import { DebugMenu } from './DebugMenu';
 import { Clock } from './Clock';
 import { clamp, angularDistance, MathConstants, angleXZ, smoothstep } from './MathHelpers';
 import { Object3D, Vector3 } from './Object3D';
 import { AvatarSystemClient } from './Avatar';
-import { criticallyDampedSmoothing } from './Spring';
+import { criticallyDampedSmoothing, criticallyDampedSmoothingVec } from './Spring';
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -181,6 +181,7 @@ export class CombatCameraController implements CameraController {
 
     private dollySpring = { pos: 0, vel: 0, target: 0, time: 0.6 };
     private yawSpring = { pos: 0, vel: 0, target: 0, time: 0.05 };
+    private shoulderSpring = { pos: vec2.create(), vel: vec2.create(), target: vec2.create(), time: 0.35 };
 
     private minDistance = 500; 
     private maxDistance = 800;
@@ -237,17 +238,21 @@ export class CombatCameraController implements CameraController {
         vec3.copy(this.targetPos, avPos);
 
         // Keep the camera within the shoulder angle limits
-        const kMinShoulderAngle = Math.PI * 0.15;
-        const kMaxShoulderAngle = Math.PI * 0.5;
+        const kMinShoulderAngle = Math.PI * 0.5;
+        const kMaxShoulderAngle = Math.PI * 0.85;
         const attackHeading = Math.atan2(attackDir[2], attackDir[0]);
-        const shoulderAngle = angularDistance(attackHeading, this.offset[0] - Math.PI);
-        const angleDiff = clamp(Math.abs(shoulderAngle), kMinShoulderAngle, kMaxShoulderAngle) - Math.abs(shoulderAngle);
-        const headingDiff = angleDiff * Math.sign(shoulderAngle);
+        const shoulderAngle = angularDistance(attackHeading, this.offset[0]);
+        const diff = clamp(Math.abs(shoulderAngle), kMinShoulderAngle, kMaxShoulderAngle) * Math.sign(shoulderAngle);
+        let azimuthTarget = attackHeading + diff;
+        if (azimuthTarget > Math.PI) azimuthTarget -= 2.0 * Math.PI;
+        if (azimuthTarget < -Math.PI) azimuthTarget += 2.0 * Math.PI;
 
         // ... Blending smoothly
-        const kHeadingVelMax = Math.PI * 0.5;
-        const headingVel = kHeadingVelMax * smoothstep(0, Math.PI * 0.15, Math.abs(headingDiff)); 
-        this.offset[0] += Math.sign(headingDiff) * headingVel * dtSec; 
+        this.shoulderSpring.target[0] = Math.cos(azimuthTarget);
+        this.shoulderSpring.target[1] = Math.sin(azimuthTarget);
+        criticallyDampedSmoothingVec(this.shoulderSpring.pos, this.shoulderSpring.vel, this.shoulderSpring.target, 
+            this.shoulderSpring.time, dtSec);
+        this.offset[0] = Math.atan2(this.shoulderSpring.pos[1], this.shoulderSpring.pos[0]);
 
         // Rotate to put the enemy within framing FOV
         let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
