@@ -181,7 +181,7 @@ export class CombatCameraController implements CameraController {
 
     private dollySpring = { pos: 0, vel: 0, target: 0, time: 0.6 };
     private yawSpring = { pos: 0, vel: 0, target: 0, time: 0.05 };
-    private shoulderSpring = { pos: vec2.create(), vel: vec2.create(), target: vec2.create(), time: 0.35 };
+    private shoulderSpring = { pos: vec2.create(), vel: vec2.create(), target: vec2.create(), time: 0.4 };
 
     private minDistance = 500; 
     private maxDistance = 800;
@@ -244,8 +244,6 @@ export class CombatCameraController implements CameraController {
         const shoulderAngle = angularDistance(attackHeading, this.offset[0]);
         const diff = clamp(Math.abs(shoulderAngle), kMinShoulderAngle, kMaxShoulderAngle) * Math.sign(shoulderAngle);
         let azimuthTarget = attackHeading + diff;
-        if (azimuthTarget > Math.PI) azimuthTarget -= 2.0 * Math.PI;
-        if (azimuthTarget < -Math.PI) azimuthTarget += 2.0 * Math.PI;
 
         // ... Blending smoothly
         this.shoulderSpring.target[0] = Math.cos(azimuthTarget);
