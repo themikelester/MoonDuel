@@ -2,7 +2,6 @@ import { AvatarState, StateDefinition } from "./AvatarState";
 import { Avatar } from "./Avatar";
 import { Weapon } from "./Weapon";
 import { assertDefined } from "./util";
-import { Clock } from "./Clock";
 
 class VerticalAttack implements StateDefinition {
   duration = 90;
@@ -40,7 +39,7 @@ class PunchAttack implements StateDefinition {
   safeFrom = AvatarState.AttackVertical;
 
   movePeriod = [5, 40];
-  moveSpeed = 600;
+  moveSpeed = 1500;
 }
 
 const kDefinitions: Partial<Record<AvatarState, StateDefinition>> = {

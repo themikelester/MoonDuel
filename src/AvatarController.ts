@@ -152,21 +152,29 @@ class AttackRoll extends AvatarStateController {
 
             // Rolls are handled a bit differently
             const frameRange = attack.def.movePeriod[1] - attack.def.movePeriod[0];
-            const range = attack.def.moveSpeed * 0.016 * frameRange;
+            const maxRadius = attack.def.moveSpeed * 0.016 * frameRange * 0.5;
             const t = Math.min(1.0, (duration - attack.def.movePeriod[0]) / frameRange);
             
             const attackVec = vec3.subtract(scratchVec3D, targetPos, this.rollOrigin);
-            const targetDist = vec3.length(attackVec);
-            const attackDir = vec3.scale(scratchVec3A, attackVec, 1.0 / targetDist);
+            attackVec[1] = 0;
+            const attackDist = vec3.length(attackVec);
+            const attackDir = vec3.scale(scratchVec3A, attackVec, 1.0 / attackDist);
+
+            const rollRadius = Math.min(maxRadius, attackDist);
+            const rollCenter = vec3.scaleAndAdd(scratchVec3C, this.rollOrigin, attackDir, rollRadius);
 
             // Interpolate position along the curve
             const theta = Math.PI * t;
             const curVec = rotateXZ(scratchVec3D, attackDir, -theta);
-            const curDist = lerp(targetDist, attack.def.idealDistance, t);
-            vec3.scaleAndAdd(nextState.origin, targetPos, curVec, -curDist);
+            const curDist = lerp(rollRadius, attack.def.idealDistance, t);
+            vec3.scaleAndAdd(nextState.origin, rollCenter, curVec, -curDist);
 
             // Modify orientation to look at target
-            nextState.orientation = curVec;
+            // nextState.orientation = curVec;
+            const oriVel = Math.PI * 2;
+            const toTarget = vec3.subtract(scratchVec3D, targetPos, prevState.origin);
+            rotateTowardXZ(nextState.orientation, context.state.orientation, toTarget, oriVel * context.dtSec);
+            assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
         }
 
         nextState.state = AvatarState.AttackPunch;
