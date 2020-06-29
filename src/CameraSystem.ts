@@ -175,6 +175,7 @@ export class CombatCameraController implements CameraController {
 
     private eyePos: vec3 = vec3.create();
     private focusPos: vec3 = vec3.create();
+    private heading: number = 0;
 
     targetPos: vec3 = vec3.create();
     offset: vec3 = vec3.create();
@@ -193,7 +194,7 @@ export class CombatCameraController implements CameraController {
 
     private headingBlend = 0.5;
     private dollyWeight = 1.0;
-    private framingWidth = 0.5; // Camera will keep avatar and target within this width of center, in NDC 
+    private framingWidth = 1.0; // Camera will keep avatar and target within this width of center, in NDC 
 
     initialize(deps: Dependencies) {
         // Set up a valid initial state
@@ -249,7 +250,7 @@ export class CombatCameraController implements CameraController {
         const kMinShoulderAngle = Math.PI * 0.5;
         const kMaxShoulderAngle = Math.PI * 0.85;
         const attackHeading = Math.atan2(attackDir[2], attackDir[0]);
-        const shoulderAngle = angularDistance(attackHeading, this.offset[0]);
+        const shoulderAngle = angularDistance(attackHeading, this.heading);
         const diff = clamp(Math.abs(shoulderAngle), kMinShoulderAngle, kMaxShoulderAngle) * Math.sign(shoulderAngle);
         let azimuthTarget = attackHeading + diff;
 
@@ -258,33 +259,40 @@ export class CombatCameraController implements CameraController {
         this.shoulderSpring.target[1] = Math.sin(azimuthTarget);
         criticallyDampedSmoothingVec(this.shoulderSpring.pos, this.shoulderSpring.vel, this.shoulderSpring.target, 
             this.shoulderSpring.time, dtSec);
-        this.offset[0] = Math.atan2(this.shoulderSpring.pos[1], this.shoulderSpring.pos[0]);
+        this.heading = Math.atan2(this.shoulderSpring.pos[1], this.shoulderSpring.pos[0]);
 
         // Lerp the focus position based on shoulder angle
         const focusLerpFactor = smoothstep(Math.PI, Math.PI * 0.5, Math.abs(shoulderAngle)) * 0.5;
         this.focusPos = vec3.lerp(this.focusPos, avPos, this.enPos, focusLerpFactor);
         DebugRenderUtils.renderSpheres([vec4.set(scratchVec4A, this.focusPos[0], this.focusPos[1], this.focusPos[2], 10)], DebugColor.Green);
 
-        // Rotate to put the enemy within framing FOV
-        let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
-        let eyePos = vec3.scaleAndAdd(this.eyePos, avPos, avView, -this.offset[2]); 
-        // const enView = vec3.subtract(scratchVec3A, this.enPos, eyePos);
-        // const enAngle = Math.abs(angleXZ(avView, enView));
-
-        // // Dolly along enemy view vector until avatar is within framing FOV
-        // if (enAngle > fovX * 2.0) {
-        //     const avTheta = enAngle - fovX * 2.0;
-        //     this.dollySpring.target = Math.sin(avTheta) / Math.sin(fovX * 2.0) * this.offset[2];
-        // }
-        // criticallyDampedSmoothing(this.dollySpring, this.dollySpring.target, this.dollySpring.time, dtSec);
-        // eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -this.dollySpring.pos / vec3.length(enView) * this.dollyWeight);
-
-        // // Recompute yaw now that camera has moved
-        // avView = vec3.subtract(scratchVec3B, avPos, eyePos);
-        // this.yawSpring.target = angleXZ(avView, enView); 
-        // criticallyDampedSmoothing(this.yawSpring, this.yawSpring.target, this.yawSpring.time, dtSec);
-        // this.ori[0] = this.headingBlend * this.yawSpring.pos;
+        // Update eyePos for further calculations
+        let eyeVec = vec3.negate(scratchVec3D, computeUnitSphericalCoordinates(scratchVec3D, this.heading, Math.PI * 0.5));
+        vec3.scaleAndAdd(this.eyePos, this.focusPos, eyeVec, -this.dollySpring.pos);
         
+        // Rotate to put the enemy within framing FOV
+        // @TODO: Generalize to any number of targets
+        let dollyTargetPos: vec3 = avPos;
+        let targetAngle = Math.abs(angleXZ(eyeVec, vec3.subtract(scratchVec3C, avPos, this.eyePos)));
+        const enAngle = Math.abs(angleXZ(eyeVec, vec3.subtract(scratchVec3C, this.enPos, this.eyePos)));
+        if (enAngle > targetAngle) {
+            targetAngle = enAngle;
+            dollyTargetPos = this.enPos;
+        }
+
+        // Dolly along the focus vector until widest target is within framing FOV
+        if (targetAngle > fovX) {
+            const focusTargetVec = vec3.subtract(scratchVec3B, dollyTargetPos, this.focusPos);
+            const adjAngle = Math.PI - Math.abs(angleXZ(eyeVec, focusTargetVec));
+            const adjDist = vec3.length(focusTargetVec);
+
+            // Law of sines to determine dolly distance given two angles
+            const avTheta = Math.PI - (adjAngle + fovX);
+            this.dollySpring.target = Math.sin(avTheta) / Math.sin(fovX) * adjDist;
+        }
+        criticallyDampedSmoothing(this.dollySpring, this.dollySpring.target, this.dollySpring.time, dtSec);
+        vec3.scaleAndAdd(this.eyePos, this.focusPos, eyeVec, -this.dollySpring.pos);
+
         // Convert to cameras
         mat4.lookAt(this.camera.viewMatrix, this.eyePos, this.focusPos, vec3Up);
         this.camera.viewMatrixUpdated();
