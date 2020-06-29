@@ -11,12 +11,14 @@ import { clamp, angularDistance, MathConstants, angleXZ, smoothstep } from './Ma
 import { Object3D, Vector3 } from './Object3D';
 import { AvatarSystemClient } from './Avatar';
 import { criticallyDampedSmoothing, criticallyDampedSmoothingVec } from './Spring';
+import { DebugRenderUtils } from './DebugRender';
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
 const scratchVec3C = vec3.create();
 const scratchVec3D = vec3.create();
 const scratchVector3A = new Vector3(vec3.create());
+const scratchVec4A = vec4.create();
 const vec3Up = vec3.fromValues(0, 1, 0);
 
 interface Dependencies {
@@ -179,6 +181,7 @@ export class CombatCameraController implements CameraController {
 
     private eyePos: vec3 = vec3.create();
 
+    private posSpring = { pos: vec3.create(), vel: vec3.create(), time: 0.4 };
     private dollySpring = { pos: 0, vel: 0, target: 0, time: 0.6 };
     private yawSpring = { pos: 0, vel: 0, target: 0, time: 0.05 };
     private shoulderSpring = { pos: vec2.create(), vel: vec2.create(), target: vec2.create(), time: 0.4 };
@@ -228,6 +231,12 @@ export class CombatCameraController implements CameraController {
         const attackDist = vec3.length(attackVec);
         const attackDir = vec3.scale(scratchVec3B, attackVec, 1.0 / attackDist);
 
+        vec3.copy(scratchVec3C, avPos);
+        vec4.set(scratchVec4A, this.enPos[0], 0, this.enPos[2], 10);
+        scratchVec3C[1] = 0;
+        DebugRenderUtils.renderArrows([scratchVec3C], [attackVec], 10, true);
+        DebugRenderUtils.renderSpheres([scratchVec4A]);
+
         // Keep the camera distance between min and max
         this.offset[2] = clamp(this.offset[2], this.minDistance, this.maxDistance);
 
@@ -255,25 +264,25 @@ export class CombatCameraController implements CameraController {
         // Rotate to put the enemy within framing FOV
         let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
         let eyePos = vec3.scaleAndAdd(this.eyePos, avPos, avView, -this.offset[2]); 
-        const enView = vec3.subtract(scratchVec3A, this.enPos, eyePos);
-        const enAngle = Math.abs(angleXZ(avView, enView));
+        // const enView = vec3.subtract(scratchVec3A, this.enPos, eyePos);
+        // const enAngle = Math.abs(angleXZ(avView, enView));
 
-        // Dolly along enemy view vector until avatar is within framing FOV
-        if (enAngle > fovX * 2.0) {
-            const avTheta = enAngle - fovX * 2.0;
-            this.dollySpring.target = Math.sin(avTheta) / Math.sin(fovX * 2.0) * this.offset[2];
-        }
-        criticallyDampedSmoothing(this.dollySpring, this.dollySpring.target, this.dollySpring.time, dtSec);
-        eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -this.dollySpring.pos / vec3.length(enView) * this.dollyWeight);
+        // // Dolly along enemy view vector until avatar is within framing FOV
+        // if (enAngle > fovX * 2.0) {
+        //     const avTheta = enAngle - fovX * 2.0;
+        //     this.dollySpring.target = Math.sin(avTheta) / Math.sin(fovX * 2.0) * this.offset[2];
+        // }
+        // criticallyDampedSmoothing(this.dollySpring, this.dollySpring.target, this.dollySpring.time, dtSec);
+        // eyePos = vec3.scaleAndAdd(this.eyePos, this.eyePos, enView, -this.dollySpring.pos / vec3.length(enView) * this.dollyWeight);
 
-        // Recompute yaw now that camera has moved
-        avView = vec3.subtract(scratchVec3B, avPos, eyePos);
-        this.yawSpring.target = angleXZ(avView, enView); 
-        criticallyDampedSmoothing(this.yawSpring, this.yawSpring.target, this.yawSpring.time, dtSec);
-        this.ori[0] = this.headingBlend * this.yawSpring.pos;
+        // // Recompute yaw now that camera has moved
+        // avView = vec3.subtract(scratchVec3B, avPos, eyePos);
+        // this.yawSpring.target = angleXZ(avView, enView); 
+        // criticallyDampedSmoothing(this.yawSpring, this.yawSpring.target, this.yawSpring.time, dtSec);
+        // this.ori[0] = this.headingBlend * this.yawSpring.pos;
         
         // Convert to cameras
-        mat4.lookAt(this.camera.viewMatrix, eyePos, this.targetPos, vec3Up);
+        mat4.lookAt(this.camera.viewMatrix, this.eyePos, this.targetPos, vec3Up);
         this.camera.viewMatrixUpdated();
         mat4.rotateY(this.camera.cameraMatrix, this.camera.cameraMatrix, this.ori[0]);
         mat4.invert(this.camera.viewMatrix, this.camera.cameraMatrix);

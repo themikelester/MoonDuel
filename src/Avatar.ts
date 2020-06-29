@@ -229,7 +229,7 @@ export class AvatarSystemClient implements GameObjectFactory {
             const target = this.localAvatar.target;
             const pos = vec3.copy(scratchVec3a, target.state.origin);
             pos[1] += 300;
-            DebugRenderUtils.renderArrows([pos], [vec3.set(scratchVec3b, 0, -1, 0)], 10, false, kActiveTargetColor);
+            DebugRenderUtils.renderArrows([pos], [vec3.set(scratchVec3b, 0, -70, 0)], 20, false, kActiveTargetColor);
         }
 
         this.renderer.render(game.gfxDevice, game.camera, game.environment.getCurrentEnvironment());
@@ -287,8 +287,8 @@ export class AvatarSystemServer implements GameObjectFactory {
 
         // Let's add a bot
         // this.bots.addBot(new SideAttackBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, 500));
-        this.bots.addBot(new VertAttackBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, -500));
-        // this.bots.addBot(new AvatarBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, -500));
+        // this.bots.addBot(new VertAttackBot(0), vec3.set(scratchVec3a, -500, 0, -500));
+        this.bots.addBot(new AvatarBot(BotFlags.AutoTarget), vec3.set(scratchVec3a, -500, 0, -500));
     }
 
     onResourcesLoaded(game: ServerDependencies) {

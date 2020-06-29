@@ -404,6 +404,12 @@ export class DebugRenderUtils {
       {
         v_color = a_color;
 
+        // Scale the head and body in model space
+        bool tip = a_pos.x == 0.0;
+        float headLength = length(a_dir);
+        float bodyLength = headLength - 1.5 * a_scale;
+        vec2 pos = vec2(a_pos.x * a_scale, a_pos.y * (tip ? headLength : bodyLength));
+
         vec3 normal = a_groundAlign > 0.0 ? vec3(0, 1, 0) : g_viewVec;
 
         vec3 up = normalize(a_dir);
@@ -411,7 +417,7 @@ export class DebugRenderUtils {
         vec3 forward = cross(up, right);
 
         mat3 world = mat3(right, up, forward);
-        vec3 worldPos = a_origin + world * vec3(a_pos.x, a_pos.y, 0) * a_scale;
+        vec3 worldPos = a_origin + world * vec3(pos.x, pos.y, 0);
         
         gl_Position = g_viewProj * vec4(worldPos, 1.0);
       }
@@ -450,13 +456,13 @@ export class DebugRenderUtils {
     };
 
     const arrowVerts = [
-      -1, 0,
-      -1, 4,
-      -2, 4,
-       0, 7,
-       2, 4,
-       1, 4,
-       1, 0,
+      -0.5, 0,
+      -0.5, 1,
+      -1, 1,
+       0, 1,
+       1, 1,
+       0.5, 1,
+       0.5, 0,
     ];
 
     const arrowIndices = [
@@ -652,7 +658,7 @@ export class DebugRenderUtils {
     spherePrim.count += spheres.length;
   }
 
-  static renderArrows(pos: vec3[], dir: vec3[], scale: number, groundAlign = true, color: vec4 = defaultSphereColor) {
+  static renderArrows(pos: vec3[], dir: vec3[], width: number, groundAlign = true, color: vec4 = defaultSphereColor) {
     if (!defined(obbPrim.pipeline)) {
       this.initialize();
       return; 
@@ -663,7 +669,7 @@ export class DebugRenderUtils {
     const floatStride = 13;
 
     // Encode positions and write to vertex buffer
-    const scaleArr = [scale];
+    const scaleArr = [width];
     const groundArr = [groundAlign ? 1.0 : 0.0];
     for (let i = 0; i < arrowCount; i++) {
       floatScratch.set(pos[i],   i * floatStride + 0);
