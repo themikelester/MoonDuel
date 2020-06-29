@@ -11,7 +11,7 @@ import { clamp, angularDistance, MathConstants, angleXZ, smoothstep } from './Ma
 import { Object3D, Vector3 } from './Object3D';
 import { AvatarSystemClient } from './Avatar';
 import { criticallyDampedSmoothing, criticallyDampedSmoothingVec } from './Spring';
-import { DebugRenderUtils } from './DebugRender';
+import { DebugRenderUtils, DebugColor } from './DebugRender';
 
 const scratchVec3A = vec3.create();
 const scratchVec3B = vec3.create();
@@ -173,13 +173,15 @@ export class FollowCameraController implements CameraController {
 export class CombatCameraController implements CameraController {
     public camera: Camera;
 
+    private eyePos: vec3 = vec3.create();
+    private focusPos: vec3 = vec3.create();
+
     targetPos: vec3 = vec3.create();
     offset: vec3 = vec3.create();
     ori: vec3 = vec3.create();
 
     enPos: vec3 = vec3.create();
 
-    private eyePos: vec3 = vec3.create();
 
     private posSpring = { pos: vec3.create(), vel: vec3.create(), time: 0.4 };
     private dollySpring = { pos: 0, vel: 0, target: 0, time: 0.6 };
@@ -231,20 +233,17 @@ export class CombatCameraController implements CameraController {
         const attackDist = vec3.length(attackVec);
         const attackDir = vec3.scale(scratchVec3B, attackVec, 1.0 / attackDist);
 
+        // @DEBUG
         vec3.copy(scratchVec3C, avPos);
         vec4.set(scratchVec4A, this.enPos[0], 0, this.enPos[2], 10);
         scratchVec3C[1] = 0;
         DebugRenderUtils.renderArrows([scratchVec3C], [attackVec], 10, true);
-        DebugRenderUtils.renderSpheres([scratchVec4A]);
 
         // Keep the camera distance between min and max
         this.offset[2] = clamp(this.offset[2], this.minDistance, this.maxDistance);
 
         // Keep a fixed height
         this.offset[1] = Math.PI * 0.5;
-
-        // Target is always the avatar
-        vec3.copy(this.targetPos, avPos);
 
         // Keep the camera within the shoulder angle limits
         const kMinShoulderAngle = Math.PI * 0.5;
@@ -260,6 +259,11 @@ export class CombatCameraController implements CameraController {
         criticallyDampedSmoothingVec(this.shoulderSpring.pos, this.shoulderSpring.vel, this.shoulderSpring.target, 
             this.shoulderSpring.time, dtSec);
         this.offset[0] = Math.atan2(this.shoulderSpring.pos[1], this.shoulderSpring.pos[0]);
+
+        // Lerp the focus position based on shoulder angle
+        const focusLerpFactor = smoothstep(Math.PI, Math.PI * 0.5, Math.abs(shoulderAngle)) * 0.5;
+        this.focusPos = vec3.lerp(this.focusPos, avPos, this.enPos, focusLerpFactor);
+        DebugRenderUtils.renderSpheres([vec4.set(scratchVec4A, this.focusPos[0], this.focusPos[1], this.focusPos[2], 10)], DebugColor.Green);
 
         // Rotate to put the enemy within framing FOV
         let avView = vec3.negate(scratchVec3B, computeUnitSphericalCoordinates(scratchVec3B, this.offset[0], this.offset[1]));
@@ -282,7 +286,7 @@ export class CombatCameraController implements CameraController {
         // this.ori[0] = this.headingBlend * this.yawSpring.pos;
         
         // Convert to cameras
-        mat4.lookAt(this.camera.viewMatrix, this.eyePos, this.targetPos, vec3Up);
+        mat4.lookAt(this.camera.viewMatrix, this.eyePos, this.focusPos, vec3Up);
         this.camera.viewMatrixUpdated();
         mat4.rotateY(this.camera.cameraMatrix, this.camera.cameraMatrix, this.ori[0]);
         mat4.invert(this.camera.viewMatrix, this.camera.cameraMatrix);
