@@ -143,7 +143,7 @@ class AttackRoll extends AvatarStateController {
         const nextState = super.simulate(context);
         const prevState = context.state;
 
-        const duration = context.frame - prevState.stateStartFrame;
+        const duration = context.frame - nextState.stateStartFrame;
         const attack = context.avatar.attack!;
 
         if (context.avatar.target && duration >= attack.def.movePeriod[0] && duration <= attack.def.movePeriod[1]) {
@@ -178,7 +178,6 @@ class AttackRoll extends AvatarStateController {
         }
 
         nextState.state = AvatarState.AttackPunch;
-        nextState.stateStartFrame = this.startFrame;
         nextState.speed = 0;
         return nextState;
     }
@@ -210,7 +209,7 @@ class AttackBase extends AvatarStateController {
     simulate(context: SimContext) {
         const nextState = super.simulate(context);
 
-        const duration = context.frame - context.state.stateStartFrame;
+        const duration = context.frame - nextState.stateStartFrame;
         const attack = context.avatar.attack!;
 
         let toTarget = scratchVec3D;
@@ -251,7 +250,6 @@ class AttackBase extends AvatarStateController {
         assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
 
         nextState.state = this.state;
-        nextState.stateStartFrame = this.startFrame;
         return nextState;
     }
 }
@@ -296,7 +294,6 @@ class Struck extends AvatarStateController {
         if (pos[1] < 0.0) this.hitVelocity[1] = 0;
 
         nextState.state = AvatarState.Struck;
-        nextState.stateStartFrame = this.startFrame;
         nextState.origin = pos;
         nextState.speed = 0;
 
@@ -420,7 +417,6 @@ class Default extends AvatarStateController {
         nextState.orientation = orientation;
         
         nextState.state = AvatarState.None;
-        nextState.stateStartFrame = this.startFrame;
 
         return nextState;
     }
