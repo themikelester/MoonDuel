@@ -234,12 +234,6 @@ export class CombatCameraController implements CameraController {
         const attackDist = vec3.length(attackVec);
         const attackDir = vec3.scale(scratchVec3B, attackVec, 1.0 / attackDist);
 
-        // @DEBUG
-        vec3.copy(scratchVec3C, avPos);
-        vec4.set(scratchVec4A, this.enPos[0], 0, this.enPos[2], 10);
-        scratchVec3C[1] = 0;
-        DebugRenderUtils.renderArrows([scratchVec3C], [attackVec], 10, true);
-
         // Keep the camera distance between min and max
         this.offset[2] = clamp(this.offset[2], this.minDistance, this.maxDistance);
 
@@ -264,7 +258,6 @@ export class CombatCameraController implements CameraController {
         // Lerp the focus position based on shoulder angle
         const focusLerpFactor = smoothstep(Math.PI, Math.PI * 0.5, Math.abs(shoulderAngle)) * 0.5;
         this.focusPos = vec3.lerp(this.focusPos, avPos, this.enPos, focusLerpFactor);
-        DebugRenderUtils.renderSpheres([vec4.set(scratchVec4A, this.focusPos[0], this.focusPos[1], this.focusPos[2], 10)], DebugColor.Green);
 
         // Update eyePos for further calculations
         let eyeVec = vec3.negate(scratchVec3D, computeUnitSphericalCoordinates(scratchVec3D, this.heading, Math.PI * 0.5));
