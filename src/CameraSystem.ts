@@ -189,12 +189,12 @@ export class CombatCameraController implements CameraController {
     private yawSpring = { pos: 0, vel: 0, target: 0, time: 0.05 };
     private shoulderSpring = { pos: vec2.create(), vel: vec2.create(), target: vec2.create(), time: 0.4 };
 
-    private minDistance = 500; 
-    private maxDistance = 800;
+    private minDistance = 600; 
+    private maxDistance = 1000;
 
     private headingBlend = 0.5;
     private dollyWeight = 1.0;
-    private framingWidth = 1.0; // Camera will keep avatar and target within this width of center, in NDC 
+    private framingWidth = 0.7; // Camera will keep avatar and target within this width of center, in NDC 
 
     initialize(deps: Dependencies) {
         // Set up a valid initial state
@@ -270,7 +270,7 @@ export class CombatCameraController implements CameraController {
         let eyeVec = vec3.negate(scratchVec3D, computeUnitSphericalCoordinates(scratchVec3D, this.heading, Math.PI * 0.5));
         vec3.scaleAndAdd(this.eyePos, this.focusPos, eyeVec, -this.dollySpring.pos);
         
-        // Rotate to put the enemy within framing FOV
+        // Rotate to widest target within framing FOV
         // @TODO: Generalize to any number of targets
         let dollyTargetPos: vec3 = avPos;
         let targetAngle = Math.abs(angleXZ(eyeVec, vec3.subtract(scratchVec3C, avPos, this.eyePos)));
@@ -281,15 +281,15 @@ export class CombatCameraController implements CameraController {
         }
 
         // Dolly along the focus vector until widest target is within framing FOV
-        if (targetAngle > fovX) {
-            const focusTargetVec = vec3.subtract(scratchVec3B, dollyTargetPos, this.focusPos);
-            const adjAngle = Math.PI - Math.abs(angleXZ(eyeVec, focusTargetVec));
-            const adjDist = vec3.length(focusTargetVec);
+        const focusTargetVec = vec3.subtract(scratchVec3B, dollyTargetPos, this.focusPos);
+        const adjAngle = Math.PI - Math.abs(angleXZ(eyeVec, focusTargetVec));
+        const adjDist = vec3.length(focusTargetVec);
 
-            // Law of sines to determine dolly distance given two angles
-            const avTheta = Math.PI - (adjAngle + fovX);
-            this.dollySpring.target = Math.sin(avTheta) / Math.sin(fovX) * adjDist;
-        }
+        // Law of sines to determine dolly distance given two angles
+        const avTheta = Math.PI - (adjAngle + fovX);
+        this.dollySpring.target = Math.sin(avTheta) / Math.sin(fovX) * adjDist;
+
+        this.dollySpring.target = clamp(this.dollySpring.target, this.minDistance, this.maxDistance);
         criticallyDampedSmoothing(this.dollySpring, this.dollySpring.target, this.dollySpring.time, dtSec);
         vec3.scaleAndAdd(this.eyePos, this.focusPos, eyeVec, -this.dollySpring.pos);
 
