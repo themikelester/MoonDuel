@@ -17,6 +17,12 @@ Change Log
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
 
+### 2020-06-29
+##### Morning
+Struggling with motivation after starting the interview process for a new game job. Anyway, today I'd like to improve the roll attack. Currently you can roll to the target from anywhere on the map. Instead, if you're out of range (can't reach the target pos with the maximum velocity) you should just roll to the left but curve back in to end up along the original orientation vector. If you are within range, select the velocity (always less than max) that will reach the target at the correct frame. 
+
+Yesterday I created a new sword model in Blender, but I haven't yet created a new shader to load it into the game. I think I'll save that for later.
+
 ### 2020-06-22
 ##### Morning
 Didn't work last week, back on the saddle today. Implemented the curve for the roll attack, and then (finally) implemented a finite state machine to handle the simulation of each state individually. This fixed the "still in attack state after being struck" bug. Tomorrow I need to improve the combat camera. The roll moves quickly and makes the camera do crazy things. I also need to tweak a few things with the combat system to balance out the introduction of roll. Biggest ones are probably: Vertical attack needs a slower rotational velocity to limit its orientation change so that the blade doesn't land right on the avatar that is rolling, roll needs to take range into account, and have a maximum velocity. If you can't reach the ideal spot, I should probably do a fixed curve that puts you on a point straight ahead after curving to the left. You always need to start with a left dive in order to avoid any vertical attacks, even if you're not targeting. 
