@@ -53,6 +53,17 @@ const pointsPrim = {} as Primitive;
 const spherePrim = {} as Primitive;
 const quadsPrim = {} as Primitive;
 
+export namespace DebugColor {
+  export const Red = vec4.fromValues(1, 0, 0, 1);
+  export const Green = vec4.fromValues(0, 1, 0, 1);
+  export const Blue = vec4.fromValues(0, 0, 1, 1);
+  export const Yellow = vec4.fromValues(1, 1, 0, 1);
+  export const Purple = vec4.fromValues(1, 0, 1, 1);
+  export const Orange = vec4.fromValues(0, 1, 1, 1);
+  export const White = vec4.fromValues(1, 1, 1, 1);
+  export const Black = vec4.fromValues(0, 0, 0, 1);
+}
+
 // ----------------------------------------------------------------------------------
 // Scratch
 // ----------------------------------------------------------------------------------
