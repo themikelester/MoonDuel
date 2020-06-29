@@ -153,44 +153,20 @@ class AttackRoll extends AvatarStateController {
             // Rolls are handled a bit differently
             const frameRange = attack.def.movePeriod[1] - attack.def.movePeriod[0];
             const range = attack.def.moveSpeed * 0.016 * frameRange;
-            const t = Math.min(1.0, duration / frameRange);
+            const t = Math.min(1.0, (duration - attack.def.movePeriod[0]) / frameRange);
             
             const attackVec = vec3.subtract(scratchVec3D, targetPos, this.rollOrigin);
             const targetDist = vec3.length(attackVec);
-            
-            const idealOffset = vec3.normalize(scratchVec3B, rotateXZ(scratchVec3B, attackVec, - Math.PI * 0.7));
-            const idealPos = vec3.scaleAndAdd(scratchVec3A, targetPos, idealOffset, -attack.def.idealDistance);
+            const attackDir = vec3.scale(scratchVec3A, attackVec, 1.0 / targetDist);
 
             // Interpolate position along the curve
-            const normEnd = normToLength(idealOffset, 2 * targetDist);
-            const normStart = normToLength(rotateXZ(scratchVec3C, attackVec, Math.PI * 0.4), 3 * targetDist);
-            const posStart = this.rollOrigin;
-            const posEnd = idealPos;
-            nextState.origin[0] = getPointHermite(posStart[0], posEnd[0], normStart[0], normEnd[0], t);
-            nextState.origin[2] = getPointHermite(posStart[2], posEnd[2], normStart[2], normEnd[2], t);
+            const theta = Math.PI * t;
+            const curVec = rotateXZ(scratchVec3D, attackDir, -theta);
+            const curDist = lerp(targetDist, attack.def.idealDistance, t);
+            vec3.scaleAndAdd(nextState.origin, targetPos, curVec, -curDist);
 
             // Modify orientation to look at target
-            const oriVel = Math.PI * 2;
-            const toTarget = vec3.subtract(scratchVec3D, targetPos, prevState.origin);
-            rotateTowardXZ(nextState.orientation, prevState.orientation, toTarget, oriVel * context.dtSec);
-            assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
-
-            // @DEBUG
-            const debugPos: vec3[] = [];
-            const debugNorm: vec3[] = [];
-            const kSampleCount = 8;
-            for (let i = 0; i < kSampleCount; i++) {
-                const pos = vec3.create();
-                const x = i / (kSampleCount-1);
-
-                pos[0] = getPointHermite(posStart[0], posEnd[0], normStart[0], normEnd[0], x);
-                pos[2] = getPointHermite(posStart[2], posEnd[2], normStart[2], normEnd[2], x);
-
-                debugPos[i] = pos;
-                if (i > 0) debugNorm[i-1] = vec3.subtract(vec3.create(), pos, debugPos[i-1]);
-            }
-            debugNorm[kSampleCount-1] = vec3.create();
-            DebugRenderUtils.renderArrows(debugPos, debugNorm, 10, true, vec4.fromValues(0, 1, 0, 1));
+            nextState.orientation = curVec;
         }
 
         nextState.state = AvatarState.AttackPunch;
