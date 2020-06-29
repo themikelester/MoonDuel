@@ -124,7 +124,7 @@ class AttackRoll extends AvatarStateController {
         super.enter(context, state);
 
         context.avatar.attack = new Attack(context.avatar, state);
-        vec3.copy(this.rollOrigin, context.state.origin);
+        vec3.zero(this.rollOrigin);
     }
 
     exit(context: SimContext) {
@@ -148,8 +148,11 @@ class AttackRoll extends AvatarStateController {
 
         if (context.avatar.target && duration >= attack.def.movePeriod[0] && duration <= attack.def.movePeriod[1]) {
             const targetPos = context.avatar.target.state.origin;
-            const targetOri = context.avatar.target.state.orientation;
 
+            if (duration === attack.def.movePeriod[0]) {
+                vec3.copy(this.rollOrigin, context.state.origin);
+            }
+            
             // Rolls are handled a bit differently
             const frameRange = attack.def.movePeriod[1] - attack.def.movePeriod[0];
             const maxRadius = attack.def.moveSpeed * 0.016 * frameRange * 0.5;
@@ -175,10 +178,18 @@ class AttackRoll extends AvatarStateController {
             const toTarget = vec3.subtract(scratchVec3D, targetPos, prevState.origin);
             rotateTowardXZ(nextState.orientation, context.state.orientation, toTarget, oriVel * context.dtSec);
             assert(Math.abs(1.0 - vec3.length(nextState.orientation)) < 0.001);
-        }
+        } 
+
+        // If we have leftover running momentum, apply it
+        const kGroundDecel = -1000;
+        const contrib = Math.max(0, vec3.dot(context.state.orientation, nextState.orientation));
+        const slideSpeed = context.state.speed * contrib;
+        const vel = vec3.scale(scratchVec3A, nextState.orientation, slideSpeed);
+
+        nextState.speed = Math.max(0, context.state.speed + kGroundDecel * context.dtSec);
+        vec3.scaleAndAdd(nextState.origin, nextState.origin, vel, context.dtSec);
 
         nextState.state = AvatarState.AttackPunch;
-        nextState.speed = 0;
         return nextState;
     }
 }
