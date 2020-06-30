@@ -17,8 +17,12 @@ import { EnvironmentSystem, Environment } from './Environment';
 import { ParticleSystem } from './Particles';
 import { Renderer } from './gfx/GfxTypes';
 import { lerp } from './MathHelpers';
+import { AudioMixer } from './Audio';
+import { SoundResource } from './resources/Sound';
 
 const scratchVec4a = vec4.create();
+
+const kAmbientFilename = 'data/windLoop.mp3'
 
 class StageShader implements Gfx.ShaderDescriptor {
   name = 'Stage';
@@ -50,11 +54,16 @@ export class Stage {
   private torchColor = [225, 111, 10, 1.0];
   private torchFlicker = 1.0;
 
-  initialize({ resources, gfxDevice, globalUniforms, environment, particles, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, debugMenu: DebugMenu, particles: ParticleSystem }) {
+  initialize({ resources, gfxDevice, globalUniforms, environment, particles, mixer, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, mixer: AudioMixer, debugMenu: DebugMenu, particles: ParticleSystem }) {
     this.shader = gfxDevice.createShader(new StageShader());
     resources.load(Stage.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
       this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!, particles);
+    });
+
+    resources.load(kAmbientFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
+      console.log('Loaded sound:', resource?.source);
+      mixer.playSound(resource?.buffer!);
     });
 
     const menu = debugMenu.addFolder('Stage');

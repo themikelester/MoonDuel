@@ -26,6 +26,7 @@ import { Stage } from './Stage';
 import { Skybox } from './Skybox';
 import { EnvironmentSystem } from './Environment';
 import { ParticleSystem } from './Particles';
+import { AudioMixer } from './Audio';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -52,6 +53,7 @@ export class Client {
     public environment = new EnvironmentSystem();
     public globalUniforms = new GlobalUniforms(this.gfxDevice);
     public input = new InputManager();
+    public mixer = new AudioMixer();
     public net = new NetModuleClient();
     public particles = new ParticleSystem();
     public resources = new ResourceManager();
@@ -78,10 +80,11 @@ export class Client {
         this.onResize();
 
         // Initialize Modules
-        this.resources.initialize(this.gfxDevice);
+        this.resources.initialize(this.gfxDevice, this.mixer);
         this.clock.initialize(this);
         this.input.initialize(this);
         this.net.initialize(this);
+        this.mixer.initialize(this);
         this.cameraSystem.initialize(this);
         this.compositor.initialize(this);
         this.globalUniforms.initialize();

@@ -16,6 +16,9 @@ Change Log
 * Vector textures for particles. Fire quads without pixelation.
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
+* A sound options icon in the top left. Click it opens a popout menu containing a mute button and a volume slider.
+    * I picture this being next to the "hamburger" main menu icon. Clicking that fills the whole left side with a menu.
+    * Need a full UI system
 
 ### 2020-06-30
 ##### Morning

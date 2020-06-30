@@ -16,6 +16,8 @@ import { TextureLoader } from './Texture';
 import { Renderer } from "../gfx/GfxTypes";
 import { defined, assert, assertDefined } from '../util';
 import { GltfLoader } from './Gltf';
+import { SoundLoader } from './Sound';
+import { AudioMixer } from '../Audio';
 
 export interface UriWithHeaders {
     uri: string,
@@ -27,6 +29,7 @@ type ResourceLoadedCallback<T extends Resource> = (error: string | undefined, re
 const loaders: { [type: string]: ResourceLoader } = {
     texture: new TextureLoader(),
     gltf: new GltfLoader(),
+    sound: new SoundLoader(),
 };
 
 export class ResourceManager {
@@ -43,11 +46,12 @@ export class ResourceManager {
     cache: { [key: string]: Resource } = {};
     requests: { [key: string]: ResourceLoadedCallback<Resource>[] } = {};
 
-    initialize(renderer?: Renderer) {
+    initialize(renderer?: Renderer, mixer?: AudioMixer) {
         this.worker = new Worker();
         this.worker.onmessage = (e: MessageEvent) => this.onMessage(e);
         this.context = {
             renderer,
+            mixer
         }
     }
 
