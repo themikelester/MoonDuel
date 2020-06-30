@@ -17,6 +17,10 @@ Change Log
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
 
+### 2020-06-30
+##### Morning
+Today I'm going to dig into WebAudio and see if I can get a basic audio subsystem going. This'll probably involve web workers. I'll start by taking a look at what PlayCanvas does and see if I can adapt it to my needs. The big bonus here is that the host's server code can continue to run in the background tab if audio is playing. I'll look up some "wind at night" soundscapes and loop one of those.
+
 ### 2020-06-29
 ##### Morning
 Struggling with motivation after starting the interview process for a new game job. Anyway, today I'd like to improve the roll attack. Currently you can roll to the target from anywhere on the map. Instead, if you're out of range (can't reach the target pos with the maximum velocity) you should just roll to the left but curve back in to end up along the original orientation vector. If you are within range, select the velocity (always less than max) that will reach the target at the correct frame. 
