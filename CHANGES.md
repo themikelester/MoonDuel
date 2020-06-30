@@ -24,6 +24,9 @@ Change Log
 ##### Morning
 Today I'm going to dig into WebAudio and see if I can get a basic audio subsystem going. This'll probably involve web workers. I'll start by taking a look at what PlayCanvas does and see if I can adapt it to my needs. The big bonus here is that the host's server code can continue to run in the background tab if audio is playing. I'll look up some "wind at night" soundscapes and loop one of those.
 
+##### Evening
+Turns out there is 0 support for WebAudio in workers. I got a basic system set up and going. There's a new SoundResource for loading (which has to kick off the decoding on the main thread, which immediately goes to the audio thread, how silly). The stage loads and plays a wind sound as a simple demo. I need to add some UI for "muting" (I won't actually mute because we need to continue playing sound to get updated while backgrounded) and volume control. The sound needs a loop option. For the wind in particular I'd like to have a bit of stereo so that when you face your left ear into the wind it is stronger on that side.
+
 ### 2020-06-29
 ##### Morning
 Struggling with motivation after starting the interview process for a new game job. Anyway, today I'd like to improve the roll attack. Currently you can roll to the target from anywhere on the map. Instead, if you're out of range (can't reach the target pos with the maximum velocity) you should just roll to the left but curve back in to end up along the original orientation vector. If you are within range, select the velocity (always less than max) that will reach the target at the correct frame. 
