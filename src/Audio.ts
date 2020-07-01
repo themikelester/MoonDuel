@@ -1,7 +1,7 @@
 import { platform } from "./Platform";
 import { clamp } from "./MathHelpers";
 import { SoundResource } from "./resources/Sound";
-import { assert, assertDefined } from "./util";
+import { assert, assertDefined, defaultValue } from "./util";
 
 // @HACK: Still necessary to support Safari and iOS
 // @ts-ignore
@@ -80,11 +80,19 @@ class AudioChannel {
   mixer: AudioMixer;
   sound: SoundResource;
 
+  loop: boolean;
+  volume: number;
+  pitch: number;
+
   source: AudioBufferSourceNode;
 
   constructor(mixer: AudioMixer, sound: SoundResource, options: AudioOptions) {
     this.mixer = mixer;
     this.sound = sound;
+
+    this.loop = defaultValue(options.loop, false);
+    this.volume = defaultValue(options.volume, 1.0);
+    this.pitch = defaultValue(options.pitch, 1.0);
   }
 
   play() {
