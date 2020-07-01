@@ -20,6 +20,10 @@ Change Log
     * I picture this being next to the "hamburger" main menu icon. Clicking that fills the whole left side with a menu.
     * Need a full UI system
 
+### 2020-07-02
+##### Morning
+More audio. Today I'm going create an abstraction for playing sounds. When AudioMixer.playSound(3D) is called, it should return a new object that can be manipulated such as volume and panning changes. I'd like to add 3D fire sound effects for the sconses as well. If I finish all the playback interface changes, I'll start working on the volume/mute UI.  
+
 ### 2020-06-30
 ##### Morning
 Today I'm going to dig into WebAudio and see if I can get a basic audio subsystem going. This'll probably involve web workers. I'll start by taking a look at what PlayCanvas does and see if I can adapt it to my needs. The big bonus here is that the host's server code can continue to run in the background tab if audio is playing. I'll look up some "wind at night" soundscapes and loop one of those.
