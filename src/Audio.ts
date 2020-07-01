@@ -1,9 +1,23 @@
 import { platform } from "./Platform";
 import { clamp } from "./MathHelpers";
+import { SoundResource } from "./resources/Sound";
+import { assert, assertDefined } from "./util";
 
-//@ts-ignore
+// @HACK: Still necessary to support Safari and iOS
+// @ts-ignore
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 
+interface AudioOptions {
+  loop?: boolean;
+  volume?: number;
+  pitch?: number;
+};
+
+/**
+ * The AudioMixer is used to play audio. As well as apply system-wide settings
+ * like global volume, suspend and resume. Based on PlayCanvas' SoundManager.
+ * See https://github.com/playcanvas/engine/blob/master/src/sound/manager.js
+ */
 export class AudioMixer {
   context: AudioContext;
   
@@ -49,11 +63,10 @@ export class AudioMixer {
     if (this.context) { this.context.close(); }
   }
 
-  playSound(buffer: AudioBuffer) {
-    const source = this.context.createBufferSource(); // creates a sound source
-    source.buffer = buffer;                    // tell the source which sound to play
-    source.connect(this.context.destination);       // connect the source to the context's destination (the speakers)
-    source.start(0);      
+  playSound(sound: SoundResource, options: AudioOptions = {}) {
+    const channel = new AudioChannel(this, sound, options);
+    channel.play();
+    return channel;
   }
 
   /**
@@ -61,4 +74,31 @@ export class AudioMixer {
    */
   get volume() { return this._volume; }
   set volume(volume: number) { this._volume = clamp(volume, 0.0, 1.0); }
+}
+
+class AudioChannel {
+  mixer: AudioMixer;
+  sound: SoundResource;
+
+  source: AudioBufferSourceNode;
+
+  constructor(mixer: AudioMixer, sound: SoundResource, options: AudioOptions) {
+    this.mixer = mixer;
+    this.sound = sound;
+  }
+
+  play() {
+    this.createSource();
+
+    this.source.start(0);
+  }
+
+  private createSource() {
+    const context = this.mixer.context;
+    assertDefined(this.sound.buffer);
+
+    this.source = context.createBufferSource();
+    this.source.buffer = this.sound.buffer;
+    this.source.connect(context.destination);
+  }
 }

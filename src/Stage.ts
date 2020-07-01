@@ -63,7 +63,7 @@ export class Stage {
 
     resources.load(kAmbientFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
       console.log('Loaded sound:', resource?.source);
-      mixer.playSound(resource?.buffer!);
+      mixer.playSound(resource!);
     });
 
     const menu = debugMenu.addFolder('Stage');
