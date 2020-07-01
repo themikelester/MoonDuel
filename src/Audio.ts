@@ -77,15 +77,16 @@ export class AudioMixer {
 }
 
 class AudioChannel {
-  mixer: AudioMixer;
-  sound: SoundResource;
+  private mixer: AudioMixer;
+  private sound: SoundResource;
+  private gain: GainNode;
+  
+  private volume: number;
+  private pitch: number;
+  private loop: boolean;
 
-  loop: boolean;
-  volume: number;
-  pitch: number;
-
-  source: AudioBufferSourceNode;
-
+  private source: AudioBufferSourceNode;
+  
   constructor(mixer: AudioMixer, sound: SoundResource, options: AudioOptions) {
     this.mixer = mixer;
     this.sound = sound;
@@ -93,20 +94,46 @@ class AudioChannel {
     this.loop = defaultValue(options.loop, false);
     this.volume = defaultValue(options.volume, 1.0);
     this.pitch = defaultValue(options.pitch, 1.0);
-  }
 
-  play() {
-    this.createSource();
-
-    this.source.start(0);
+    this.gain = this.mixer.context.createGain();
   }
 
   private createSource() {
     const context = this.mixer.context;
     assertDefined(this.sound.buffer);
-
+    
     this.source = context.createBufferSource();
     this.source.buffer = this.sound.buffer;
-    this.source.connect(context.destination);
+    this.source.connect(this.gain);
+    this.gain.connect(context.destination);
+
+    this.setLoop(this.loop);
+    this.setPitch(this.pitch);
+    this.setVolume(this.volume);
+  }
+  
+  play() {
+    this.createSource();
+    this.source.start(0);
+  }
+
+  setLoop(loop: boolean) { 
+    this.loop = loop;
+    if (this.source) {
+      this.source.loop = loop;
+    }
+  }
+
+  setPitch(pitch: number) {
+    this.pitch = pitch;
+    if (this.source) {
+      this.source.playbackRate.value = pitch;
+    }
+  }
+
+  setVolume(volume: number) {
+    volume = clamp(volume, 0.0, 1.0);
+    this.volume = volume;
+    this.gain.gain.value = volume * this.mixer.volume;
   }
 }
