@@ -117,6 +117,7 @@ export class AudioChannel {
     this.source.start(0);
   }
 
+  getLoop() { return this.loop; }
   setLoop(loop: boolean) { 
     this.loop = loop;
     if (this.source) {
@@ -124,6 +125,7 @@ export class AudioChannel {
     }
   }
 
+  getPitch() { return this.pitch; }
   setPitch(pitch: number) {
     this.pitch = pitch;
     if (this.source) {
@@ -131,6 +133,7 @@ export class AudioChannel {
     }
   }
 
+  getVolume() { return this.volume; }
   setVolume(volume: number) {
     volume = clamp(volume, 0.0, 1.0);
     this.volume = volume;
