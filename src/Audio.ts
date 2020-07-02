@@ -112,7 +112,8 @@ export class AudioMixer {
  * See AudioMixer.playSound()
  */
 export class AudioChannel {
-  protected context: AudioContext;
+  context: AudioContext;
+  
   protected sound: SoundResource;
   protected gain: GainNode;
   
