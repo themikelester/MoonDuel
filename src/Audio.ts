@@ -1,7 +1,7 @@
 import { platform } from "./Platform";
 import { clamp } from "./MathHelpers";
 import { SoundResource } from "./resources/Sound";
-import { assert, assertDefined, defaultValue } from "./util";
+import { assert, assertDefined, defaultValue, defined } from "./util";
 
 // @HACK: Still necessary to support Safari and iOS
 // @ts-ignore
@@ -85,7 +85,10 @@ export class AudioChannel {
   private pitch: number;
   private loop: boolean;
 
-  private source: AudioBufferSourceNode;
+  private source?: AudioBufferSourceNode;
+
+  private startTime: number;
+  private startOffset: number;
   
   constructor(mixer: AudioMixer, sound: SoundResource, options: AudioOptions) {
     this.mixer = mixer;
@@ -113,8 +116,26 @@ export class AudioChannel {
   }
   
   play() {
+    assert(!defined(this.source), 'Call stop()/pause() before play()');
+
     this.createSource();
-    this.source.start(0);
+    this.source!.start(0, this.startOffset);
+
+    this.startTime = this.mixer.context.currentTime;
+  }
+
+  pause() {
+    this.stop();
+    this.startOffset = this.mixer.context.currentTime - this.startTime;
+  }
+
+  stop() {
+    if (this.source) {
+      this.source.stop();
+      this.source = undefined;
+    }
+
+    this.startOffset = 0.0;
   }
 
   getLoop() { return this.loop; }
@@ -139,4 +160,7 @@ export class AudioChannel {
     this.volume = volume;
     this.gain.gain.value = volume * this.mixer.volume;
   }
+
+  getDuration() { return assertDefined(this.sound.buffer).duration; }
+  isPlaying() { return defined(this.source); }
 }

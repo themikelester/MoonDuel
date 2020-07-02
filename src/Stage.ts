@@ -51,6 +51,7 @@ export class Stage {
 
   private windVolume = 0.5;
   private windPitch = 1.0;
+  private windPause: boolean = false;
   private windChannel: AudioChannel;
 
   private show = true;
@@ -68,6 +69,7 @@ export class Stage {
     resources.load(kAmbientFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
       console.log('Loaded sound:', resource?.source);
       this.windChannel = mixer.playSound(resource!, { loop: true, volume: this.windVolume, pitch: this.windPitch });
+      if (this.windPause) { this.windChannel.pause(); }
     });
 
     const menu = debugMenu.addFolder('Stage');
@@ -75,6 +77,12 @@ export class Stage {
     menu.add(this, 'torchPower', 0.0, 10000);
     menu.add(this, 'windVolume', 0.0, 1.0).onChange(val => { if (this.windChannel) this.windChannel.setVolume(this.windVolume) });
     menu.add(this, 'windPitch', 0.1, 4.0).onChange(val => { if (this.windChannel) this.windChannel.setPitch(this.windPitch) });
+    menu.add(this, 'windPause').onChange(val => { 
+      if (this.windChannel) { 
+        if (this.windPause) this.windChannel.pause();
+        else this.windChannel.play();
+      }
+    });
     menu.addColor(this, 'torchColor');
   }
 
