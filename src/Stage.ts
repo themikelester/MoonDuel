@@ -24,7 +24,7 @@ const scratchVec4a = vec4.create();
 const scratchVec3a = vec3.create();
 
 const kWindFilename = 'data/windLoop.mp3';
-const kFireFilename = 'data/furnaceFire.mp3';
+const kFireFilename = 'data/furnaceFireLoop.mp3';
 
 class StageShader implements Gfx.ShaderDescriptor {
   name = 'Stage';
