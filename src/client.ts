@@ -27,6 +27,7 @@ import { Skybox } from './Skybox';
 import { EnvironmentSystem } from './Environment';
 import { ParticleSystem } from './Particles';
 import { AudioMixer } from './Audio';
+import { vec3 } from 'gl-matrix';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -165,6 +166,11 @@ export class Client {
         this.particles.update(this);
         this.skybox.update(this);
         this.globalUniforms.update();
+
+        // @HACK
+        const scratchVec3a = vec3.create();
+        this.mixer.setListenerPosition(this.camera.getPos(scratchVec3a));
+        this.mixer.setListenerOrientation(this.camera.forward);
     }
 
     private render() {

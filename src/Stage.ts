@@ -22,7 +22,8 @@ import { SoundResource } from './resources/Sound';
 
 const scratchVec4a = vec4.create();
 
-const kAmbientFilename = 'data/windLoop.mp3'
+const kWindFilename = 'data/windLoop.mp3';
+const kFireFilename = 'data/furnaceFire.mp3';
 
 class StageShader implements Gfx.ShaderDescriptor {
   name = 'Stage';
@@ -61,12 +62,15 @@ export class Stage {
 
   initialize({ resources, gfxDevice, globalUniforms, environment, particles, mixer, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, mixer: AudioMixer, debugMenu: DebugMenu, particles: ParticleSystem }) {
     this.shader = gfxDevice.createShader(new StageShader());
+
+    resources.load(kFireFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {});
+
     resources.load(Stage.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
-      this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!, particles);
+      this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!, particles, resources, mixer);
     });
 
-    resources.load(kAmbientFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
+    resources.load(kWindFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
       console.log('Loaded sound:', resource?.source);
       this.windChannel = mixer.playSound(resource!, { loop: true, volume: this.windVolume, pitch: this.windPitch });
       if (this.windPause) { this.windChannel.pause(); }
@@ -86,7 +90,7 @@ export class Stage {
     menu.addColor(this, 'torchColor');
   }
 
-  onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, env: EnvironmentSystem, resource: Resource, particles: ParticleSystem) {
+  onResourcesLoaded(gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, env: EnvironmentSystem, resource: Resource, particles: ParticleSystem, resources: ResourceManager, mixer: AudioMixer) {
     const gltf = resource as GltfResource;
 
     for (const node of gltf.nodes) {
@@ -106,7 +110,7 @@ export class Stage {
         mat4.multiply(modelMat, scale, modelMat);
 
         if (gltfMesh.name === 'Sconce') {
-          loadSconce(modelMat, env.getCurrentEnvironment(), particles);
+          loadSconce(modelMat, env.getCurrentEnvironment(), particles, mixer, resources);
         }
         
         const uniforms = new UniformBuffer('ArenaUniforms', gfxDevice, StageShader.uniformLayout);
@@ -153,16 +157,21 @@ export class Stage {
   }
 }
 
-function loadSconce(transform: mat4, environment: Environment, particles: ParticleSystem) {
+function loadSconce(transform: mat4, environment: Environment, particles: ParticleSystem, mixer: AudioMixer, resources: ResourceManager) {
   environment.addLocalLight({
     position: mat4.getTranslation(vec3.create(), transform),
     color: vec4.fromValues(1, 0, 0, 1),
     fluctuation: 0.9,
     power: 400
-  })
+  });
 
   const emitter = assertDefined(particles.createEmitter(0));
   mat4.getTranslation(emitter.pos, transform);
   emitter.pos[1] += 100;
   vec2.set(emitter.scale2D, 3, 3);
+
+  resources.load(kFireFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
+    const fireChannel = mixer.playSound3d(resource!, { loop: true, size: 400, rolloffFactor: 3.0 });
+    fireChannel.setPosition(emitter.pos);
+  });
 }

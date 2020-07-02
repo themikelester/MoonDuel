@@ -3,6 +3,7 @@ import { clamp } from "./MathHelpers";
 import { SoundResource } from "./resources/Sound";
 import { assert, assertDefined, defaultValue, defined } from "./util";
 import { DebugMenu } from "./DebugMenu";
+import { vec3 } from "gl-matrix";
 
 // @HACK: Still necessary to support Safari and iOS
 // @ts-ignore
@@ -14,10 +15,14 @@ interface AudioOptions {
   pitch?: number;
 };
 
+interface AudioOptions3d extends AudioOptions {
+  size?: number;
+  rolloffFactor?: number;
+};
+
 /**
- * The AudioMixer is used to play audio. As well as apply system-wide settings
- * like global volume, suspend and resume. Based on PlayCanvas' SoundManager.
- * See https://github.com/playcanvas/engine/blob/master/src/sound/manager.js
+ * The AudioMixer is used to play and mix multiple sounds, as well as manage the listener position for 3D effects. 
+ * Based on PlayCanvas' SoundManager. See https://github.com/playcanvas/engine/blob/master/src/sound/manager.js
  */
 export class AudioMixer {
   private context: AudioContext;
@@ -78,6 +83,20 @@ export class AudioMixer {
     return channel;
   }
 
+  playSound3d(sound: SoundResource, options: AudioOptions3d = {}) {
+    const channel = new AudioChannel3d(this.context, this.gain, sound, options);
+    channel.play();
+    return channel;
+  }
+
+  setListenerPosition(pos: vec3) {
+    this.context.listener.setPosition(pos[0], pos[1], pos[2]);
+  }
+
+  setListenerOrientation(ori: vec3) {
+    this.context.listener.setOrientation(ori[0], ori[1], ori[2], 0, 1, 0);
+  }
+
   /**
    * Global volume for all playing sounds, clamped to [0..1]
    */
@@ -93,18 +112,18 @@ export class AudioMixer {
  * See AudioMixer.playSound()
  */
 export class AudioChannel {
-  private context: AudioContext;
-  private sound: SoundResource;
-  private gain: GainNode;
+  protected context: AudioContext;
+  protected sound: SoundResource;
+  protected gain: GainNode;
   
-  private volume: number;
-  private pitch: number;
-  private loop: boolean;
+  protected volume: number;
+  protected pitch: number;
+  protected loop: boolean;
 
-  private source?: AudioBufferSourceNode;
+  protected source?: AudioBufferSourceNode;
 
-  private startTime: number;
-  private startOffset: number;
+  protected startTime: number;
+  protected startOffset: number;
   
   constructor(context: AudioContext, destNode: AudioNode, sound: SoundResource, options: AudioOptions) {
     this.context = context;
@@ -119,7 +138,7 @@ export class AudioChannel {
     this.gain.connect(destNode);
   }
 
-  private createSource() {
+  protected createSource() {
     const context = this.context;
     assertDefined(this.sound.buffer);
     
@@ -180,4 +199,23 @@ export class AudioChannel {
 
   getDuration() { return assertDefined(this.sound.buffer).duration; }
   isPlaying() { return defined(this.source); }
+}
+
+export class AudioChannel3d extends AudioChannel {
+  panner: PannerNode;
+
+  constructor(context: AudioContext, destNode: AudioNode, sound: SoundResource, options: AudioOptions3d) {
+    // Our 3D panner becomes the destination of the base AudioChannel...
+    const panner = context.createPanner();
+    super(context, panner, sound, options);
+
+    // ... And the panner outputs to the Mixer
+    this.panner = panner;
+    panner.connect(destNode);
+
+    panner.refDistance = defaultValue(options.size, 100);
+    panner.rolloffFactor = defaultValue(options.rolloffFactor, 1);
+  }
+
+  setPosition(pos: vec3) { this.panner.setPosition(pos[0], pos[1], pos[2]); }
 }
