@@ -71,9 +71,11 @@ export class AudioMixer {
       this.context.resume();
       window.removeEventListener('mousedown', this.resumeContext);
       window.removeEventListener('touchend', this.resumeContext);
+      window.removeEventListener('keydown', this.resumeContext);
     };
     window.addEventListener('mousedown', this.resumeContext);
     window.addEventListener('touchend', this.resumeContext);
+    window.addEventListener('keydown', this.resumeContext);
 
     // iOS only starts sound as a response to user interaction
     if (platform.ios) {
@@ -96,6 +98,7 @@ export class AudioMixer {
   terminate() {
     window.removeEventListener('mousedown', this.resumeContext);
     window.removeEventListener('touchend', this.resumeContext);
+    window.removeEventListener('keydown', this.resumeContext);
     if (platform.ios) window.removeEventListener('touchend', this.iosAutoplay);
 
     if (this.context) { this.context.close(); }
