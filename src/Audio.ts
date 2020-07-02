@@ -55,7 +55,7 @@ export class AudioMixer {
   private context: AudioContext;
   private gain: GainNode;
   
-  private _volume: number = 1.0;
+  private _volume: number = 0.5;
   private resumeContext: () => void;
   private iosAutoplay: () => void;
 
