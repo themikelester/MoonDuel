@@ -17,7 +17,7 @@ import { EnvironmentSystem, Environment } from './Environment';
 import { ParticleSystem } from './Particles';
 import { Renderer } from './gfx/GfxTypes';
 import { lerp } from './MathHelpers';
-import { AudioMixer, AudioChannel, AudioChannel3d } from './Audio';
+import { AudioMixer, AudioChannel, AudioChannel3d, SoundManager } from './Audio';
 import { SoundResource } from './resources/Sound';
 
 const scratchVec4a = vec4.create();
@@ -61,19 +61,19 @@ export class Stage {
   private torchColor = [225, 111, 10, 1.0];
   private torchFlicker = 1.0;
 
-  initialize({ resources, gfxDevice, globalUniforms, environment, particles, mixer, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, mixer: AudioMixer, debugMenu: DebugMenu, particles: ParticleSystem }) {
+  initialize({ resources, gfxDevice, globalUniforms, environment, particles, sound, debugMenu }: { resources: ResourceManager, gfxDevice: Gfx.Renderer, globalUniforms: GlobalUniforms, environment: EnvironmentSystem, sound: SoundManager, debugMenu: DebugMenu, particles: ParticleSystem }) {
     this.shader = gfxDevice.createShader(new StageShader());
 
     resources.load(kFireFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {});
 
     resources.load(Stage.filename, 'gltf', (error: string | undefined, resource?: Resource) => {
       assert(!error, error);
-      this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!, particles, resources, mixer);
+      this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!, particles, resources, sound.mixer);
     });
 
     resources.load(kWindFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
       console.log('Loaded sound:', resource?.source);
-      this.windChannel = mixer.playSound3d(resource!, 
+      this.windChannel = sound.mixer.playSound3d(resource!, 
         { loop: true, volume: this.windVolume, pitch: this.windPitch, rolloffFactor: 0 });
       if (this.windPause) { this.windChannel.pause(); }
     });

@@ -25,7 +25,7 @@ export class SoundLoader implements ResourceLoader {
     // On first entry start async decoding audio data
     // @NOTE: This has to begin on the main thread because WebAudio is not supported in workers
     if (resource.audioData) {
-      context.mixer.context.decodeAudioData(resource.audioData, 
+      context.mixer.getContext().decodeAudioData(resource.audioData, 
         buffer => { resource.buffer = buffer; },
         error => { resource.error = error.message; }
       );

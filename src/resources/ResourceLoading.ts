@@ -17,7 +17,7 @@ import { Renderer } from "../gfx/GfxTypes";
 import { defined, assert, assertDefined } from '../util';
 import { GltfLoader } from './Gltf';
 import { SoundLoader } from './Sound';
-import { AudioMixer } from '../Audio';
+import { AudioMixer, SoundManager } from '../Audio';
 
 export interface UriWithHeaders {
     uri: string,
@@ -46,12 +46,12 @@ export class ResourceManager {
     cache: { [key: string]: Resource } = {};
     requests: { [key: string]: ResourceLoadedCallback<Resource>[] } = {};
 
-    initialize(renderer?: Renderer, mixer?: AudioMixer) {
+    initialize(renderer?: Renderer, sound?: SoundManager) {
         this.worker = new Worker();
         this.worker.onmessage = (e: MessageEvent) => this.onMessage(e);
         this.context = {
             renderer,
-            mixer
+            mixer: sound ? sound.mixer : undefined,
         }
     }
 

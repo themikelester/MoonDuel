@@ -3,6 +3,7 @@ import { clamp } from "./MathHelpers";
 import { SoundResource } from "./resources/Sound";
 import { assert, assertDefined, defaultValue, defined } from "./util";
 import { DebugMenu } from "./DebugMenu";
+import { Camera } from "./Camera";
 import { vec3 } from "gl-matrix";
 
 // @HACK: Still necessary to support Safari and iOS
@@ -21,6 +22,32 @@ interface AudioOptions3d extends AudioOptions {
 };
 
 /**
+ * High-level game module which updates the listener position each frame. This would also be the place to manage
+ * separate sound categories such as music and environment.
+ */
+export class SoundManager {
+  mixer: AudioMixer = new AudioMixer();
+  
+  private listenerPos = vec3.create();
+
+  initialize({ debugMenu }: { debugMenu: DebugMenu }) {
+    this.mixer.initialize();
+
+    const debug = debugMenu.addFolder('Audio');
+    debug.add(this.mixer, 'volume', 0.0, 1.0);
+  }
+
+  terminate({}) {
+    this.mixer.terminate();
+  }
+
+  update({ camera }: { camera: Camera }) {
+    this.mixer.setListenerPosition(camera.getPos(this.listenerPos));
+    this.mixer.setListenerOrientation(camera.forward);
+  }
+}
+
+/**
  * The AudioMixer is used to play and mix multiple sounds, as well as manage the listener position for 3D effects. 
  * Based on PlayCanvas' SoundManager. See https://github.com/playcanvas/engine/blob/master/src/sound/manager.js
  */
@@ -32,7 +59,7 @@ export class AudioMixer {
   private resumeContext: () => void;
   private iosAutoplay: () => void;
 
-  initialize({ debugMenu }: { debugMenu: DebugMenu }) {
+  initialize() {
     this.context = new AudioContext();
 
     // Global volume gain node. This will be added to the graph for all playing sounds.
@@ -64,12 +91,9 @@ export class AudioMixer {
       };
       window.addEventListener('touchend', this.iosAutoplay);
     }
-
-    const debug = debugMenu.addFolder('Audio');
-    debug.add(this, 'volume', 0.0, 1.0);
   }
 
-  terminate({}) {
+  terminate() {
     window.removeEventListener('mousedown', this.resumeContext);
     window.removeEventListener('touchend', this.resumeContext);
     if (platform.ios) window.removeEventListener('touchend', this.iosAutoplay);
@@ -97,6 +121,8 @@ export class AudioMixer {
     this.context.listener.setOrientation(ori[0], ori[1], ori[2], 0, 1, 0);
   }
 
+  getContext() { return this.context; }
+
   /**
    * Global volume for all playing sounds, clamped to [0..1]
    */
@@ -112,8 +138,7 @@ export class AudioMixer {
  * See AudioMixer.playSound()
  */
 export class AudioChannel {
-  context: AudioContext;
-  
+  protected context: AudioContext;
   protected sound: SoundResource;
   protected gain: GainNode;
   
