@@ -2,6 +2,7 @@ import { platform } from "./Platform";
 import { clamp } from "./MathHelpers";
 import { SoundResource } from "./resources/Sound";
 import { assert, assertDefined, defaultValue, defined } from "./util";
+import { DebugMenu } from "./DebugMenu";
 
 // @HACK: Still necessary to support Safari and iOS
 // @ts-ignore
@@ -19,14 +20,19 @@ interface AudioOptions {
  * See https://github.com/playcanvas/engine/blob/master/src/sound/manager.js
  */
 export class AudioMixer {
-  context: AudioContext;
+  private context: AudioContext;
+  private gain: GainNode;
   
   private _volume: number = 1.0;
   private resumeContext: () => void;
   private iosAutoplay: () => void;
 
-  initialize({}) {
+  initialize({ debugMenu }: { debugMenu: DebugMenu }) {
     this.context = new AudioContext();
+
+    // Global volume gain node. This will be added to the graph for all playing sounds.
+    this.gain = this.context.createGain();
+    this.gain.connect(this.context.destination);
 
     // Resume AudioContext on user interaction because of new Chrome autoplay policy
     this.resumeContext = () => {
@@ -53,6 +59,9 @@ export class AudioMixer {
       };
       window.addEventListener('touchend', this.iosAutoplay);
     }
+
+    const debug = debugMenu.addFolder('Audio');
+    debug.add(this, 'volume', 0.0, 1.0);
   }
 
   terminate({}) {
@@ -64,7 +73,7 @@ export class AudioMixer {
   }
 
   playSound(sound: SoundResource, options: AudioOptions = {}) {
-    const channel = new AudioChannel(this, sound, options);
+    const channel = new AudioChannel(this.context, this.gain, sound, options);
     channel.play();
     return channel;
   }
@@ -73,11 +82,18 @@ export class AudioMixer {
    * Global volume for all playing sounds, clamped to [0..1]
    */
   get volume() { return this._volume; }
-  set volume(volume: number) { this._volume = clamp(volume, 0.0, 1.0); }
+  set volume(volume: number) { 
+    this._volume = clamp(volume, 0.0, 1.0); 
+    this.gain.gain.value = this._volume;
+  }
 }
 
+/**
+ * A channel is created when the AudioMixer begins playback of a sound.
+ * See AudioMixer.playSound()
+ */
 export class AudioChannel {
-  private mixer: AudioMixer;
+  private context: AudioContext;
   private sound: SoundResource;
   private gain: GainNode;
   
@@ -90,25 +106,26 @@ export class AudioChannel {
   private startTime: number;
   private startOffset: number;
   
-  constructor(mixer: AudioMixer, sound: SoundResource, options: AudioOptions) {
-    this.mixer = mixer;
+  constructor(context: AudioContext, destNode: AudioNode, sound: SoundResource, options: AudioOptions) {
+    this.context = context;
     this.sound = sound;
 
     this.loop = defaultValue(options.loop, false);
     this.volume = defaultValue(options.volume, 1.0);
     this.pitch = defaultValue(options.pitch, 1.0);
 
-    this.gain = this.mixer.context.createGain();
+    // Create a new gain node that outputs to the mixer
+    this.gain = this.context.createGain();
+    this.gain.connect(destNode);
   }
 
   private createSource() {
-    const context = this.mixer.context;
+    const context = this.context;
     assertDefined(this.sound.buffer);
     
     this.source = context.createBufferSource();
     this.source.buffer = this.sound.buffer;
     this.source.connect(this.gain);
-    this.gain.connect(context.destination);
 
     this.setLoop(this.loop);
     this.setPitch(this.pitch);
@@ -121,12 +138,12 @@ export class AudioChannel {
     this.createSource();
     this.source!.start(0, this.startOffset);
 
-    this.startTime = this.mixer.context.currentTime;
+    this.startTime = this.context.currentTime;
   }
 
   pause() {
     this.stop();
-    this.startOffset = this.mixer.context.currentTime - this.startTime;
+    this.startOffset = this.context.currentTime - this.startTime;
   }
 
   stop() {
@@ -158,7 +175,7 @@ export class AudioChannel {
   setVolume(volume: number) {
     volume = clamp(volume, 0.0, 1.0);
     this.volume = volume;
-    this.gain.gain.value = volume * this.mixer.volume;
+    this.gain.gain.value = volume;
   }
 
   getDuration() { return assertDefined(this.sound.buffer).duration; }
