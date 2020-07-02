@@ -76,7 +76,7 @@ export class AudioMixer {
   set volume(volume: number) { this._volume = clamp(volume, 0.0, 1.0); }
 }
 
-class AudioChannel {
+export class AudioChannel {
   private mixer: AudioMixer;
   private sound: SoundResource;
   private gain: GainNode;

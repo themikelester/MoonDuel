@@ -17,7 +17,7 @@ import { EnvironmentSystem, Environment } from './Environment';
 import { ParticleSystem } from './Particles';
 import { Renderer } from './gfx/GfxTypes';
 import { lerp } from './MathHelpers';
-import { AudioMixer } from './Audio';
+import { AudioMixer, AudioChannel } from './Audio';
 import { SoundResource } from './resources/Sound';
 
 const scratchVec4a = vec4.create();
@@ -49,6 +49,10 @@ export class Stage {
   models: Model[] = [];
   shader: Gfx.Id;
 
+  private windVolume = 0.5;
+  private windPitch = 1.0;
+  private windChannel: AudioChannel;
+
   private show = true;
   private torchPower = 3000;
   private torchColor = [225, 111, 10, 1.0];
@@ -63,12 +67,14 @@ export class Stage {
 
     resources.load(kAmbientFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
       console.log('Loaded sound:', resource?.source);
-      mixer.playSound(resource!, { loop: true, volume: 0.5 });
+      this.windChannel = mixer.playSound(resource!, { loop: true, volume: this.windVolume, pitch: this.windPitch });
     });
 
     const menu = debugMenu.addFolder('Stage');
     menu.add(this, 'show');
     menu.add(this, 'torchPower', 0.0, 10000);
+    menu.add(this, 'windVolume', 0.0, 1.0).onChange(val => { if (this.windChannel) this.windChannel.setVolume(this.windVolume) });
+    menu.add(this, 'windPitch', 0.1, 4.0).onChange(val => { if (this.windChannel) this.windChannel.setPitch(this.windPitch) });
     menu.addColor(this, 'torchColor');
   }
 
