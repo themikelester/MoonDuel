@@ -1,4 +1,5 @@
 import { Renderer } from "../gfx/GfxTypes";
+import { AudioMixer } from "../Audio";
 
 export interface ResourceRequest {
   uri: string;
@@ -16,6 +17,7 @@ export enum ResourceStatus {
 
 export interface ResourceLoadingContext {
   renderer?: Renderer;
+  mixer?: AudioMixer;
 }
 
 export interface Resource {

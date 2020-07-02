@@ -16,10 +16,20 @@ Change Log
 * Vector textures for particles. Fire quads without pixelation.
 * Drop shadows for avatars
 * Particle effects for hits, attacks (dust sweep, pebble scatter), moving, and sliding
+* A sound options icon in the top left. Click it opens a popout menu containing a mute button and a volume slider.
+    * I picture this being next to the "hamburger" main menu icon. Clicking that fills the whole left side with a menu.
+    * Need a full UI system
+
+### 2020-07-02
+##### Morning
+More audio. Today I'm going create an abstraction for playing sounds. When AudioMixer.playSound(3D) is called, it should return a new object that can be manipulated such as volume and panning changes. I'd like to add 3D fire sound effects for the sconses as well. If I finish all the playback interface changes, I'll start working on the volume/mute UI.  
 
 ### 2020-06-30
 ##### Morning
 Today I'm going to dig into WebAudio and see if I can get a basic audio subsystem going. This'll probably involve web workers. I'll start by taking a look at what PlayCanvas does and see if I can adapt it to my needs. The big bonus here is that the host's server code can continue to run in the background tab if audio is playing. I'll look up some "wind at night" soundscapes and loop one of those.
+
+##### Evening
+Turns out there is 0 support for WebAudio in workers. I got a basic system set up and going. There's a new SoundResource for loading (which has to kick off the decoding on the main thread, which immediately goes to the audio thread, how silly). The stage loads and plays a wind sound as a simple demo. I need to add some UI for "muting" (I won't actually mute because we need to continue playing sound to get updated while backgrounded) and volume control. The sound needs a loop option. For the wind in particular I'd like to have a bit of stereo so that when you face your left ear into the wind it is stronger on that side.
 
 ### 2020-06-29
 ##### Morning
