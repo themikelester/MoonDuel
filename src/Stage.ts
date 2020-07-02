@@ -17,10 +17,11 @@ import { EnvironmentSystem, Environment } from './Environment';
 import { ParticleSystem } from './Particles';
 import { Renderer } from './gfx/GfxTypes';
 import { lerp } from './MathHelpers';
-import { AudioMixer, AudioChannel } from './Audio';
+import { AudioMixer, AudioChannel, AudioChannel3d } from './Audio';
 import { SoundResource } from './resources/Sound';
 
 const scratchVec4a = vec4.create();
+const scratchVec3a = vec3.create();
 
 const kWindFilename = 'data/windLoop.mp3';
 const kFireFilename = 'data/furnaceFire.mp3';
@@ -53,7 +54,7 @@ export class Stage {
   private windVolume = 0.5;
   private windPitch = 1.0;
   private windPause: boolean = false;
-  private windChannel: AudioChannel;
+  private windChannel: AudioChannel3d;
 
   private show = true;
   private torchPower = 3000;
@@ -72,7 +73,8 @@ export class Stage {
 
     resources.load(kWindFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
       console.log('Loaded sound:', resource?.source);
-      this.windChannel = mixer.playSound(resource!, { loop: true, volume: this.windVolume, pitch: this.windPitch });
+      this.windChannel = mixer.playSound3d(resource!, 
+        { loop: true, volume: this.windVolume, pitch: this.windPitch, rolloffFactor: 0 });
       if (this.windPause) { this.windChannel.pause(); }
     });
 
@@ -133,6 +135,9 @@ export class Stage {
     }
 
     const env = environment.getCurrentEnvironment();
+
+    // Set wind noise direction
+    if (this.windChannel) this.windChannel.setPosition(vec3.scale(scratchVec3a, env.windVec, -1000 * Stage.outerRadius));
     
     // Handle flickering of lights
     const flicker = (1.0 - Math.random() * 0.3);
