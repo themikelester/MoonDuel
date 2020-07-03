@@ -1,40 +1,48 @@
 import vertShader from './shaders/ui.vert';
 import fragShader from './shaders/ui.frag';
 
-import { vec2 } from "gl-matrix";
+import { vec2, vec4 } from "gl-matrix";
 import { renderLists } from "./RenderList";
 import { RenderPrimitive } from "./RenderPrimitive";
 import { Renderer, RenderFormat, VertexLayout, StepMode, Type, BufferLayout, ResourceLayout, ShaderResourceLayout, BindingType, BufferType, Usage, Id } from "./gfx/GfxTypes";
 import { UniformBuffer } from './UniformBuffer';
+import { ResourceManager } from './resources/ResourceLoading';
+import { TextureResource } from './resources/Texture';
 
 interface UIElementOptions {
   name: string;
   pos: vec2;
   size: vec2;
+  texRegion?: vec4;
 }
 
+const kAtlasFilename = 'data/uiAtlas.png';
 const kMaxElements = 64;
-const kInstanceStride = 16;
+const kInstanceStride = 20;
+const kZero4 = [0, 0, 0, 0];
+
 const kInstanceLayout: BufferLayout = {
   a_origin: { type: Type.Float2, offset: 0 },
   a_size: { type: Type.Float2, offset: 8 },
+  a_uv: { type: Type.Uchar4, offset: 16 },
 };
 
 const kUniformLayout: BufferLayout = {
-  u_screenSize: { type: Type.Ushort2, offset: 0 },
+  u_invAtlasSize: { type: Type.Float, offset: 0 },
 }
 
 export class UI {
   elements: UIElementOptions[] = [];
 
-  private instanceData = new Float32Array(kInstanceStride * kMaxElements / 4);
+  private instanceBytes = new Uint8Array(kInstanceStride * kMaxElements);
+  private instanceFloats = new Float32Array(this.instanceBytes.buffer);
 
   private primitive: RenderPrimitive;
   private instanceBuffer: Id;
   private textureAtlas: Id;
   private uniformBuffer: UniformBuffer;
 
-  initialize({ gfxDevice }: { gfxDevice: Renderer }) {
+  initialize({ gfxDevice, resources }: { gfxDevice: Renderer, resources: ResourceManager }) {
     const renderFormat: RenderFormat = { blendingEnabled: true };
     const vertexLayout: VertexLayout = { buffers: [
       { stepMode: StepMode.Vertex, stride: 2, layout: { a_pos: { type: Type.Uchar2, offset: 0 } } },
@@ -43,7 +51,7 @@ export class UI {
 
     const resourceLayout: ShaderResourceLayout = {
       uniforms: { index: 0, type: BindingType.UniformBuffer, layout: kUniformLayout },
-      atlas: { index: 1, type: BindingType.Texture },
+      u_atlas: { index: 1, type: BindingType.Texture },
     }
 
     const shader = gfxDevice.createShader({ name: 'UI', vertSource: vertShader.sourceCode, fragSource: fragShader.sourceCode });
@@ -78,6 +86,14 @@ export class UI {
     this.primitive.indexType = Type.Ushort;
     this.primitive.indexBuffer = { buffer: quadIdxBuf };
     this.primitive.instanceCount = 0;
+
+    // Begin loading the texture atlas
+    resources.load(kAtlasFilename, 'texture', (error?: string, resource?: TextureResource) => {
+      this.textureAtlas = resource?.texture!;
+      gfxDevice.setTexture(this.primitive.resourceTable, 1, this.textureAtlas);
+      this.uniformBuffer.setFloat('u_invAtlasSize', 1.0 / resource!.width);
+      this.uniformBuffer.write(gfxDevice);
+    });
   }
 
   update({ gfxDevice }: { gfxDevice: Renderer }) {
@@ -85,11 +101,12 @@ export class UI {
     
     for (let i = 0; i < elementCount; i++) {
       const element = this.elements[i];
-      this.instanceData.set(element.pos, 0);
-      this.instanceData.set(element.size, 2);
+      this.instanceFloats.set(element.pos, 0);
+      this.instanceFloats.set(element.size, 2);
+      this.instanceBytes.set(element.texRegion ? element.texRegion : kZero4, 16);
     }
 
-    gfxDevice.writeBufferData(this.instanceBuffer, 0, this.instanceData.subarray(0, elementCount * kInstanceStride));
+    gfxDevice.writeBufferData(this.instanceBuffer, 0, this.instanceBytes.subarray(0, elementCount * kInstanceStride));
     this.primitive.instanceCount = elementCount;
   }
 

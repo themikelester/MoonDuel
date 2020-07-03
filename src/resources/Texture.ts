@@ -4,6 +4,8 @@ import { defined } from '../util';
 
 export interface TextureResource extends Resource {
   name: string
+  width: number;
+  height: number;
   imageBuffer?: ArrayBuffer;
   imageBitmap?: ImageBitmap;
   imageElement?: HTMLImageElement;
@@ -42,6 +44,9 @@ export class TextureLoader implements ResourceLoader {
         defaultWrapT: Gfx.TextureWrap.Clamp,
       }, resource.imageBitmap);
 
+      resource.width = resource.imageBitmap.width;
+      resource.height = resource.imageBitmap.height;
+
       resource.imageBitmap.close();
       delete resource.imageBitmap;
 
@@ -70,6 +75,9 @@ export class TextureLoader implements ResourceLoader {
           format: Gfx.TexelFormat.U8x4,
           maxAnistropy: 16,
         }, resource.imageElement);
+
+      resource.width = resource.imageElement.width;
+      resource.height = resource.imageElement.height;
   
         delete resource.imageElement;
   
