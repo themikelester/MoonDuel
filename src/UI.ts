@@ -13,7 +13,11 @@ interface UIElementOptions {
   name: string;
   pos: vec2;
   size: vec2;
+  
   texRegion?: vec4;
+  hidden?: boolean;
+
+  onClick?: () => void;
 }
 
 const kAtlasFilename = 'data/uiAtlas.png';
@@ -33,6 +37,9 @@ const kUniformLayout: BufferLayout = {
 
 export class UI {
   elements: UIElementOptions[] = [];
+
+  private minPos = vec2.fromValues(Infinity, Infinity);
+  private maxPos = vec2.fromValues(-Infinity, -Infinity);
 
   private instanceBytes = new Uint8Array(kInstanceStride * kMaxElements);
   private instanceFloats = new Float32Array(this.instanceBytes.buffer);
@@ -114,7 +121,40 @@ export class UI {
     renderLists.ui.push(this.primitive);
   }
 
+  onClick(px: number, py: number) {
+    // Convert to NDC
+    const x = px / window.innerWidth * 2.0 - 1.0;
+    const y = -(py / window.innerHeight * 2.0 - 1.0);
+
+    // Early out if not within the UI bounds
+    if (!within(x, y, this.minPos, this.maxPos)) {
+      return;
+    }
+
+    // Search for hits within elements which have a click listener
+    for (const e of this.elements) {
+      if (e.onClick && withinSize(x, y, e.pos, e.size)) {
+        return e.onClick();
+      }
+    }
+  }
+
   addElement(options: UIElementOptions) {
     this.elements.push(options);
+
+    this.minPos[0] = Math.min(this.minPos[0], options.pos[0]);
+    this.minPos[1] = Math.min(this.minPos[1], options.pos[1]);
+    this.maxPos[0] = Math.max(this.maxPos[0], options.pos[0] + options.size[0]);
+    this.maxPos[1] = Math.max(this.maxPos[1], options.pos[1] + options.size[1]);
   }
+}
+
+function within(x: number, y: number, min: vec2, max: vec2) {
+  return (x >= min[0] && x <= max[0] && y >= min[1] && y <= max[1]);
+}
+
+function withinSize(x: number, y: number, min: vec2, size: vec2) {
+  const lx = x - min[0];
+  const ly = y - min[1];
+  return (lx >= 0 && lx <= size[0] && ly >= 0 && ly <= size[1]);
 }

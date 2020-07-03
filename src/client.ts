@@ -104,6 +104,7 @@ export class Client {
         window.onresize = this.onResize.bind(this);
         document.onvisibilitychange = this.onVisibility.bind(this);
         window.onbeforeunload = this.onUnload.bind(this);
+        window.onclick = this.onClick.bind(this);
 
         if (!IS_DEVELOPMENT) {
             // Initialize Rollbar/Sentry for error reporting
@@ -119,6 +120,10 @@ export class Client {
 
     onConnect(serverId: string) {
         this.net.onConnect(serverId);
+    }
+
+    onClick(e: MouseEvent) {
+        this.ui.onClick(e.clientX, e.clientY);
     }
 
     private tick(time: number) {
