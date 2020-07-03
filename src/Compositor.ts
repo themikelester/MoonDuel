@@ -39,6 +39,7 @@ export class Compositor {
                 executeRenderList(this.gfxDevice, renderLists.opaque);
                 executeRenderList(this.gfxDevice, renderLists.skybox);
                 executeRenderList(this.gfxDevice, renderLists.effects);
+                executeRenderList(this.gfxDevice, renderLists.ui);
                 executeRenderList(this.gfxDevice, renderLists.debug);
             }
         this.gfxDevice.endFrame();

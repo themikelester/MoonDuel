@@ -27,6 +27,7 @@ import { Skybox } from './Skybox';
 import { EnvironmentSystem } from './Environment';
 import { ParticleSystem } from './Particles';
 import { AudioMixer, SoundManager } from './Audio';
+import { UI } from './UI';
 
 export const enum InitErrorCode {
     SUCCESS,
@@ -58,6 +59,7 @@ export class Client {
     public particles = new ParticleSystem();
     public resources = new ResourceManager();
     public state = new StateManager();
+    public ui = new UI();
     public userCommands = new UserCommandBuffer();
     public weapons = new WeaponSystem(this.world);
     public stage = new Stage();
@@ -94,6 +96,7 @@ export class Client {
         this.environment.initialize(this);
         this.particles.initialize(this);
         this.skybox.initialize(this);
+        this.ui.initialize(this);
         this.debugGrid.initialize(this);
         this.state.initialize(this);
         
@@ -165,6 +168,7 @@ export class Client {
         this.environment.update(this);
         this.particles.update(this);
         this.skybox.update(this);
+        this.ui.update(this);
         this.globalUniforms.update();
     }
 
@@ -174,6 +178,7 @@ export class Client {
         this.stage.render(this);
         this.particles.render(this);
         this.skybox.render(this);
+        this.ui.render(this);
         this.debugGrid.render(this);
         
         DebugRenderUtils.flush();
