@@ -25,13 +25,15 @@ export class NetGraph {
 
     constructor() {
         const container = document.createElement('div');
-        container.style.cssText = 'opacity:0.9;z-index:10000;pointer-events:none;display:none';
+        container.style.cssText = 'opacity:0.9;z-index:10000;pointer-events:none;';
         this.dom = container;
     }
 
-    setEnabled(enabled: boolean) {
+    setEnabled(parent: HTMLElement, enabled: boolean) {
         this.enabled = enabled;
-        this.dom.style.display = enabled ? 'inline-block' : 'none';
+
+        if (this.dom.parentNode) this.dom.parentNode.removeChild(this.dom);
+        if (enabled) parent.appendChild(this.dom);
     }
 
     removePanel(panel: NetGraphPanel) {
@@ -206,7 +208,6 @@ export class NetClientStats {
 
         const container = document.createElement('div');
         container.style.cssText = `
-            display:none;
             font-family: Monaco, monospace;
             font-size: 9pt;
             background:rgba(50,50,50,0.8);
@@ -217,9 +218,11 @@ export class NetClientStats {
         this.dom = container;
     }
 
-    setEnabled(enabled: boolean) {
+    setEnabled(parent: HTMLElement, enabled: boolean) {
         this.enabled = enabled;
-        this.dom.style.display = enabled ? 'inline-block' : 'none';
+
+        if (this.dom.parentNode) this.dom.parentNode.removeChild(this.dom);
+        if (enabled) parent.appendChild(this.dom);
     }
 
     initialize() {
