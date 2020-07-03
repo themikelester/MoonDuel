@@ -20,6 +20,10 @@ Change Log
     * I picture this being next to the "hamburger" main menu icon. Clicking that fills the whole left side with a menu.
     * Need a full UI system
 
+### 2020-07-03
+##### Evening
+Today I started working on the UI for muting / volume control. Decided to avoid HTML/CSS due to the huge and seemingly unpredictable performance cost of compositing. So this is a texture atlas + shader based approach. I could still use CSS to render into the atlas at load time, but I'll save that until I need it. Actually, I might do it for SVGs. I could load SVGs of all the icons, render them to the atlas at some chosen resolution, and Bob's your uncle. UI elements are added by specifying their position and size, along with some optional attributes such as the texture atlas region to use and an onClick() callback. Tomorrow I'll need to implement a higher level module to construct the complex elements like the volume pop up. I'll also need to think about animation, as popping new elements in just won't cut it.
+
 ### 2020-07-02
 ##### Morning
 More audio. Today I'm going create an abstraction for playing sounds. When AudioMixer.playSound(3D) is called, it should return a new object that can be manipulated such as volume and panning changes. I'd like to add 3D fire sound effects for the sconses as well. If I finish all the playback interface changes, I'll start working on the volume/mute UI.  
