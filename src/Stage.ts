@@ -51,7 +51,7 @@ export class Stage {
   models: Model[] = [];
   shader: Gfx.Id;
 
-  private windVolume = 0.5;
+  private windVolume = 0.05;
   private windPitch = 1.0;
   private windPause: boolean = false;
   private windChannel: AudioChannel3d;
@@ -71,12 +71,13 @@ export class Stage {
       this.onResourcesLoaded(gfxDevice, globalUniforms, environment, resource!, particles, resources, sound.mixer);
     });
 
-    resources.load(kWindFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
-      console.log('Loaded sound:', resource?.source);
-      this.windChannel = sound.mixer.playSound3d(resource!, 
-        { loop: true, volume: this.windVolume, pitch: this.windPitch, rolloffFactor: 0 });
-      if (this.windPause) { this.windChannel.pause(); }
-    });
+    // @HACK: Disable wind for now, it's too jarring
+    // resources.load(kWindFilename, 'sound', (error: string | undefined, resource?: SoundResource) => {
+    //   console.log('Loaded sound:', resource?.source);
+    //   this.windChannel = sound.mixer.playSound3d(resource!, 
+    //     { loop: true, volume: this.windVolume, pitch: this.windPitch, rolloffFactor: 0 });
+    //   if (this.windPause) { this.windChannel.pause(); }
+    // });
 
     const menu = debugMenu.addFolder('Stage');
     menu.add(this, 'show');
